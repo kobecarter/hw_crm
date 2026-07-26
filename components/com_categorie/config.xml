@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<component>
+<id>com_categorie</id>
+<nom>Gestion des categories</nom>
+<class>categorie</class>
+<table>categorie</table>
+<traduction>1</traduction>
+<url>1</url>
+<icon>list</icon>
+<system>0</system>
+<position>side</position>
+</component>

@@ -1,0 +1,60 @@
+[11-Mar-2022 11:59:48 UTC] PHP Fatal error:  Composer detected issues in your platform: Your Composer dependencies require a PHP version ">= 8.0.0". You are running 7.4.28. in /home/hellowr/public_html/hw-label/new/api/vendor/composer/platform_check.php on line 24
+[11-Mar-2022 12:55:50 UTC] PHP Fatal error:  Composer detected issues in your platform: Your Composer dependencies require a PHP version ">= 8.0.2". You are running 7.4.28. in /home/hellowr/public_html/hw-label/new/api/vendor/composer/platform_check.php on line 24
+[11-Mar-2022 13:00:21 UTC] PHP Fatal error:  Composer detected issues in your platform: Your Composer dependencies require a PHP version ">= 8.0.2". You are running 7.4.28. in /home/hellowr/public_html/hw-label/new/api/vendor/composer/platform_check.php on line 24
+[11-Mar-2022 13:36:09 UTC] PHP Fatal error:  Composer detected issues in your platform: Your Composer dependencies require a PHP version ">= 8.0.2". You are running 7.4.28. in /home/hellowr/public_html/hw-label/new/api/vendor/composer/platform_check.php on line 24
+[11-Mar-2022 13:36:11 UTC] PHP Fatal error:  Composer detected issues in your platform: Your Composer dependencies require a PHP version ">= 8.0.2". You are running 7.4.28. in /home/hellowr/public_html/hw-label/new/api/vendor/composer/platform_check.php on line 24
+[11-Mar-2022 13:43:50 UTC] PHP Fatal error:  Composer detected issues in your platform: Your Composer dependencies require a PHP version ">= 8.0.2". You are running 7.4.28. in /home/hellowr/public_html/hw-label/new/api/vendor/composer/platform_check.php on line 24
+[11-Mar-2022 14:02:00 UTC] PHP Fatal error:  Composer detected issues in your platform: Your Composer dependencies require a PHP version ">= 8.0.2". You are running 7.4.28. in /home/hellowr/public_html/hw-label/new/api/vendor/composer/platform_check.php on line 24
+[11-Mar-2022 14:02:05 UTC] PHP Fatal error:  Composer detected issues in your platform: Your Composer dependencies require a PHP version ">= 8.0.0". You are running 7.4.28. in /home/hellowr/public_html/hw-label/new/api/vendor/composer/platform_check.php on line 24
+[11-Mar-2022 14:02:12 UTC] PHP Fatal error:  Composer detected issues in your platform: Your Composer dependencies require a PHP version ">= 8.0.0". You are running 7.4.28. in /home/hellowr/public_html/hw-label/new/api/vendor/composer/platform_check.php on line 24
+[11-Mar-2022 14:02:32 UTC] PHP Fatal error:  Composer detected issues in your platform: Your Composer dependencies require a PHP version ">= 8.0.0". You are running 7.4.28. in /home/hellowr/public_html/hw-label/new/api/vendor/composer/platform_check.php on line 24
+[11-Mar-2022 14:04:15 UTC] PHP Fatal error:  Uncaught Slim\Exception\HttpNotFoundException: Not found. in /home/hellowr/public_html/hw-label/new/api/vendor/slim/slim/Slim/Middleware/RoutingMiddleware.php:91
+Stack trace:
+#0 /home/hellowr/public_html/hw-label/new/api/vendor/slim/slim/Slim/Routing/RouteRunner.php(72): Slim\Middleware\RoutingMiddleware->performRouting(Object(Slim\Psr7\Request))
+#1 /home/hellowr/public_html/hw-label/new/api/vendor/slim/slim/Slim/MiddlewareDispatcher.php(81): Slim\Routing\RouteRunner->handle(Object(Slim\Psr7\Request))
+#2 /home/hellowr/public_html/hw-label/new/api/vendor/slim/slim/Slim/App.php(215): Slim\MiddlewareDispatcher->handle(Object(Slim\Psr7\Request))
+#3 /home/hellowr/public_html/hw-label/new/api/vendor/slim/slim/Slim/App.php(199): Slim\App->handle(Object(Slim\Psr7\Request))
+#4 /home/hellowr/public_html/hw-label/new/api/index.php(19): Slim\App->run()
+#5 {main}
+  thrown in /home/hellowr/public_html/hw-label/new/api/vendor/slim/slim/Slim/Middleware/RoutingMiddleware.php on line 91
+[11-Mar-2022 14:04:17 UTC] PHP Fatal error:  Uncaught Slim\Exception\HttpNotFoundException: Not found. in /home/hellowr/public_html/hw-label/new/api/vendor/slim/slim/Slim/Middleware/RoutingMiddleware.php:91
+Stack trace:
+#0 /home/hellowr/public_html/hw-label/new/api/vendor/slim/slim/Slim/Routing/RouteRunner.php(72): Slim\Middleware\RoutingMiddleware->performRouting(Object(Slim\Psr7\Request))
+#1 /home/hellowr/public_html/hw-label/new/api/vendor/slim/slim/Slim/MiddlewareDispatcher.php(81): Slim\Routing\RouteRunner->handle(Object(Slim\Psr7\Request))
+#2 /home/hellowr/public_html/hw-label/new/api/vendor/slim/slim/Slim/App.php(215): Slim\MiddlewareDispatcher->handle(Object(Slim\Psr7\Request))
+#3 /home/hellowr/public_html/hw-label/new/api/vendor/slim/slim/Slim/App.php(199): Slim\App->handle(Object(Slim\Psr7\Request))
+#4 /home/hellowr/public_html/hw-label/new/api/index.php(19): Slim\App->run()
+#5 {main}
+  thrown in /home/hellowr/public_html/hw-label/new/api/vendor/slim/slim/Slim/Middleware/RoutingMiddleware.php on line 91
+[11-Mar-2022 14:06:06 UTC] PHP Fatal error:  Composer detected issues in your platform: Your Composer dependencies require a PHP version ">= 8.0.0". You are running 7.4.28. in /home/hellowr/public_html/hw-label/new/api/vendor/composer/platform_check.php on line 24
+[11-Mar-2022 14:11:33 UTC] PHP Fatal error:  Composer detected issues in your platform: Your Composer dependencies require a PHP version ">= 8.0.0". You are running 7.4.28. in /home/hellowr/public_html/hw-label/new/api/vendor/composer/platform_check.php on line 24
+[01-Apr-2022 15:07:40 UTC] PHP Warning:  require_once(../config.php): failed to open stream: No such file or directory in /home/hellowr/public_html/hw-label/new/api/index.php on line 2
+[01-Apr-2022 15:07:40 UTC] PHP Fatal error:  require_once(): Failed opening required '../config.php' (include_path='.:/opt/alt/php74/usr/share/pear') in /home/hellowr/public_html/hw-label/new/api/index.php on line 2
+[01-Apr-2022 15:09:08 UTC] PHP Warning:  require_once(../config.php): failed to open stream: No such file or directory in /home/hellowr/public_html/hw-label/new/api/index.php on line 2
+[01-Apr-2022 15:09:08 UTC] PHP Fatal error:  require_once(): Failed opening required '../config.php' (include_path='.:/opt/alt/php74/usr/share/pear') in /home/hellowr/public_html/hw-label/new/api/index.php on line 2
+[01-Apr-2022 15:09:12 UTC] PHP Warning:  require_once(../config.php): failed to open stream: No such file or directory in /home/hellowr/public_html/hw-label/new/api/index.php on line 2
+[01-Apr-2022 15:09:12 UTC] PHP Fatal error:  require_once(): Failed opening required '../config.php' (include_path='.:/opt/alt/php74/usr/share/pear') in /home/hellowr/public_html/hw-label/new/api/index.php on line 2
+[01-Apr-2022 15:11:04 UTC] PHP Warning:  require_once(../config.php): failed to open stream: No such file or directory in /home/hellowr/public_html/hw-label/new/api/index.php on line 2
+[01-Apr-2022 15:11:04 UTC] PHP Fatal error:  require_once(): Failed opening required '../config.php' (include_path='.:/opt/alt/php74/usr/share/pear') in /home/hellowr/public_html/hw-label/new/api/index.php on line 2
+[01-Apr-2022 15:11:28 UTC] PHP Warning:  require_once(../config.php): failed to open stream: No such file or directory in /home/hellowr/public_html/hw-label/new/api/index.php on line 2
+[01-Apr-2022 15:11:28 UTC] PHP Fatal error:  require_once(): Failed opening required '../config.php' (include_path='.:/opt/alt/php74/usr/share/pear') in /home/hellowr/public_html/hw-label/new/api/index.php on line 2
+[01-Apr-2022 15:11:29 UTC] PHP Warning:  require_once(../config.php): failed to open stream: No such file or directory in /home/hellowr/public_html/hw-label/new/api/index.php on line 2
+[01-Apr-2022 15:11:29 UTC] PHP Fatal error:  require_once(): Failed opening required '../config.php' (include_path='.:/opt/alt/php74/usr/share/pear') in /home/hellowr/public_html/hw-label/new/api/index.php on line 2
+[01-Apr-2022 16:40:23 UTC] PHP Warning:  Use of undefined constant DEBUG - assumed 'DEBUG' (this will throw an Error in a future version of PHP) in /home/hellowr/public_html/hw-label/new/config.php on line 4
+[01-Apr-2022 16:40:23 UTC] PHP Warning:  scandir(/home/hellowr/public_html/hw-label/helloworld-admin/components/): failed to open dir: No such file or directory in /home/hellowr/public_html/hw-label/new/instanceDb.php on line 8
+[01-Apr-2022 16:40:23 UTC] PHP Warning:  scandir(): (errno 2): No such file or directory in /home/hellowr/public_html/hw-label/new/instanceDb.php on line 8
+[01-Apr-2022 16:40:23 UTC] PHP Warning:  Invalid argument supplied for foreach() in /home/hellowr/public_html/hw-label/new/instanceDb.php on line 9
+[01-Apr-2022 16:40:23 UTC] PHP Fatal error:  Uncaught Error: Class 'dbfactory' not found in /home/hellowr/public_html/hw-label/new/instanceDb.php:26
+Stack trace:
+#0 /home/hellowr/public_html/hw-label/new/api/index.php(3): require_once()
+#1 {main}
+  thrown in /home/hellowr/public_html/hw-label/new/instanceDb.php on line 26
+[01-Apr-2022 16:50:55 UTC] PHP Warning:  Use of undefined constant DEBUG - assumed 'DEBUG' (this will throw an Error in a future version of PHP) in /home/hellowr/public_html/hw-label/new/config.php on line 4
+[01-Apr-2022 16:50:55 UTC] PHP Warning:  scandir(/home/hellowr/public_html/hw-label/helloworld-admin/components/): failed to open dir: No such file or directory in /home/hellowr/public_html/hw-label/new/instanceDb.php on line 8
+[01-Apr-2022 16:50:55 UTC] PHP Warning:  scandir(): (errno 2): No such file or directory in /home/hellowr/public_html/hw-label/new/instanceDb.php on line 8
+[01-Apr-2022 16:50:55 UTC] PHP Warning:  Invalid argument supplied for foreach() in /home/hellowr/public_html/hw-label/new/instanceDb.php on line 9
+[01-Apr-2022 16:50:55 UTC] PHP Fatal error:  Uncaught Error: Class 'dbfactory' not found in /home/hellowr/public_html/hw-label/new/instanceDb.php:26
+Stack trace:
+#0 /home/hellowr/public_html/hw-label/new/api/index.php(3): require_once()
+#1 {main}
+  thrown in /home/hellowr/public_html/hw-label/new/instanceDb.php on line 26

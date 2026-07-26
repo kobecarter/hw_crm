@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<module>
+    <id>com_lang</id>
+    <nom>Gestion des langues</nom>
+    <class>langue</class>
+    <traduction>0</traduction>
+    <url>0</url>
+    <icon>language</icon>
+    <system>1</system>
+    <table>langue</table>
+</module>

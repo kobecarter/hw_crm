@@ -1,0 +1,17 @@
+{
+    "require": {
+        "firebase/php-jwt": "^6.0",
+        "leafs/leaf": "v3.0-rc.2",
+        "respect/validation": "^2.2",
+        "phpmailer/phpmailer": "^6.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "App\\Controllers\\": "app/controllers/",
+            "App\\Utils\\": "app/utils/",
+            "App\\Mails\\": "app/mails/",
+            "App\\Validators\\": "app/validators/"
+        }
+    }
+}

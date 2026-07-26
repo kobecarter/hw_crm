@@ -1,0 +1,17 @@
+{
+    "name": "mac/com_resourcehumaine",
+    "autoload": {
+        "psr-4": {
+            "Mac\\ComResourcehumaine\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "DevanasDeveloper",
+            "email": "devanas.anas@gmail.com"
+        }
+    ],
+    "require": {
+        "phpoffice/phpspreadsheet": "^1.29"
+    }
+}

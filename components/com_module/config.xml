@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<component>
+    <id>com_module</id>
+    <nom>Gestion des modules</nom>
+    <class>module</class>
+    <table>modules</table>
+    <traduction>0</traduction>
+    <url>0</url>
+    <icon>cubes</icon>
+    <system>1</system>
+    <position>param</position>
+</component>

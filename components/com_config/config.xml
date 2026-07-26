@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<component>
+    <id>com_config</id>
+    <nom>La configuration</nom>
+    <class>config</class>
+    <table></table>
+    <traduction>1</traduction>
+    <url>0</url>
+    <icon>fa fa-cogs</icon>
+    <system>1</system>
+    <position></position>
+</component>

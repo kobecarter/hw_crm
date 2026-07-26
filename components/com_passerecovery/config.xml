@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<component>
+    <id>com_passerecovery</id>
+    <nom>Reset password</nom>
+    <class>passerecovery</class>
+    <table>passerecovery</table>
+    <traduction>1</traduction>
+    <url>0</url>
+    <icon></icon>
+    <system>1</system>
+    <position></position>
+</component>

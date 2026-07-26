@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<component>
+   <id>com_client</id>
+   <nom>Gestion des clients</nom>
+   <class>client</class>
+   <table>client</table>
+   <traduction>0</traduction>
+   <url>0</url>
+   <icon>user-circle</icon>
+   <system>0</system>
+   <position>side</position>
+</component>

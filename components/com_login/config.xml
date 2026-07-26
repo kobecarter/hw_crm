@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<component>
+    <id>com_login</id>
+    <nom>َAuthentification</nom>
+    <traduction>0</traduction>
+    <url>0</url>
+    <icon>sign-in</icon>
+    <system>1</system>
+</component>

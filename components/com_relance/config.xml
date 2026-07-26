@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<component>
+<id>com_relance</id>
+<nom>Gestion des relances</nom>
+<class>relance</class>
+<table>relance</table>
+<traduction>0</traduction>
+<url>0</url>
+<icon>fa fa-phone</icon>
+<system>0</system>
+<position>side</position>
+</component>

@@ -1,0 +1,1379 @@
+<?php
+
+if (isset($task) && !empty($task)) {
+    switch ($task) {
+        case 'addDevis':
+            addDevis($_POST);
+            break;
+        case 'editDevis':
+            editDevis($_POST);
+            break;
+        case 'checkContrat':
+            checkContrat($_POST);
+            break;
+        case 'deleteDevis':
+            deleteDevis($_POST);
+            break;
+        case "getRowDevis":
+            getRowDevis($_POST);
+            break;
+        case "getRowCondition":
+            getRowCondition();
+            break;    
+        case "removeCondition":
+            removeCondition($_POST);
+            break;
+        case 'removeItemDevis':
+            removeItemDevis($_POST);
+            break;
+        case 'customItemDevis':
+            customItemDevis($_POST);
+            break;
+        case 'editItemDevis':
+            editItemDevis($_POST);
+            break;
+        case 'getServicePrice':
+            getServicePrice($_POST);
+            break;
+        case 'getServiceUnite':
+            getServiceUnite($_POST);
+            break;
+        case 'switchUnitiesByLanguage':
+            switchUnitiesByLanguage($_POST);
+            break;
+        case 'pdfDevis':
+            pdfDevis($_GET);
+            break;
+        case 'pdfDevisTexte':
+            pdfDevisTexte($_GET);
+            break;    
+        case 'createInvoice':
+            createInvoice($_POST);
+            break;
+        case 'sendMail':
+            sendMail($_POST);
+            break;
+        case 'duplicateDevis':
+            duplicateDevis($_POST);
+            break;
+        case 'findAllByClientApi':
+            findAllByClientApi($_GET);
+            break;
+        case 'pdfDevisApi':
+            pdfDevisApi($_GET);
+            break;
+    }
+}
+
+
+function checkContrat($data)
+{
+    $indices = array("id","status");
+    if (fieldCheck($data, $indices)) {
+        $devis = devis::find($data['id'], $_SESSION['agence']);
+        $contrat = contract::findByDevis($data['id'], $_SESSION['agence']);
+
+        // check si le devis est associé à un contrat
+        if($contrat->getId() != 0){
+            // check si le status a mettre a jour est payé
+            if($data['status'] == 4){
+                // check si le status est different de signé
+                if($contrat->getStatus() != 3){
+                    echo "1";
+                }
+            }
+
+            // check si le contrat est signé
+            if($contrat->getStatus() == 3){
+                // si le statut devis est différent de "payé"
+                if($data['status'] != 4){
+                    echo "2";
+                }
+            }
+        }
+
+        
+    }
+}
+function duplicateDevis($data)
+{
+    $indices = array("id");
+    if (fieldCheck($data, $indices)) {
+        $devis = devis::find($data['id'], $_SESSION['agence']);
+
+        $devisCopy = new devis();
+        $devisCopy->setUserAdded($devis->getUserAdded());
+        $devisCopy->setBank($devis->getBank());
+        $devisCopy->setClient($devis->getClient());
+        $devisCopy->setDateDevis(date("Y-m-d"));
+        $devisCopy->setStatu(0);
+        $devisCopy->setTotal($devis->getTotal());
+        $devisCopy->setDevise($devis->getDevise());
+        $devisCopy->setDiscount($devis->getDiscount());
+        $devisCopy->setDiscountVal($devis->getDiscountVal());
+        $devisCopy->setLangue($devis->getLangue());
+        $devisCopy->setConditionPaiment($devis->getConditionPaiment());
+        $devisCopy->setRemarque($devis->getRemarque());
+        $devisCopy->setProforma($devis->getProforma());
+        $devisCopy->setPack($devis->getPack());
+        $devisCopy->setDateAdd(date("Y-m-d H:i:s"));
+        $devisCopy->setLastEdit(date("Y-m-d H:i:s"));
+
+
+        if ($devisCopy->add() == 1) {
+            // Ajout des lignes facture
+            $id_devis = devis::getLastId();
+            $devisCopy = devis::find($id_devis, $_SESSION['agence']);
+            $items = $devis->getItems();
+            foreach ($items as $item) {
+                $item_devis = new item_devis();
+                $item_devis->setDevis($devisCopy);
+                $item_devis->setService($item->getService());
+                $item_devis->setQte($item->getQte());
+                $item_devis->setDiscount($item->getDiscount());
+                $item_devis->setPrix($item->getPrix());
+                $item_devis->setTotal($item->getTotal());
+                $item_devis->setUnite($item->getUnite());
+                $item_devis->setTitre($item->getTitre());
+                $item_devis->setDescription($item->getDescription());
+                $item_devis->setOrdre($item->getOrdre());
+                $item_devis->add();
+            }
+
+            // calcul et mise a jour total facture / generer numéro facture
+            //$facture->setTotalItems();
+            $devisCopy->generateNumero();
+            $devisCopy->edit();
+
+            echo "1";
+        } else {
+            echo "2";
+        }
+    } else {
+        echo "0";
+    }
+}
+
+function sendMail($data)
+{
+    require '../../../vendor/PHPMailer-master/src/PHPMailer.php';
+    require '../../../vendor/PHPMailer-master/src/SMTP.php';
+
+    $indices = array("id");
+    if (fieldCheck($data, $indices)) {
+        $devis = devis::find($data['id'], $_SESSION['agence']);
+        $config = new config($db);
+        $client = $devis->getClient();
+
+        $mail = new PHPMailer(true);
+
+        //$mail->isSMTP(); // Paramétrer le Mailer pour utiliser SMTP 
+        //$mail->Host = 'mail.votredomaine.com'; // Spécifier le serveur SMTP
+        //$mail->SMTPAuth = true; // Activer authentication SMTP
+        //$mail->Username = 'user@votredomaine.com'; // Votre adresse email d'envoi
+        //$mail->Password = 'secret'; // Le mot de passe de cette adresse email
+        //$mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; // Accepter SSL
+        //$mail->Port = 465;
+
+        $mail->setFrom($config->getEmail(), 'Hello World'); // Personnaliser l'envoyeur
+        $mail->addAddress($client->getEmail(), $client->getNom() . ' ' . $client->getPrenom()); // Ajouter le destinataire
+        //$mail->addAddress('To2@example.com'); 
+        $mail->addReplyTo('info@example.com', 'Information'); // L'adresse de réponse
+        $mail->addCC('cc@example.com');
+        $mail->addBCC('bcc@example.com');
+
+        $mail->addAttachment('/var/tmp/file.tar.gz'); // Ajouter un attachement
+        $mail->addAttachment('/tmp/image.jpg', 'new.jpg');
+        $mail->isHTML(true); // Paramétrer le format des emails en HTML ou non
+
+        $mail->Subject = 'Here is the subject';
+        $mail->Body = 'This is the HTML message body';
+        $mail->AltBody = 'This is the body in plain text for non-HTML mail clients';
+
+        echo "OK";
+    }
+}
+
+function createInvoice($data)
+{
+    $indices = array("id");
+    if (fieldCheck($data, $indices)) {
+        
+        $devis = devis::find($data['id'], $_SESSION['agence']);
+       
+        $facture = new facture();
+        $facture->setDevis($devis);
+        $facture->setUserAdded($_SESSION['user']);
+        $facture->setBank($devis->getBank());
+        $facture->setClient($devis->getClient());
+        $facture->setDateFacture(date("Y-m-d"));
+        $facture->setStatu(0);
+        $facture->setTotal($devis->getTotal());
+        $facture->setDevise($devis->getDevise());
+        $facture->setDiscount($devis->getDiscount());
+        $facture->setShowSignature(0);
+        $facture->setDiscountVal($devis->getDiscountVal());
+        $facture->setLangue($devis->getLangue());
+        $facture->setConditionPaiment($devis->getConditionPaiment());
+        $facture->setRemarque($devis->getRemarque());
+        $facture->setDateAdd(date("Y-m-d H:i:s"));
+        $facture->setLastEdit(date("Y-m-d H:i:s"));
+        
+        if ($facture->add() == 1) {
+            // Ajout des lignes facture
+            
+            $id_facture = facture::getLastId();
+            
+            $facture = facture::find($id_facture,$_SESSION['agence']);
+            
+            $items = $devis->getItems();
+            foreach ($items as $item) {
+                $item_facture = new item_facture();
+                $item_facture->setFacture($facture);
+                $item_facture->setService($item->getService());
+                $item_facture->setQte($item->getQte());
+                $item_facture->setDiscount($item->getDiscount());
+                $item_facture->setPrix($item->getPrix());
+                $item_facture->setTotal($item->getTotal());
+                $item_facture->setUnite($item->getUnite());
+                $item_facture->setTitre($item->getTitre());
+                $item_facture->setDescription($item->getDescription());
+                $item_facture->setOrdre($item->getOrdre());
+                $item_facture->add();
+            }
+
+            
+            
+            // calcul et mise a jour total facture / generer numéro facture
+            //$facture->setTotalItems();
+            $facture->generateNumero();
+            $facture->edit();
+            //echo "test7"; exit;
+			$agence = agence::find($_SESSION['agence'],$_SESSION['langue']);
+			$agence->setNumeroIncrementFacture($agence->getNumeroIncrementFacture()+1);
+    		$agence->edit();
+
+            echo "1";
+        } else {
+            echo "2";
+        }
+    } else {
+        echo "0";
+    }
+}
+function getServicePrice($data)
+{
+    $indices = array("id");
+    if (fieldCheck($data, $indices)) {
+        $service = service::find($data["id"]);
+        $price = $service->getPrix();
+
+        /*if (isset($data['id_item']) && !empty($data['id_item'])) {
+			$item_devis = item_devis::find($data['id_item']);
+			$price = $item_devis->getPrix();
+		}*/
+
+        echo $price;
+    }
+}
+
+function switchUnitiesByLanguage($data)
+{
+    $indices = array("langue");
+    if (fieldCheck($data, $indices)) {
+        $unities = getUnities()[$data['langue']];
+        echo  json_encode($unities);
+    }else{
+        echo json_encode([]);
+    }
+    return;
+}
+
+function getServiceUnite($data)
+{
+    $indices = array("id");
+    if (fieldCheck($data, $indices)) {
+        $service = service::find($data["id"]);
+        $unite = $service->getUnite();
+
+        /*if (isset($data['id_item']) && !empty($data['id_item'])) {
+			$item_devis = item_devis::find($data['id_item']);
+			$price = $item_devis->getPrix();
+		}*/
+
+        echo $unite;
+    }
+}
+function addDevis($data)
+{
+    $indices = array("client", "bank");
+    if (fieldCheck($data, $indices)) {
+        if (buildDevis($data)->add() == 1) {
+            $id_devis = devis::getLastId();
+
+            // conditions de paiement
+            $cpt = 0;
+            if (isset($data["amount"])){
+                foreach ($data["amount"] as $amount) {
+                    $condition = new condition();
+                    $condition->setDevis(devis::find($id_devis,$_SESSION['agence']));
+                    $condition->setCondition($data['condition'][$cpt]);
+                    $condition->setMontant($amount);
+                    $condition->setDate($data['date_rappel'][$cpt]);
+                    $condition->add();
+                    $cpt++;
+                }
+            }
+
+            // Ajout des lignes devis
+            $devis = devis::find($id_devis, $_SESSION['agence']);
+
+            if (isset($data["id_service"]) && !empty($data["id_service"])) {
+                $cpt = 0;
+                foreach ($data["id_service"] as $id_service) {
+                    $service = service::find($id_service);
+                    $item_devis = new item_devis();
+                    $item_devis->setDevis($devis);
+                    $item_devis->setService($service);
+                    $item_devis->setQte($data["qte"][$cpt]);
+                    $item_devis->setDiscount($data["rms"][$cpt]);
+                    $item_devis->setPrix($data["prix"][$cpt]);
+                    $item_devis->setTotal($data["qte"][$cpt] * $data["prix"][$cpt]);
+                    $item_devis->setUnite($data["unite"][$cpt]);
+                    $item_devis->setTitre($data["item_devis_service_title"][$cpt]);
+                    $item_devis->setDescription($data["item_devis_service_description"][$cpt]);
+                    $item_devis->setOrdre($cpt);
+                    $item_devis->add();
+                    $cpt++;
+                }
+
+                // calcul et mise a jour total devis / generer numéro devis
+                $devis->setTotalItems();
+                $devis->generateNumero();
+                $devis->edit();
+                $agence = agence::find($_SESSION['agence'],$_SESSION['langue']);
+                $agence->setNumeroIncrementDevis($agence->getNumeroIncrementDevis()+1);
+                $agence->edit();
+            }
+            if(isset($data['generate_contract']) && $data['generate_contract'] == 1){
+                $contract = new contract();
+
+                $contract->setDevis($devis);
+                $contract->setTitre($data['titre_contract']);
+                $contract->setDuration($data['duration_contract']);
+                $contract->setGarantie($data['garantie_contract']);
+                $contract->setVille($data['ville_contract']);
+                $contract->setDate(dateBD($data['date_contract']));
+                $contract->setTribunal($data['tribunal_contract']);
+                $contract->setNombreDePaiement($data['nombre_de_paiement_contract']);
+                $contract->setTexte("");
+                $contract->setShowSignature($data['show_signature_contract']);
+                $contract->setStatus(1);
+                $contract->setDateAdd(date("Y-m-d H:i:s"));
+                $contract->setLastEdit(date("Y-m-d H:i:s"));
+                $contract->setLangue($devis->getLangue());
+                $contract->add();
+            }
+            echo "1";
+        } else {
+            echo "2";
+        }
+    } else {
+        echo "0";
+    }
+}
+
+function editDevis($data)
+{
+
+    $indices = array("id", "client", "bank");
+    if (fieldCheck($data, $indices)) {
+
+        // check contrat
+        $contrat = contract::findByDevis($data['id'], $_SESSION['agence']);
+        if($contrat->getId() != 0){
+            // check si le status a mettre a jour est payé
+            if($data['statu'] == 4){
+                // check si le status est different de signé
+                if($contrat->getStatus() != 3){
+                    echo "2"; exit;
+                }
+            }
+
+            // check si le contrat est signé
+            if($contrat->getStatus() == 3){
+                // si le statut devis est différent de "payé"
+                if($data['statu'] != 4){
+                    echo "3"; exit;
+                }
+            }
+        }
+        
+        
+
+        if (buildDevis($data, $data['id'])->edit() == 1) {
+            
+            // conditions de paiement
+            $cpt = 0;
+            if (isset($data["amount"])){
+                
+                foreach ($data["amount"] as $amount) {
+                    if(isset($data["condition_id"][$cpt])){
+                        $condition = condition::find($data["condition_id"][$cpt]);
+                        $condition->setDevis(devis::find($data['id'],$_SESSION['agence']));
+                        $condition->setCondition($data['condition'][$cpt]);
+                        $condition->setMontant($amount);
+                        $condition->setDate($data['date_rappel'][$cpt]);
+                        $condition->edit();
+                    }else{
+                        $condition = new condition();
+                        $condition->setDevis(devis::find($data['id'],$_SESSION['agence']));
+                        $condition->setCondition($data['condition'][$cpt]);
+                        $condition->setMontant($amount);
+                        $condition->setDate($data['date_rappel'][$cpt]);
+                        $condition->add();
+                    }
+                    $cpt++;
+                }
+            }
+            
+            // service
+            if (isset($data["id_service"]) && !empty($data["id_service"])) {
+                $cpt = 0;
+                foreach ($data["id_service"] as $id_service) {
+                    $service = service::find($id_service);
+                    if (isset($data["item_id"][$cpt]) && !empty($data["item_id"][$cpt])) {
+                        $item_devis = item_devis::find($data["item_id"][$cpt]);
+                        $item_devis->setService($service);
+                        $item_devis->setQte($data["qte"][$cpt]);
+                        $item_devis->setDiscount($data["rms"][$cpt]);
+                        $item_devis->setPrix($data["prix"][$cpt]);
+                        $item_devis->setTotal($data["qte"][$cpt] * $data["prix"][$cpt]);
+                        $item_devis->setUnite($data["unite"][$cpt]);
+                        $item_devis->setTitre($data["item_devis_service_title"][$cpt]);
+                        $item_devis->setDescription($data["item_devis_service_description"][$cpt]);
+                        $item_devis->setOrdre($data["ordre"][$cpt]);
+                        $item_devis->edit();
+                    } else {
+                        $item_devis = new item_devis();
+                        $item_devis->setDevis(devis::find($data['id'],$_SESSION['agence']));
+                        $item_devis->setService($service);
+                        $item_devis->setQte($data["qte"][$cpt]);
+                        $item_devis->setDiscount($data["rms"][$cpt]);
+                        $item_devis->setPrix($data["prix"][$cpt]);
+                        $item_devis->setTotal($data["qte"][$cpt] * $data["prix"][$cpt]);
+                        $item_devis->setUnite($data["unite"][$cpt]);
+                        $item_devis->setTitre($data["item_devis_service_title"][$cpt]);
+                        $item_devis->setDescription($data["item_devis_service_description"][$cpt]);
+                        $item_devis->setOrdre($cpt);
+                        $item_devis->add();
+                    }
+                    $cpt++;
+                }
+
+                $devis = devis::find($data['id'], $_SESSION['agence']);
+                $devis->setTotalItems();
+                $devis->edit();
+            }
+            if(isset($data['generate_contract']) && $data['generate_contract'] == 1){
+                $devis = devis::find($data['id'], $_SESSION['agence']);
+                $contract = contract::findByDevis($devis->getId(),$_SESSION['agence'],$devis->getLangue());
+                if(!$contract->getId()){
+                    $contract = new contract();
+                    $contract->setDevis($devis);
+                    $contract->setTitre($data['titre_contract']);
+                    $contract->setDuration($data['duration_contract']);
+                    $contract->setGarantie($data['garantie_contract']);
+                    $contract->setVille($data['ville_contract']);
+                    $contract->setDate(dateBD($data['date_contract']));
+                    $contract->setTribunal($data['tribunal_contract']);
+                    $contract->setNombreDePaiement($data['nombre_de_paiement_contract']);
+                    $contract->setTexte("");
+                    $contract->setShowSignature($data['show_signature_contract']);
+                    $contract->setStatus(1);
+                    $contract->setDateAdd(date("Y-m-d H:i:s"));
+                    $contract->setLastEdit(date("Y-m-d H:i:s"));
+                    $contract->setLangue($devis->getLangue());
+                    $contract->add();
+                }
+            }
+            echo "1";
+        } else {
+            echo "2";
+        }
+    } else {
+        echo "0";
+    }
+}
+
+function deleteDevis($data)
+{
+    $indices = array("id");
+    if (fieldCheck($data, $indices)) {
+        $id = $data["id"];
+        $devis = devis::find($id, $_SESSION['agence']);
+        $last_quote = devis::findLastQuote($_SESSION['agence']);
+        if ($devis->delete() == 1) {
+            if($last_quote->getId() == $devis->getId()){
+				$agence = agence::find($_SESSION['agence'],$_SESSION['langue']);
+				$agence->setNumeroIncrementDevis($agence->getNumeroIncrementDevis()-1);
+				$agence->edit();
+			}
+            echo "1";
+        } else {
+            echo "2";
+        }
+    } else {
+        echo "0";
+    }
+}
+
+function removeItemDevis($data)
+{
+    $indices = array("id");
+    if (fieldCheck($data, $indices)) {
+        $id = $data["id"];
+        $item_devis = item_devis::find($id);
+        if ($item_devis->delete() == 1) {
+            echo "1";
+        } else {
+            echo "2";
+        }
+    } else {
+        echo "0";
+    }
+}
+
+function getRowDevis($data)
+{
+    $services = service::findAll($data["lang"], true);
+?>
+    <tr>
+        <td></td>
+        <td>
+            <select class="chosen-select service-select" name="id_service[]" style="width:500px;" required>
+                <option value="" selected>Sélectionner</option>
+                <?php foreach ($services as $service) : ?>
+                    <option  data-title="<?=$service->getTitre()?>"  data-description="<?=$service->getDescription()?>" value="<?php echo $service->getId() ?>"><?php echo $service->getTitre(); ?></option>
+                <?php endforeach; ?>
+            </select>
+            <input type="hidden" name="item_devis_service_title[]" value="">
+			<input type="hidden" name="item_devis_service_description[]" value="">
+        </td>
+        <td>
+            <input type="number" name="qte[]" value="1" class="form-control qte-input">
+        </td>
+        <td>
+            <input type="number" step="any" name="rms[]" value="0" min="0" max="100" class="form-control discount-input">
+        </td>
+        <td>
+            <input type="number" step="any" name="prix[]" value="<?php echo $services[0]->getPrix(); ?>" class="form-control price-input" style="width:100px;">
+        </td>
+        <td>
+            <select class="chosen-select" name="unite[]" style="width:300px;" required>
+    		    <option value="" selected>Sélectionner</option>
+    			<?php
+    			    $unities = getUnities()[isset($devis) ? $devis->getLangue() : 'fr'];
+    			    foreach ($unities as $key=>  $value) : ?>
+    				<option value="<?php echo $key ?>" ><?= $value ?></option>
+    			<?php endforeach; ?>
+    		</select>
+        </td>
+        <td>
+            <input type="number" step="any" name="soustotal[]" value="<?php echo $services[0]->getPrix(); ?>" class="form-control total-input" style="width:100px;">
+        </td>
+        <td class="add-remove text-right">
+            <input type="hidden" name="item_id[]" value="0" class="id-item-input">
+            <i class="fas fa-plus-circle add-row" data-toggle="tooltip" data-placement="top" data-original-title="Ajouter ligne"></i>
+            <i class="fas fa-minus-circle remove-row" data-toggle="tooltip" data-placement="top" data-original-title="Supprimer cette ligne"></i>
+        </td>
+    </tr>
+    <script>
+	    $(".chosen-select").select2();
+	    $(document).on("change", ".service-select", function() {
+			var select = $(this);
+			var id = select.val();
+			var title = select.find(':selected').attr('data-title');
+			var description = select.find(':selected').attr('data-description');
+			var qte = select.parent().parent().find(".qte-input").val();
+			var discount = select.parent().parent().find(".discount-input").val();
+			var id_item = select.parent().parent().find(".id-item-input").val();
+			var order = 'id=' + id + '&id_item=' + id_item;
+			$.post("components/com_devis/controleurs/router.php?task=getServicePrice", order, function(theResponse) {
+				var discountTotal = (parseFloat(discount) * parseFloat(theResponse)) / 100; 
+				var total = (parseFloat(theResponse) * parseInt(qte)) - discountTotal;
+				select.parent().parent().find(".price-input").val(theResponse);
+				select.parent().parent().find(".total-input").val(total);
+				select.parent().parent().find('input[name="item_devis_service_title[]"]').val(title)
+				select.parent().parent().find('input[name="item_devis_service_description[]"]').val(description)
+			});
+			$.post("components/com_devis/controleurs/router.php?task=getServiceUnite", order, function(theResponse2) {
+				select.parent().parent().find(".unite-input").val(theResponse2);
+			});
+		})
+
+		$(document).on("keyup change", ".qte-input", function() {
+			var input = $(this);
+			var discount = input.parent().parent().find(".discount-input").val();
+			var qte = input.val();
+			var prix = input.parent().parent().find(".price-input").val();
+			var subtotal = prix * qte
+			var discountTotal = (parseFloat(discount) * subtotal)  / 100;
+			var total = subtotal - discountTotal;
+			input.parent().parent().find(".total-input").val(total);
+		})
+		
+		$(document).on("keyup change", ".discount-input", function() {
+			var input = $(this);
+			var discount = input.val();
+			var qte = input.parent().parent().find(".qte-input").val();
+			var prix = input.parent().parent().find(".price-input").val();
+			var subtotal = prix * parseInt(qte)
+			var discountTotal = (parseFloat(discount) * subtotal)  / 100;
+			var total = subtotal - discountTotal;
+			input.parent().parent().find(".total-input").val(total);
+		})
+
+		$(document).on("keyup", ".price-input", function() {
+		    var input = $(this);
+			var discount = input.parent().parent().find(".discount-input").val();
+			var qte = input.parent().parent().find(".qte-input").val();
+			var prix = input.val();
+			var subtotal = discount * prix
+			var discountTotal = (parseFloat(discount) * subtotal)  / 100;
+			var total = subtotal - discountTotal;
+			input.parent().parent().find(".total-input").val(total);
+		})
+	</script>
+    <?php
+}
+
+
+function getRowCondition(){
+?>
+    <tr>
+        <td><input type="text" name="amount[]" value="" class="form-control amount-input" required></td>
+        <td><input type="text" name="condition[]" value="" class="form-control condition-input" required></td>
+        <td><input type="date" name="date_rappel[]" value="" class="form-control date-input" required></td>
+        <td>
+            <i class="fas fa-plus-circle add-row-condition" data-toggle="tooltip" data-placement="top" data-original-title="Ajouter ligne"></i>
+            <i class="fas fa-minus-circle remove-row" data-toggle="tooltip" data-placement="top" data-original-title="Supprimer ligne"></i>
+        </td>
+    </tr>
+    <?php
+}
+
+function removeCondition($data)
+{
+    $indices = array("id");
+    if (fieldCheck($data, $indices)) {
+        $id = $data["id"];
+        $condition = condition::find($id);
+        if ($condition->delete() == 1) {
+            echo "1";
+        } else {
+            echo "2";
+        }
+    } else {
+        echo "0";
+    }
+}
+
+function customItemDevis($data)
+{
+    $indices = array("id");
+    if (fieldCheck($data, $indices)) {
+        $item_devis = item_devis::find($data['id']);
+    ?>
+        <form method="post" action="components/com_devis/controleurs/router.php?task=editItemDevis" id="customForm" enctype="multipart/form-data">
+            <div class="msgbox"></div>
+            <div class="form-group">
+                <label>Titre <span class="text-danger">*</span></label>
+                <input class="form-control" type="text" name="titre" value="<?php echo $item_devis->getTitre(); ?>">
+            </div>
+            <div class="form-group">
+                <label>Description <span class="text-danger">*</span></label>
+                <textarea class="form-control" name="description" id="description"><?php echo $item_devis->getDescription(); ?></textarea>
+                <script type="text/javascript">
+                    CKEDITOR.replace('description', {
+                        //allowedContent: true,
+                        allowedContent: 'p b i ul li tr th h2 h1 h3 h4 h5 h6 a; a[!href];',
+                        filebrowserBrowseUrl: 'ckeditor/plugins/ckfinder/ckfinder.html'
+                    });
+                </script>
+            </div>
+            <div class="form-group">
+                <label>Unité <span class="text-danger">*</span></label>
+                <input class="form-control" type="text" name="unite" value="<?php echo $item_devis->getUnite(); ?>">
+            </div>
+            <label class="row form-group toggle-switch">
+                <span class="col-12 toggle-switch-content ml-0">
+                    <span class="d-block text-danger">Voulez-vous également mettre à jour le service d'origine ?</span>
+                </span>
+                <span class="col-12">
+                    <input type="checkbox" name="original_service" class="toggle-switch-input" value="1">
+                    <span class="toggle-switch-label mr-auto">
+                        <span class="toggle-switch-indicator"></span>
+                    </span>
+                </span>
+            </label>
+            <input type="hidden" name="id" value="<?php echo $item_devis->getId(); ?>">
+            <input type="hidden" name="id_service" value="<?php echo $item_devis->getService()->getId(); ?>">
+            <div class="submit-section">
+                <button class="btn btn-primary submit-btn">Mettre à jour</button>
+            </div>
+        </form>
+        <script>
+            $(function() {
+
+                // envoi du formulaire en ajax
+                $('form#customForm').ajaxForm({
+                    beforeSubmit: function() {
+                        $("#customForm .loading").css('display', 'inline-block');
+                    },
+                    success: function(theResponse) {
+                        $("#customForm .loading").fadeOut();
+                        $("html, body").animate({
+                            scrollTop: 0
+                        }, "slow");
+
+                        var msgsucces = "Devis ajoutée avec succès";
+                        if ($(".submit").attr("name") === "edit") {
+                            msgsucces = "devis modifiée avec succès";
+                        }
+                        if (parseInt(theResponse) === 1) {
+                            $('#customForm .msgbox').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><strong>Success!</strong> ' + msgsucces + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+
+                            setTimeout(function() {
+                                $("#dialog-custom").modal('hide');
+                                location.reload()
+                            }, 1500)
+
+                        } else if (parseInt(theResponse) === 0) {
+                            $('#customForm .msgbox').html('<div class="alert alert-warning alert-dismissible fade show" role="alert"><strong>Attention!</strong> Veuillez remplir les champs obligatoires<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+                        } else {
+                            $('#customForm .msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> Erreur lors de l\'execution de l\'opération<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+                        }
+                    }
+                });
+            })
+        </script>
+<?php
+    }
+}
+
+function editItemDevis($data)
+{
+    $indices = array("id", "titre", "description", "unite");
+    if (fieldCheck($data, $indices)) {
+        $item_devis = item_devis::find($data['id']);
+        $item_devis->setTitre($data['titre']);
+        $item_devis->setDescription($data['description']);
+        $item_devis->setUnite($data['unite']);
+        if ($item_devis->edit() == 1) {
+            if (isset($data['original_service']) && $data['original_service'] == '1') {
+                $service = service::find($data['id_service']);
+                $service->setTitre($data['titre']);
+                $service->setDescription($data['description']);
+                $service->setUnite($data['unite']);
+                $service->edit();
+            }
+            echo "1";
+        } else {
+            echo "2";
+        }
+    } else {
+        echo "0";
+    }
+}
+
+function buildDevis($data, $id = null)
+{
+
+    $devis = new devis();
+
+    if ($id) {
+        $devis = devis::find($id, $_SESSION['agence']);
+        $devis->setUserEdited($_SESSION['user']);
+    }else{
+        $devis->setUserAdded($_SESSION['user']);
+    }
+
+    $devis->setNumero($data['numero']);
+    $devis->setBank(bank::find($data['bank']));
+    $devis->setClient(client::find($data['client'],$_SESSION['agence']));
+    $devis->setDateDevis(dateBD($data['date_devis']));
+    $devis->setStatu($data['statu']);
+    $devis->setDevise($data['devise']);
+    $devis->setDiscount($data['discount']);
+    $devis->setDiscountVal($data['discount_val']);
+    $devis->setConditionPaiment($data['condition_paiment']);
+    $devis->setRemarque($data['remarque']);
+    //$devis->setMotifRefus($data['motif_refus']);
+    $devis->setProforma(isset($data['proforma']) ? 1 : 0);
+    $devis->setPack(isset($data['pack']) ? 1 : 0);
+    $devis->setTVA($data['tva']);
+    $devis->setLangue($data['langue']);
+    $devis->setDateAdd(date("Y-m-d H:i:s"));
+    $devis->setLastEdit(date("Y-m-d H:i:s"));
+
+    return $devis;
+}
+
+function pdfDevis($data)
+{
+    global $db;
+    if (isset($data["id"]) && !empty($data["id"])) {
+
+        require_once '../../../vendor/autoload.php';
+        require_once '../../../includes/traduction.php';
+
+        $devis = devis::find($data["id"], $_SESSION['agence']);
+        
+        $items = $devis->getItems();
+        $client = $devis->getClient();
+        $agence = agence::find($_SESSION["agence"],$_SESSION["langue"]);
+        $config = new config($db);
+        $invoiceFor = $client->getRaisonSocial() != '' ? $client->getRaisonSocial() : $client->getNom() . ' ' . $client->getPrenom();
+        $color = $agence->getColor();
+        $mpdf = new \Mpdf\Mpdf();
+
+        $htmlInvoice = '<html>
+<head>
+<style>
+body {
+	font-family: montserrat;
+	font-size: 10pt;
+}
+p {	margin: 0pt; }
+table.items {
+}
+td { vertical-align: top; }
+.items td {
+	border-left: 0.1mm solid #FFF;
+	border-right: 0.1mm solid #FFF;
+	border-bottom: 0.1mm solid #CCC;
+}
+table thead td { background-color: #EEEEEE;
+	text-align: center;
+	border-left: 0.1mm solid #FFF;
+	border-right: 0.1mm solid #FFF;
+}
+.items td.blanktotal {
+	background-color: #EEEEEE;
+	border: 0.1mm solid #FFF;
+	background-color: #FFFFFF;
+	border: 0mm none #000000;
+}
+.items td.totals {
+	text-align: right;
+	border-bottom: 0.1mm solid #CCC;
+}
+.items td.cost {
+	text-align: "." center;
+}
+</style>
+</head>
+<body>
+<!--mpdf
+<htmlpageheader name="myheader">
+<table width="100%">
+<tr>
+	<td><img src="../../../images/agences/' . $agence->getLogo() . '" width="100"></td>
+	<td align="right" style="vertical-align: middle;"><strong style="font-size: 8pt;"><br><br>' . $agence->getAdresse() . '</strong><br>
+	<p style="font-size: 8pt;"><strong>t:</strong> ' . $agence->getTel() . '  |  <strong>e:</strong> ' . $agence->getEmail() . ' | <strong>w:</strong> '.$agence->getWebsite().'</p></td>
+</tr>
+</table>
+<hr>
+</htmlpageheader>
+<htmlpagefooter name="myfooter">
+<div style="border-top: 1px solid #CCC; font-size: 9pt; text-align: center; padding-top: 3mm; ">';
+
+if($agence->getIce() != ''){
+$htmlInvoice .= '<p style="font-size:8pt;"><strong>IF</strong> '.$agence->getIf().' | <strong>TP</strong> '.$agence->getTp().' | <strong>RC</strong> '.$agence->getRc().' | <strong>ICE</strong> '.$agence->getIce().'</p>';
+}
+
+$htmlInvoice .= '<div style="margin-top:5pt;">Page {PAGENO} ' . $traduction['SUR'][$devis->getLangue()] . ' {nb}</div>
+</div>
+</htmlpagefooter>
+<sethtmlpageheader name="myheader" value="on" show-this-page="1" />
+<sethtmlpagefooter name="myfooter" value="on" />
+mpdf-->
+<table width="100%">
+<tr>
+<td width="35%" style="vertical-align: middle; font-size:8pt;">' . $traduction['DEVIS_POUR'][$devis->getLangue()] . '<hr style="margin:1pt 0 6pt 0;"><span style="font-weight: bold; font-size: 10pt; color:'.$color.'">' . $invoiceFor . '</span><br /><span style="font-family:dejavusanscondensed;">&#9742;</span> ' . $client->getTel() . '<br>' . $client->getEmail() . '<br>' . $client->getICE() . '<br /></td>
+<td width="30%"></td>
+
+<td width="35%" style="text-align: right;">
+
+<table style="margin-bottom:5pt;">
+<tr><td style="font-size:8pt;">' . $traduction['TOTAL_DEVIS'][$devis->getLangue()] . '</td></tr>
+<tr><td style="border-top:#e3d3aa solid 0.5pt;"><strong style="font-size: 12pt;">' . number_format($devis->getTotal(), 2, ',', ' ') . ' ' . $devis->getDevise() . '</strong></td></tr>
+</table>
+
+<table style="margin-bottom:5pt;">
+<tr><td style="font-size:8pt;">' . $traduction['DATE_DEVIS'][$devis->getLangue()] . '</td></tr>
+<tr><td style="border-top:#e3d3aa solid 0.5pt;"><strong style="font-size: 12pt;">' . normaldate2($devis->getDateDevis(),$devis->getLangue()) . '</strong></td></tr>
+</table>
+
+<table>
+<tr><td style="font-size:8pt;">N° ' . $traduction['DEVIS'][$devis->getLangue()] . '</td></tr>
+<tr><td style="border-top:#e3d3aa solid 0.5pt;"><strong style="font-size: 12pt;">' . $devis->getNumero() . '</strong></td></tr>
+</table>
+</td>
+</tr></table>
+<br />
+<table class="items" width="100%" style="font-size: 9pt; border-collapse: collapse; " cellpadding="8">
+<thead>
+<tr>
+<td width="45%" style="text-align:left;">Description</td>
+<td width="15%">' . $traduction['PRIX_HT'][$devis->getLangue()] . '</td>
+<td width="20%">' . $traduction['QTE'][$devis->getLangue()] . '</td>
+<td width="20%" align="right">' . $traduction['TOTAL_HT'][$devis->getLangue()] . '</td>
+</tr>
+</thead>
+<tbody>
+<!-- ITEMS HERE -->';
+        $soustotal = 0;
+        foreach ($items as $item) {
+            $discount = $item->getDiscount()>0 ? ($item->getDiscount() * $item->getTotal()) / 100 : 0;
+            $soustotal += ($item->getTotal() - $discount);
+            $htmlInvoice .= '<tr>
+                                <td><strong>' . $item->getTitre() . '</strong><div style="font-size:8pt; color:#999">' .  $item->getDescription() . '</div></td>
+                                <td align="center" style="vertical-align:middle;">' . number_format($item->getPrix(), 2, ',', ' ') . ' ' . $devis->getDevise() . '</td>
+                                <td align="center" style="vertical-align:middle;">' . $item->getQte() . ' x ' . getUnities()[$devis->getLangue()][$item->getUnite()]  . '</td>
+                                <td align="right" style="vertical-align:middle;" class="cost">' . ($item->getDiscount() > 0 ?  '<del>'.number_format($item->getTotal(), 2, ',', ' ') . ' ' . $devis->getDevise().'</del>' : number_format($item->getTotal(), 2, ',', ' ') . ' ' . $devis->getDevise()) . '</td>
+                                </tr>';
+                                if($item->getDiscount() > 0){
+                                    $htmlInvoice .= '<tr>
+                                        <td colspan="3" style="color:#4caf50"><strong>'.str_replace(array('text_value','discount_value'),array($item->getTitre(),$item->getDiscount()),$traduction['PRICE_AFTER_DISCOUNT'][$devis->getLangue()]).'</strong></td>
+                                        <td align="right"  style="color:#4caf50"><strong>' . number_format($item->getTotal() - $discount , 2, ',', ' ') . ' ' . $devis->getDevise() . '</strong></td>
+                                    </tr>';
+                                }
+        }
+
+        $htmlInvoice .= '<!-- END ITEMS HERE -->
+<tr>
+<td class="blanktotal" colspan="2" rowspan="6"></td>
+<td class="totals">' . $traduction['SSTOTAL_HT'][$devis->getLangue()] . '</td>
+<td class="totals cost">' . number_format($soustotal, 2, ',', ' ') . ' ' . $devis->getDevise() . '</td>
+</tr>';
+        
+
+        // nouveau total HT
+        if ($devis->getDiscount() != '') {
+            $discoutSign = $devis->getDiscount() == 'amount' ? ' ' . $devis->getDevise() : '%';
+            // test réduction
+            if ($devis->getDiscount() == 'percentage') {
+                $soustotal = $soustotal - ($soustotal * $devis->getDiscountVal() / 100);
+            } elseif ($devis->getDiscount() == 'amount') {
+                $soustotal = $soustotal - $devis->getDiscountVal();
+            }
+            
+            $htmlInvoice .= '<tr>
+            <td class="totals">' . $traduction['REDUCTION'][$devis->getLangue()] . ' - ' . $devis->getDiscountVal() . $discoutSign . '</td>
+            <td class="totals cost"> ' . number_format($soustotal, 2, ',', ' ') . ' ' . $devis->getDevise() . '</td>
+            </tr>';
+        }
+
+        // Calcule TVA		
+        //$tva = $devis->isProforma() ? 0 : $soustotal * $agence->getTva()/100;
+        $tva = $devis->getTva();
+
+        $htmlInvoice .= '<tr><td class="totals">' . $traduction['TVA'][$devis->getLangue()] . '</td>
+            <td class="totals cost">' . number_format($tva, 2, ',', ' ') . ' ' . $devis->getDevise() . '</td>
+        </tr>';
+
+        // if ($devis->getDiscount() != '') {
+        //     $htmlInvoice .= '<tr>
+        //     <td class="totals">' . $traduction['TOTAL_TTC'][$devis->getLangue()] . '</td>
+        //     <td class="totals cost"> ' . number_format($soustotal + $tva, 2, ',', ' ') . ' ' . $devis->getDevise() . '</td>
+        //     </tr>';
+        // }
+        // if ($devis->getDiscount() != '') {
+        //     $discoutSign = $devis->getDiscount() == 'amount' ? ' ' . $devis->getDevise() : '%';
+        //     // test réduction
+        //     if ($devis->getDiscount() == 'percentage') {
+        //         $soustotal = $soustotal - ($soustotal * $devis->getDiscountVal() / 100);
+        //     } elseif ($devis->getDiscount() == 'amount') {
+        //         $soustotal = $soustotal - $devis->getDiscountVal();
+        //     }
+
+        //     $htmlInvoice .= '<tr>
+        //         <td class="totals">' . $traduction['REDUCTION'][$devis->getLangue()] . '</td>
+        //         <td class="totals cost">- ' . $devis->getDiscountVal() . $discoutSign . '</td>
+        //     </tr>';
+        // }
+        $totalLabel = $devis->isProforma() ? 'TOTAL' : $traduction['TOTAL_TTC'][$devis->getLangue()];
+        $htmlInvoice .= '<tr style="background:'.$color.';">
+<td class="totals" style="color:#FFF; border-right:0.1mm solid #e3d3aa;"><b>' . $totalLabel . '</b></td>
+<td class="totals cost" style="color:#FFF;"><strong>' . number_format($devis->getTotal(), 2, ',', ' ') . ' ' . $devis->getDevise() . '</strong></td>
+</tr>
+</tbody>
+</table><div style="margin-top:50t;"><p style="font-size:8pt;">';
+        if ($devis->getRemarque() != '') {
+            $htmlInvoice .= '<strong>' . $traduction['REMARQUE'][$devis->getLangue()] . ': </strong>' . strip_tags($devis->getRemarque());
+        };
+        $htmlInvoice .= '</p></div>
+<div style="margin-top:100t;">
+<h3 style="color:'.$color.';">' . $traduction['THANK_YOU_FOR'][$devis->getLangue()] .$agence->getNom(). ' !!</h3>
+<p style="font-size:8pt;"><strong>'.$traduction['CONDITIONS'][$devis->getLangue()].': </strong>'.$agence->getConditions().'</p>
+<p style="font-size:8pt;margin-top:15pt;"><strong>' . $traduction['CONDITIONS_PAYMENT'][$devis->getLangue()] . ': </strong>' . $devis->getConditionPaiment() . '</p>';
+
+// Conditions de paiement
+foreach($devis->getConditions() as $condition){
+    $htmlInvoice .= '<p>'. $condition->getMontant() .' '. $condition->getCondition() .'</p>';
+}
+
+if($devis->getBank()){
+        $htmlInvoice .= '<p style="font-size:8pt;"><br>';
+        if($devis->getBank()->getRaisonSociale() != '') $htmlInvoice .= '<strong>'.$traduction['RAISON_SOCIALE'][$devis->getLangue()].':</strong> '. $devis->getBank()->getRaisonSociale() .' <br>';
+        if($devis->getBank()->getRib() != '') $htmlInvoice .= '<strong>'.$traduction['ACCOUNT_NUMBER'][$devis->getLangue()].':</strong> '. $devis->getBank()->getRib() .' <br>';
+        if($devis->getBank()->getIbanNumber() != '') $htmlInvoice .= '<strong>'.$traduction['IBAN'][$devis->getLangue()].':</strong> '. $devis->getBank()->getIbanNumber() .' <br>';
+        if($devis->getBank()->getBanque() != '') $htmlInvoice .= '<strong>'.$traduction['BRANCH'][$devis->getLangue()].':</strong> '. $devis->getBank()->getBanque() .' <br>';
+        if($devis->getBank()->getCodeSwift() != '') $htmlInvoice .= '<strong>'.$traduction['SWIFT_CODE'][$devis->getLangue()].':</strong> '. $devis->getBank()->getCodeSwift() .' <br>';
+        if($devis->getBank()->getCurrency() != '') $htmlInvoice .= '<strong>'.$traduction['CURRENCY'][$devis->getLangue()].':</strong> '. $devis->getBank()->getCurrency() .' <br>';
+        
+        $htmlInvoice .= '</p>';
+    }
+    
+    $htmlInvoice .= '</div>
+</body>
+</html>';
+
+        $defaultConfig = (new Mpdf\Config\ConfigVariables())->getDefaults();
+        $fontDirs = $defaultConfig['fontDir'];
+
+        $defaultFontConfig = (new Mpdf\Config\FontVariables())->getDefaults();
+        $fontData = $defaultFontConfig['fontdata'];
+
+        $mpdf = new \Mpdf\Mpdf([
+            'margin_left' => 20,
+            'margin_right' => 15,
+            'margin_top' => 48,
+            'margin_bottom' => 25,
+            'margin_header' => 10,
+            'margin_footer' => 10,
+
+            'fontDir' => array_merge($fontDirs, [
+                '../../../fonts/',
+            ]),
+            'fontdata' => $fontData + [
+                'montserrat' => [
+                    'R' => 'Montserrat-Regular.ttf',
+                    'B' => 'Montserrat-Bold.ttf',
+                ]
+            ],
+            'default_font' => 'montserrat'
+        ]);
+
+        $mpdf->SetProtection(array('print', 'copy'));
+        $mpdf->SetTitle("Devis #" . $devis->getNumero());
+        $mpdf->SetAuthor("Hello World");
+        $mpdf->SetWatermarkText("");
+        $mpdf->showWatermarkText = true;
+        $mpdf->watermark_font = 'DejaVuSansCondensed';
+        $mpdf->watermarkTextAlpha = 0.05;
+        $mpdf->SetDisplayMode('fullpage');
+        
+        $htmlInvoice = mb_convert_encoding($htmlInvoice, 'UTF-8', 'UTF-8');
+        $mpdf->WriteHTML($htmlInvoice);
+
+        $file_name = $traduction['DEVIS'][$devis->getLangue()] . ' - ' . $invoiceFor . '.pdf';
+        $mpdf->Output($file_name, 'I');
+    }
+}
+
+// API
+
+function findAllByClientApi($data){
+    $deviss = devis::findAllByClientApi($data['client'],false,true,false);
+    // Convert array to UTF-8
+    array_walk_recursive($deviss, function (&$item) {
+        if (is_string($item)) {
+            $item = mb_convert_encoding($item, 'UTF-8', 'UTF-8');
+        }
+    });
+    echo json_encode($deviss);
+}
+
+function pdfDevisApi($data)
+{
+	if (isset($data["id"]) && !empty($data["id"])) {
+		
+		require '../../../vendor/autoload.php';
+		require '../../../includes/traduction.php';
+		echo devis::pdfdevisApi($data["id"],	"download");
+
+		
+	}
+}
+
+function pdfDevisTexte($data)
+{
+    global $db;
+    if (isset($data["id"]) && !empty($data["id"])) {
+
+        require_once '../../../vendor/autoload.php';
+        require_once '../../../includes/traduction.php';
+        
+        $dirPath = "../../../";
+
+        $devis = devis::find($data["id"], $_SESSION['agence']);
+        
+        $items = $devis->getItems();
+        $client = $devis->getClient();
+        $agence = agence::find($_SESSION["agence"],$_SESSION["langue"]);
+        $config = new config($db);
+        $invoiceFor = $client->getRaisonSocial() != '' ? $client->getRaisonSocial() : $client->getNom() . ' ' . $client->getPrenom();
+        $color = $agence->getColor();
+        $mpdf = new \Mpdf\Mpdf();
+
+        $htmlInvoice = '<html>
+<head>
+<style>
+body {
+	font-family: montserrat;
+	font-size: 10pt;
+}
+p {	margin: 0pt; }
+table.items {
+}
+td { vertical-align: top; }
+.items td {
+	border-left: 0.1mm solid #FFF;
+	border-right: 0.1mm solid #FFF;
+	border-bottom: 0.1mm solid #CCC;
+}
+table thead td { background-color: '.$color.';
+	text-align: center;
+	border-left: 0.1mm solid #FFF;
+	border-right: 0.1mm solid #FFF;
+	font-weight:bold;
+}
+.items td.blanktotal {
+	background-color: #EEEEEE;
+	border: 0.1mm solid #FFF;
+	background-color: #FFFFFF;
+	border: 0mm none #000000;
+}
+.items td.totals {
+	text-align: right;
+	border-bottom: 0.1mm solid #CCC;
+}
+.items td.cost {
+	text-align: "." center;
+}
+.div-signature{
+    text-align:right;
+}
+</style>
+</head>
+<body>
+<!--mpdf
+<htmlpageheader name="myheader">
+<table width="100%">
+<tr>
+	<td><img src="../../../images/agences/' . $agence->getLogo() . '" width="100"></td>
+	<td align="right" style="vertical-align: middle;"><strong style="font-size: 8pt;"><br><br>' . $agence->getAdresse() . '</strong><br>
+	<p style="font-size: 8pt;"><strong>t:</strong> ' . $agence->getTel() . '  |  <strong>e:</strong> ' . $agence->getEmail() . ' | <strong>w:</strong> '.$agence->getWebsite().'</p></td>
+</tr>
+</table>
+<hr>
+</htmlpageheader>
+<htmlpagefooter name="myfooter">
+<div style="border-top: 1px solid #CCC; font-size: 9pt; text-align: center; padding-top: 3mm; ">';
+
+if($agence->getIce() != ''){
+$htmlInvoice .= '<p style="font-size:8pt;"><strong>IF</strong> '.$agence->getIf().' | <strong>TP</strong> '.$agence->getTp().' | <strong>RC</strong> '.$agence->getRc().' | <strong>ICE</strong> '.$agence->getIce().'</p>';
+}
+
+$htmlInvoice .= '<div style="margin-top:5pt;">Page {PAGENO} ' . $traduction['SUR'][$devis->getLangue()] . ' {nb}</div>
+</div>
+</htmlpagefooter>
+<sethtmlpageheader name="myheader" value="on" show-this-page="1" />
+<sethtmlpagefooter name="myfooter" value="on" />
+mpdf-->
+<table width="100%">
+<tr>
+<td width="35%" style="vertical-align: middle; font-size:8pt;">' . $traduction['DEVIS_POUR'][$devis->getLangue()] . '<hr style="margin:1pt 0 6pt 0;"><span style="font-weight: bold; font-size: 10pt; color:'.$color.'">' . $invoiceFor . '</span><br /><span style="font-family:dejavusanscondensed;">&#9742;</span> ' . $client->getTel() . '<br>' . $client->getEmail() . '<br>' . $client->getICE() . '<br /></td>
+<td width="30%"></td>
+
+<td width="35%" style="text-align: right;">
+
+<table style="margin-bottom:5pt;">
+<tr><td style="font-size:8pt;">' . $traduction['DATE_DEVIS'][$devis->getLangue()] . '</td></tr>
+<tr><td style="border-top:#e3d3aa solid 0.5pt;"><strong style="font-size: 12pt;">' . normaldate2($devis->getDateDevis(),$devis->getLangue()) . '</strong></td></tr>
+</table>
+
+<table>
+<tr><td style="font-size:8pt;">N° ' . $traduction['DEVIS'][$devis->getLangue()] . '</td></tr>
+<tr><td style="border-top:#e3d3aa solid 0.5pt;"><strong style="font-size: 12pt;">' . $devis->getNumero() . '</strong></td></tr>
+</table>
+</td>
+</tr></table>
+<br />
+<table class="items" width="100%" style="font-size: 9pt; border-collapse: collapse; " cellpadding="8">
+<thead>
+<tr>
+<td style="text-align:left;" colspan="3">Prestations</td>
+</tr>
+</thead>
+<tbody>
+<!-- ITEMS HERE -->';
+        $soustotal = 0;
+        foreach ($items as $item) {
+            $discount = $item->getDiscount()>0 ? ($item->getDiscount() * $item->getTotal()) / 100 : 0;
+            $soustotal += ($item->getTotal() - $discount);
+            //$pricePer = $item->getService()->getFacturation() == 'periodique' ?  'x '. $item->getQte() . ' ' . getUnities()[$devis->getLangue()][$item->getUnite()] : '';
+            //$price = $item->getService()->getFacturation() == 'periodique' ? ' '.number_format($item->getPrix(), 2, ',', ' ') . ' ' . $devis->getDevise() .' '. $par : ($item->getDiscount() > 0 ?  '<del>'.number_format($item->getTotal(), 2, ',', ' ') . ' ' . $devis->getDevise().'</del>' : number_format($item->getTotal(), 2, ',', ' ') . ' ' . $devis->getDevise());
+            $pricePer = ' x <strong>'. $item->getQte() . '</strong> ' . getUnities()[$devis->getLangue()][$item->getUnite()] . ' = ' . number_format($item->getTotal(), 2, ',', ' ') . ' ' . $devis->getDevise();
+            $price = number_format($item->getPrix(), 2, ',', ' ') . ' ' . $devis->getDevise();
+            
+            // test packages
+            if($devis->isPack()){
+                $pricePer = '';
+                $price = number_format($item->getTotal(), 2, ',', ' ') . ' ' . $devis->getDevise();
+            }
+            $htmlInvoice .= '<tr>
+                                <td colspan="3"><strong>' . $item->getTitre() . '</strong><div style="font-size:8pt; color:#999">' .  $item->getDescription() . '</div></td>
+                            </tr>
+                            <tr bgcolor="#e2f6ed">
+                                <td colspan="3" style="font-size:7pt">' . ($devis->isPack() ? $traduction['COUT_PRESTATION_PACK'][$devis->getLangue()] : $traduction['COUT_PRESTATION'][$devis->getLangue()]) . ' <strong>' . $price . '</strong>'.$pricePer.'</td>
+                            </tr>';
+                            
+                            if(!$devis->isPack()){
+                                if($item->getService()->getFacturation() == 'unique'){
+                                    $htmlInvoice .= '<tr bgcolor="#e2f6ed"><td colspan="3" style="font-size:7pt">' . $traduction['REGLEMENT_SEUL_FOIS'][$devis->getLangue()] . '</td></tr>';
+                                }else{
+                                    $htmlInvoice .= '<tr bgcolor="#e2f6ed"><td colspan="3" style="font-size:7pt">' . $traduction['REGLEMNT_PERIODE'][$devis->getLangue()] . ' ('.$item->getQte() . ' '. getUnities()[$devis->getLangue()][$item->getUnite()] .')</td></tr>';
+                                }
+                            }
+                            
+                            if($item->getDiscount() > 0){
+                                $htmlInvoice .= '<tr>
+                                    <td style="color:#4caf50"><strong>'.str_replace(array('text_value','discount_value'),array($item->getTitre(),$item->getDiscount()),$traduction['PRICE_AFTER_DISCOUNT'][$devis->getLangue()]).'</strong></td>
+                                    <td align="right" style="color:#4caf50" colspan="2"><strong>' . number_format($item->getTotal() - $discount , 2, ',', ' ') . ' ' . $devis->getDevise() . '</strong></td>
+                                </tr>';
+                            }
+        }
+
+        if(!$devis->isPack()){
+        $htmlInvoice .= '<!-- END ITEMS HERE -->
+        <tr>
+        <td class="blanktotal" rowspan="6"></td>
+        <td class="totals">' . $traduction['SSTOTAL_HT'][$devis->getLangue()] . '</td>
+        <td class="totals cost">' . number_format($soustotal, 2, ',', ' ') . ' ' . $devis->getDevise() . '</td>
+        </tr>';
+        }
+        
+
+        // nouveau total HT
+        if ($devis->getDiscount() != '') {
+            $discoutSign = $devis->getDiscount() == 'amount' ? ' ' . $devis->getDevise() : '%';
+            // test réduction
+            if ($devis->getDiscount() == 'percentage') {
+                $soustotal = $soustotal - ($soustotal * $devis->getDiscountVal() / 100);
+            } elseif ($devis->getDiscount() == 'amount') {
+                $soustotal = $soustotal - $devis->getDiscountVal();
+            }
+            
+            $htmlInvoice .= '<tr>
+            <td class="totals">' . $traduction['REDUCTION'][$devis->getLangue()] . ' - ' . $devis->getDiscountVal() . $discoutSign . '</td>
+            <td class="totals cost"> ' . number_format($soustotal, 2, ',', ' ') . ' ' . $devis->getDevise() . '</td>
+            </tr>';
+        }
+
+        // Calcule TVA		
+        //$tva = $devis->isProforma() ? 0 : $soustotal * $agence->getTva()/100;
+        $tva = $devis->getTva();
+
+        $htmlInvoice .= '<tr>';
+        if($devis->isPack()) $htmlInvoice .= '<td class="blanktotal" rowspan="6"></td>';
+        $htmlInvoice .= '<td class="totals">' . $traduction['TVA'][$devis->getLangue()] . '</td>
+            <td class="totals cost">' . number_format($tva, 2, ',', ' ') . ' ' . $devis->getDevise() . '</td>
+        </tr>';
+
+        $totalLabel = $devis->isProforma() ? 'TOTAL' : $traduction['TOTAL_TTC'][$devis->getLangue()];
+        $htmlInvoice .= '<tr style="background:'.$color.';">
+<td class="totals" style="color:#FFF; border-right:0.1mm solid #e3d3aa;"><b>' . $totalLabel . '</b></td>
+<td class="totals cost" style="color:#FFF;"><strong>' . number_format($devis->getTotal(), 2, ',', ' ') . ' ' . $devis->getDevise() . '</strong></td>
+</tr>
+</tbody>
+</table><div style="margin-top:50t;"><p style="font-size:8pt;">';
+        if ($devis->getRemarque() != '') {
+            $htmlInvoice .= '<strong>' . $traduction['REMARQUE'][$devis->getLangue()] . ': </strong>' . strip_tags($devis->getRemarque());
+        };
+        $htmlInvoice .= '</p></div>
+<div style="margin-top:100t;">
+<h3 style="color:'.$color.';">' . $traduction['THANK_YOU_FOR'][$devis->getLangue()] .$agence->getNom(). ' !!</h3>
+<p style="font-size:8pt;"><strong>'.$traduction['CONDITIONS'][$devis->getLangue()].': </strong>'.$agence->getConditions().'</p>
+<p style="font-size:8pt;margin-top:15pt;"><strong>' . $traduction['CONDITIONS_PAYMENT'][$devis->getLangue()] . ': </strong>' . $devis->getConditionPaiment() . '</p>';
+
+// Conditions de paiement
+foreach($devis->getConditions() as $condition){
+    $htmlInvoice .= '<p>'. $condition->getMontant() .' '. $condition->getCondition() .'</p>';
+}
+
+if($devis->getBank()){
+        $htmlInvoice .= '<p style="font-size:8pt;"><br>';
+        if($devis->getBank()->getRaisonSociale() != '') $htmlInvoice .= '<strong>'.$traduction['RAISON_SOCIALE'][$devis->getLangue()].':</strong> '. $devis->getBank()->getRaisonSociale() .' <br>';
+        if($devis->getBank()->getRib() != '') $htmlInvoice .= '<strong>'.$traduction['ACCOUNT_NUMBER'][$devis->getLangue()].':</strong> '. $devis->getBank()->getRib() .' <br>';
+        if($devis->getBank()->getIbanNumber() != '') $htmlInvoice .= '<strong>'.$traduction['IBAN'][$devis->getLangue()].':</strong> '. $devis->getBank()->getIbanNumber() .' <br>';
+        if($devis->getBank()->getBanque() != '') $htmlInvoice .= '<strong>'.$traduction['BRANCH'][$devis->getLangue()].':</strong> '. $devis->getBank()->getBanque() .' <br>';
+        if($devis->getBank()->getCodeSwift() != '') $htmlInvoice .= '<strong>'.$traduction['SWIFT_CODE'][$devis->getLangue()].':</strong> '. $devis->getBank()->getCodeSwift() .' <br>';
+        if($devis->getBank()->getCurrency() != '') $htmlInvoice .= '<strong>'.$traduction['CURRENCY'][$devis->getLangue()].':</strong> '. $devis->getBank()->getCurrency() .' <br>';
+        
+        $htmlInvoice .= '</p>';
+    }
+    
+    /*$htmlInvoice .= '<div class="div-signature" style="padding-top: 50px;padding-bottom: 50px;">
+                                <img src="' . $dirPath . 'images/agences/' . $agence->getSignature() . '" width="300">
+                            </div>';*/
+    
+    $htmlInvoice .= '</div>
+</body>
+</html>';
+
+        $defaultConfig = (new Mpdf\Config\ConfigVariables())->getDefaults();
+        $fontDirs = $defaultConfig['fontDir'];
+
+        $defaultFontConfig = (new Mpdf\Config\FontVariables())->getDefaults();
+        $fontData = $defaultFontConfig['fontdata'];
+
+        $mpdf = new \Mpdf\Mpdf([
+            'margin_left' => 20,
+            'margin_right' => 15,
+            'margin_top' => 48,
+            'margin_bottom' => 25,
+            'margin_header' => 10,
+            'margin_footer' => 10,
+
+            'fontDir' => array_merge($fontDirs, [
+                '../../../fonts/',
+            ]),
+            'fontdata' => $fontData + [
+                'montserrat' => [
+                    'R' => 'Montserrat-Regular.ttf',
+                    'B' => 'Montserrat-Bold.ttf',
+                ]
+            ],
+            'default_font' => 'montserrat'
+        ]);
+
+        $mpdf->SetProtection(array('print', 'copy'));
+        $mpdf->SetTitle("Devis #" . $devis->getNumero());
+        $mpdf->SetAuthor("Hello World");
+        $mpdf->SetWatermarkText("");
+        $mpdf->showWatermarkText = true;
+        $mpdf->watermark_font = 'DejaVuSansCondensed';
+        $mpdf->watermarkTextAlpha = 0.05;
+        $mpdf->SetDisplayMode('fullpage');
+        
+        $htmlInvoice = mb_convert_encoding($htmlInvoice, 'UTF-8', 'UTF-8');
+        $mpdf->WriteHTML($htmlInvoice);
+
+        $file_name = $traduction['DEVIS'][$devis->getLangue()] . ' - ' . $invoiceFor . '.pdf';
+        $mpdf->Output($file_name, 'I');
+    }
+}

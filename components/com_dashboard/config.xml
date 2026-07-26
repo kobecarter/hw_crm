@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<component>
+    <id>com_dashboard</id>
+    <nom>Tabeleau de bord</nom>
+    <class></class>
+    <table></table>
+    <traduction>0</traduction>
+    <url>0</url>
+    <icon>home</icon>
+    <system>1</system>
+    <position>center</position>
+</component>

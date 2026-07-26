@@ -1,0 +1,6 @@
+[31-Mar-2022 16:38:06 UTC] PHP Notice:  Undefined index: slug in /Applications/MAMP/htdocs/helloworld-admin/components/com_expertise/controleurs/expertise/controleur.php on line 177
+[31-Mar-2022 16:38:06 UTC] PHP Notice:  Undefined index: id_parent in /Applications/MAMP/htdocs/helloworld-admin/components/com_expertise/controleurs/expertise/controleur.php on line 178
+[31-Mar-2022 16:38:06 UTC] PHP Notice:  Undefined index: texte in /Applications/MAMP/htdocs/helloworld-admin/components/com_expertise/controleurs/expertise/controleur.php on line 184
+[31-Mar-2022 16:40:04 UTC] PHP Notice:  Undefined index: slug in /Applications/MAMP/htdocs/helloworld-admin/components/com_expertise/controleurs/expertise/controleur.php on line 177
+[31-Mar-2022 16:40:04 UTC] PHP Notice:  Undefined index: id_parent in /Applications/MAMP/htdocs/helloworld-admin/components/com_expertise/controleurs/expertise/controleur.php on line 178
+[31-Mar-2022 16:40:04 UTC] PHP Notice:  Undefined index: texte in /Applications/MAMP/htdocs/helloworld-admin/components/com_expertise/controleurs/expertise/controleur.php on line 184

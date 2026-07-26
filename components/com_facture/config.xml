@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<component>
+   <id>com_facture</id>
+   <nom>Gestion des factures</nom>
+   <class>facture</class>
+   <table>facture</table>
+   <traduction>0</traduction>
+   <url>0</url>
+   <icon>file-invoice</icon>
+   <system>0</system>
+   <position>side</position>
+</component>

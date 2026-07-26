@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<component>
+   <id>com_resourcehumaine</id>
+   <nom>Resources humaines</nom>
+   <class>resourcehumaine</class>
+   <table>resourcehumaine</table>
+   <traduction>0</traduction>
+   <url>0</url>
+   <icon>user-tie</icon>
+   <system>0</system>
+   <position>side</position>
+</component>

@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<component>
+   <id>com_fournisseur</id>
+   <nom>Gestion des fournisseurs</nom>
+   <class>fournisseur</class>
+   <table>fournisseur</table>
+   <traduction>0</traduction>
+   <url>0</url>
+   <icon>user-tie</icon>
+   <system>0</system>
+   <position>side</position>
+</component>

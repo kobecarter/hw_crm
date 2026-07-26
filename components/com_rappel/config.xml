@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<component>
+<id>com_rappel</id>
+<nom>Gestion des rappels</nom>
+<class>rappel</class>
+<table>rappel</table>
+<traduction>0</traduction>
+<url>0</url>
+<icon>fa fa-bell</icon>
+<system>0</system>
+<position>side</position>
+</component>

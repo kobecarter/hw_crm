@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<component>
+   <id>com_accounting</id>
+   <nom>Comptabilité</nom>
+   <class>accounting</class>
+   <table>accounting</table>
+   <traduction>0</traduction>
+   <url>0</url>
+   <icon>money-bill</icon>
+   <system>0</system>
+   <position>side</position>
+</component>

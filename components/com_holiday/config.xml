@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<component>
+<id>com_holiday</id>
+<nom>Calendrier</nom>
+<class>holiday</class>
+<table>holiday</table>
+<traduction>0</traduction>
+<url>0</url>
+<icon>fa fa-calendar-alt</icon>
+<system>0</system>
+<position>side</position>
+</component>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<component>
+    <id>com_users</id>
+    <nom>Gestion des utilisateurs</nom>
+    <class>user</class>
+    <traduction>0</traduction>
+    <url>0</url>
+    <icon>user</icon>
+    <system>1</system>
+</component>

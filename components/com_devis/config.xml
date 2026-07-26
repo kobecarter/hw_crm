@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<component>
+   <id>com_devis</id>
+   <nom>Gestion des devis</nom>
+   <class>devis</class>
+   <table>devis</table>
+   <traduction>0</traduction>
+   <url>0</url>
+   <icon>file-invoice-dollar</icon>
+   <system>0</system>
+   <position>side</position>
+</component>

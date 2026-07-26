@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<component>
+   <id>com_temoignage</id>
+   <nom>Gestion des témoignages</nom>
+   <class>temoignages</class>
+   <table>temoignages</table>
+   <traduction>0</traduction>
+   <url>0</url>
+   <icon>comment</icon>
+   <system>0</system>
+   <position>side</position>
+</component>

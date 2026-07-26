@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<component>
+   <id>com_reclamation</id>
+   <nom>Gestion des reclamations</nom>
+   <class>reclamation</class>
+   <table>reclamation</table>
+   <traduction>0</traduction>
+   <url>0</url>
+   <icon>user-circle</icon>
+   <system>0</system>
+   <position>side</position>
+</component>
