@@ -479,14 +479,16 @@ class fournisseur
         return $items;
     }
 
-    // Recherche globale (bandeau de recherche du bandeau haut) : nom, raison sociale ou email -
-    // pas de filtre par agence, cohérent avec findAll() ci-dessus qui n'en applique pas non plus.
+    // Recherche globale (bandeau de recherche du bandeau haut) : nom, raison sociale, email,
+    // téléphone(s) ou ICE - pas de filtre par agence, cohérent avec findAll() ci-dessus qui n'en
+    // applique pas non plus. Inclure tel2/tel3/ice permet à une saisie purement numérique de
+    // retomber naturellement sur le bon fournisseur sans logique de détection de format séparée.
     public static function search($terme)
     {
         global $db;
         $items = array();
         $like = GetSQLValueString('%' . $terme . '%', 'text');
-        $SQLselect = "SELECT id AS ID, " . static::$table . ".* FROM " . static::$table . " WHERE (nom LIKE $like OR prenom LIKE $like OR raison_social LIKE $like OR email LIKE $like) ORDER BY id DESC LIMIT 8";
+        $SQLselect = "SELECT id AS ID, " . static::$table . ".* FROM " . static::$table . " WHERE (nom LIKE $like OR prenom LIKE $like OR raison_social LIKE $like OR email LIKE $like OR tel LIKE $like OR tel2 LIKE $like OR tel3 LIKE $like OR ice LIKE $like) ORDER BY id DESC LIMIT 8";
         foreach ($db->queryS($SQLselect) as $data) {
             array_push($items, static::build($data));
         }

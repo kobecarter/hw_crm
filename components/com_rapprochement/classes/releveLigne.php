@@ -337,6 +337,35 @@ class releveLigne
         return null;
     }
 
+    // Trouve les lignes strictement identiques (même compte, même date, même libellé, même
+    // débit/crédit) déjà importées dans un lot précédent - protège previewReleve()/
+    // confirmerReleve() contre la ré-importation d'un relevé déjà traité (rien n'empêchait
+    // jusqu'ici de redéposer deux fois le même fichier : lot_import est un uniqid() généré à
+    // chaque aperçu, il ne peut jamais collisionner avec un import antérieur). Retourne les objets
+    // complets (pas juste un booléen) car confirmerReleve() en a besoin pour les défaire proprement
+    // quand l'utilisateur choisit d'écraser l'ancien import plutôt que de le garder.
+    public static function trouverDoublons($idBank, $dateOperation, $debit, $credit, $libelle)
+    {
+        global $db;
+        $items = array();
+        if (empty($idBank) || empty($dateOperation)) {
+            return $items;
+        }
+        $SQLselect = sprintf(
+            "SELECT * FROM " . static::$table . " WHERE id_bank = %s AND date_operation = %s AND libelle = %s AND IFNULL(debit,0) = %s AND IFNULL(credit,0) = %s",
+            GetSQLValueString($idBank, "int"),
+            GetSQLValueString($dateOperation, "date"),
+            GetSQLValueString($libelle, "text"),
+            GetSQLValueString(!empty($debit) ? $debit : 0, "double"),
+            GetSQLValueString(!empty($credit) ? $credit : 0, "double")
+        );
+        $result = $db->queryS($SQLselect);
+        foreach ($result as $data) {
+            array_push($items, static::build($data));
+        }
+        return $items;
+    }
+
     // Utilisé par le "check" affiché sous la dropzone : ce compte a-t-il déjà reçu au moins un
     // relevé importé (peu importe le lot) ? Sert uniquement à colorer la checklist en vert/rouge.
     public static function existePourBank($idBank)

@@ -235,6 +235,18 @@
 											</div>
 											<span class="badge charge-type-badge <?php echo $charge->getType(); ?>"><?php echo $typeLabel; ?></span>
 											<small class="text-muted d-block mt-1">Payé par <?php echo $payePar; ?></small>
+											<?php $serviceLabelsCharge = array('domaine' => 'Nom de domaine', 'hosting' => 'Hébergement web', 'ssl' => 'Certificat SSL'); ?>
+											<?php if ($charge->getServiceConcerne() !== '' && isset($serviceLabelsCharge[$charge->getServiceConcerne()])) : ?>
+												<span class="badge bg-info-light d-inline-block mt-1"><i class="fa fa-sync-alt mr-1"></i><?= $serviceLabelsCharge[$charge->getServiceConcerne()] ?><?= $charge->getClient() ? ' — ' . htmlspecialchars(trim($charge->getClient()->getRaisonSocial()) !== '' ? $charge->getClient()->getRaisonSocial() : $charge->getClient()->getNom()) : '' ?></span>
+											<?php endif; ?>
+											<?php if (!empty($charge->getFournisseurs())) : ?>
+												<div class="mt-1">
+													<?php foreach ($charge->getFournisseurs() as $fournisseurBadge) : ?>
+														<?php $nomFournisseurBadge = trim((string) $fournisseurBadge->getRaisonSocial()) !== '' ? $fournisseurBadge->getRaisonSocial() : trim($fournisseurBadge->getPrenom() . ' ' . $fournisseurBadge->getNom()); ?>
+														<a href="index.php?option=com_fournisseur&task=edit&id=<?= $fournisseurBadge->getId() ?>" class="badge bg-default-light mr-1" target="_blank"><i class="fa fa-truck mr-1"></i><?= htmlspecialchars($nomFournisseurBadge) ?></a>
+													<?php endforeach; ?>
+												</div>
+											<?php endif; ?>
 										</td>
 										<td><b><?php echo number_format($charge->getTotal(), 2, ',', ' '). ' ' . $charge->getDevise(); ?></b></td>
 										<td>

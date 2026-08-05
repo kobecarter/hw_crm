@@ -1179,6 +1179,23 @@ label {
 	border-bottom: 1px solid var(--border-soft);
 	margin-bottom: 0.3rem;
 }
+/* Groupe "Suggestions" (Module 1 - recherche intelligente) : aucun résultat exact, mais
+   l'intention de la saisie a été reconnue (mot-clé métier ou numéro) - accent ambre plutôt que
+   la couleur violette des résultats exacts, pour signaler clairement qu'il s'agit d'une
+   proposition et non d'une correspondance directe. */
+.global-search-groupe-suggestions .global-search-groupe-titre {
+	color: #b45309;
+}
+.global-search-groupe-suggestions .global-search-groupe-titre i {
+	color: #f59e0b;
+}
+.global-search-groupe-suggestions .global-search-item {
+	border-left: 2px dashed rgba(245, 158, 11, 0.45);
+	padding-left: 0.7rem;
+}
+.global-search-groupe-suggestions .global-search-item:hover {
+	background: rgba(245, 158, 11, 0.09);
+}
 .global-search-item-agence {
 	display: inline-flex;
 	align-items: center;
@@ -1187,6 +1204,37 @@ label {
 	font-weight: 600;
 	color: var(--brand-2, #6366f1);
 	margin-top: 0.15rem;
+}
+/* Chiffre d'affaires réalisé avec le client, affiché uniquement sur les résultats "autres
+   agences" (voir com_search/controleurs/search/controleur.php) - vert plutôt que la couleur
+   violette de l'agence, pour rester lisible comme une donnée financière distincte. */
+.global-search-item-ca {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	font-size: 0.68rem;
+	font-weight: 700;
+	color: #059669;
+	margin-top: 0.15rem;
+}
+/* Statut Actif/Inactif du client, même résultats "autres agences" - point de couleur plutôt
+   qu'un badge plein pour rester discret à côté du reste des infos de la ligne. */
+.global-search-item-statut {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	font-size: 0.68rem;
+	font-weight: 600;
+	margin-top: 0.15rem;
+}
+.global-search-item-statut i {
+	font-size: 0.5rem;
+}
+.global-search-item-statut-actif {
+	color: #059669;
+}
+.global-search-item-statut-inactif {
+	color: #dc2626;
 }
 
 /* ---- Page de login : carte "verre liquide" sur un fond dégradé plus marqué (le glassmorphism ne
@@ -4230,6 +4278,192 @@ table.table td h2.table-avatar span.avatar-sleep-badge {
 
 @media (prefers-reduced-motion: reduce) {
 	.fournisseur-card-tilt {
+		transition: none;
+	}
+}
+
+/* ---- Page Services (com_service) : même grille de cartes + effet tilt 3D que la page
+   Fournisseurs (assets/js/... inline sur list.php), avec en plus une bannière photo réelle par
+   catégorie (récupérée de helloworld-agency.com) au lieu d'un simple icône de groupe. --------- */
+.service-groupe {
+	margin-bottom: 1.75rem;
+}
+.service-groupe-banner {
+	position: relative;
+	height: 110px;
+	border-radius: var(--radius-md, 16px);
+	overflow: hidden;
+	margin-bottom: 0.9rem;
+	background: linear-gradient(135deg, #6366f1, #a855f7);
+}
+.service-groupe-banner img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: center 20%;
+}
+.service-groupe-banner::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(0deg, rgba(15, 15, 30, 0.78) 0%, rgba(15, 15, 30, 0.15) 65%, transparent 100%);
+}
+.service-groupe-banner-titre {
+	position: absolute;
+	left: 1rem;
+	bottom: 0.65rem;
+	right: 1rem;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	color: #fff;
+	font-weight: 700;
+	font-size: 1rem;
+	text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.service-groupe-banner-titre i {
+	opacity: 0.9;
+}
+.service-groupe-banner-count {
+	background: rgba(255, 255, 255, 0.22);
+	backdrop-filter: blur(4px);
+	font-size: 0.72rem;
+	font-weight: 700;
+	padding: 0.1rem 0.6rem;
+	border-radius: 999px;
+	margin-left: 0.15rem;
+}
+.service-groupe-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+	gap: 1rem;
+}
+.service-card {
+	perspective: 900px;
+}
+.service-card-tilt {
+	position: relative;
+	height: 100%;
+	background: #fff;
+	border: 1px solid var(--border-soft);
+	border-top: 3px solid var(--service-accent, #6366f1);
+	border-radius: var(--radius-md, 16px);
+	box-shadow: var(--shadow-sm);
+	padding: 1.1rem 1.15rem;
+	transition: transform 0.35s var(--ease), box-shadow 0.35s var(--ease);
+	transform-style: preserve-3d;
+	will-change: transform;
+}
+.service-card:hover .service-card-tilt {
+	box-shadow: var(--shadow-lg);
+}
+.service-card.is-inactive .service-card-tilt {
+	opacity: 0.55;
+	filter: grayscale(0.4);
+}
+.service-card-pack-ribbon {
+	position: absolute;
+	top: -1px;
+	right: 14px;
+	background: linear-gradient(135deg, #f59e0b, #ec4899);
+	color: #fff;
+	font-size: 0.65rem;
+	font-weight: 800;
+	letter-spacing: 0.04em;
+	padding: 0.15rem 0.6rem 0.3rem;
+	border-radius: 0 0 8px 8px;
+	box-shadow: 0 4px 10px rgba(236, 72, 153, 0.35);
+	transform: translateZ(20px);
+}
+.service-card-top {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 0.5rem;
+	margin-bottom: 0.6rem;
+}
+.service-card-icone {
+	width: 44px;
+	height: 44px;
+	border-radius: 14px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #fff;
+	background: var(--service-accent, #6366f1);
+	font-size: 1.05rem;
+	flex-shrink: 0;
+	box-shadow: 0 8px 18px rgba(30, 30, 60, 0.16);
+	transform: translateZ(18px);
+}
+.service-card-titre {
+	font-size: 0.94rem;
+	font-weight: 700;
+	color: var(--ink);
+	margin: 0 0 0.2rem;
+	line-height: 1.25;
+}
+.service-card-categorie {
+	font-size: 0.72rem;
+	color: var(--ink-soft);
+}
+.service-card-prix {
+	display: flex;
+	align-items: baseline;
+	gap: 0.3rem;
+	margin: 0.6rem 0 0.7rem;
+}
+.service-card-prix strong {
+	font-size: 1.2rem;
+	font-weight: 800;
+	color: var(--service-accent, #6366f1);
+}
+.service-card-prix span {
+	font-size: 0.78rem;
+	color: var(--ink-soft);
+}
+.service-card-badges {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	margin-bottom: 0.7rem;
+}
+.service-card-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	background: rgba(99, 102, 241, 0.1);
+	color: var(--brand-2, #6366f1);
+	font-size: 0.7rem;
+	font-weight: 700;
+	padding: 0.18rem 0.55rem;
+	border-radius: 999px;
+}
+.service-card-footer {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 0.4rem;
+	padding-top: 0.7rem;
+	border-top: 1px dashed var(--border-soft);
+}
+.service-grid-vide {
+	text-align: center;
+	color: var(--ink-soft);
+	padding: 2rem 1rem;
+	font-size: 0.9rem;
+}
+.service-grid-vide i {
+	display: block;
+	font-size: 1.8rem;
+	opacity: 0.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.service-card-tilt {
 		transition: none;
 	}
 }

@@ -793,7 +793,7 @@ function getRowDevis($data)
         </td>
         <td class="add-remove text-right">
             <input type="hidden" name="item_id[]" value="0" class="id-item-input">
-            <i class="fas fa-star ask-ai-item-row" data-toggle="tooltip" data-placement="top" data-original-title="Assistant IA"></i>
+            <i class="fas fa-magic ask-ai-item-row" data-toggle="tooltip" data-placement="top" data-original-title="Assistant IA"></i>
             <i class="fas fa-plus-circle add-row" data-toggle="tooltip" data-placement="top" data-original-title="Ajouter ligne"></i>
             <i class="fas fa-minus-circle remove-row" data-toggle="tooltip" data-placement="top" data-original-title="Supprimer cette ligne"></i>
         </td>
@@ -1012,8 +1012,14 @@ function buildDevis($data, $id = null)
         $devis->setUserAdded($_SESSION['user']);
     }
 
+    $banqueChoisie = bank::find($data['bank']);
+    // Comptes personnels (Hamid/Zakaria - "PERSO" dans la raison sociale) : jamais de TVA, toujours
+    // proforma - imposé ici plutôt qu'uniquement côté JS (assets/js/ia-bank-filter.js), pour que la
+    // règle tienne même si le formulaire est soumis sans que le JS ait tourné.
+    $estBanquePersonnelle = $banqueChoisie->getId() && stripos($banqueChoisie->getRaisonSociale(), 'PERSO') !== false;
+
     $devis->setNumero($data['numero']);
-    $devis->setBank(bank::find($data['bank']));
+    $devis->setBank($banqueChoisie);
     $devis->setClient(client::find($data['client'],$_SESSION['agence']));
     $devis->setDateDevis(dateBD($data['date_devis']));
     $devis->setStatu($data['statu']);
@@ -1023,9 +1029,9 @@ function buildDevis($data, $id = null)
     $devis->setConditionPaiment($data['condition_paiment']);
     $devis->setRemarque($data['remarque']);
     //$devis->setMotifRefus($data['motif_refus']);
-    $devis->setProforma(isset($data['proforma']) ? 1 : 0);
+    $devis->setProforma($estBanquePersonnelle ? 1 : (isset($data['proforma']) ? 1 : 0));
     $devis->setPack(isset($data['pack']) ? 1 : 0);
-    $devis->setTVA($data['tva']);
+    $devis->setTVA($estBanquePersonnelle ? 0 : $data['tva']);
     $devis->setLangue($data['langue']);
     $devis->setDateAdd(date("Y-m-d H:i:s"));
     $devis->setLastEdit(date("Y-m-d H:i:s"));

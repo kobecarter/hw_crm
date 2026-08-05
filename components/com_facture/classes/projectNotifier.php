@@ -17,7 +17,7 @@
    paiement / facture / changement de statut devis). */
 class projectNotifier
 {
-    public static function launch($client, $devis = null, $eventLabel = null)
+    public static function launch($client, $devis = null, $eventLabel = null, $dossierDriveExistantChoisi = null)
     {
         try {
             if (!$client || $client->getId() == 0) {
@@ -25,7 +25,7 @@ class projectNotifier
             }
 
             $nomClient = $client->getRaisonSocial() != '' ? $client->getRaisonSocial() : trim($client->getNom() . ' ' . $client->getPrenom());
-            $driveLink = (class_exists('googleDriveClient') && googleDriveClient::isConfigured()) ? googleDriveClient::ensureClientFolder($client) : null;
+            $driveLink = (class_exists('googleDriveClient') && googleDriveClient::isConfigured()) ? googleDriveClient::ensureClientFolder($client, $dossierDriveExistantChoisi) : null;
 
             $cardName = 'Nouveau Projet | ' . $nomClient;
 
@@ -87,7 +87,12 @@ class projectNotifier
             $unitiesMap = getUnities();
             foreach ($devis->getItems() as $item) {
                 $uniteLabel = isset($unitiesMap[$devis->getLangue()][$item->getUnite()]) ? $unitiesMap[$devis->getLangue()][$item->getUnite()] : $item->getUnite();
-                $recap .= "- **" . $item->getTitre() . "** (x" . $item->getQte() . ($uniteLabel != '' ? ' ' . $uniteLabel : '') . ")\n";
+                $recap .= "- **" . $item->getTitre() . "**\n";
+                // Durée = quantité + unité de la ligne de devis (ex: "3 Mois", "2 Semaine") -
+                // seule donnée de durée réellement disponible par prestation (pas de champ "durée"
+                // dédié sur item_devis), mise en avant explicitement plutôt que noyée entre
+                // parenthèses comme avant.
+                $recap .= "    *Durée :* " . $item->getQte() . ($uniteLabel != '' ? ' ' . $uniteLabel : '') . "\n";
                 $description = trim(devis::descriptionToPlainText($item->getDescription()));
                 if ($description != '') {
                     foreach (preg_split('/\r\n|\r|\n/', $description) as $line) {

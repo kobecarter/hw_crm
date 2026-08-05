@@ -24,6 +24,11 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
                 include_once ("cnss/controleur.php");
             }
             break;
+        case 'toggleCnssStatus' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_accounting')) {
+                include_once ("cnss/controleur.php");
+            }
+            break;
         case 'addTva' :
             if ($_SESSION['user']->hasDroit('add', 'com_accounting')) {
                 include_once ("tva/controleur.php");
@@ -94,6 +99,26 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
         case 'deleteDocTaxe' :
             if ($_SESSION['user']->hasDroit('delete', 'com_accounting')) {
                 include_once ("taxeprofessionnelle/controleur.php");
+            }
+            break;
+        case 'addImpot' :
+            if ($_SESSION['user']->hasDroit('add', 'com_accounting')) {
+                include_once ("impot/controleur.php");
+            }
+            break;
+        case 'editImpot' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_accounting')) {
+                include_once ("impot/controleur.php");
+            }
+            break;
+        case 'deleteImpot' :
+            if ($_SESSION['user']->hasDroit('delete', 'com_accounting')) {
+                include_once ("impot/controleur.php");
+            }
+            break;
+        case 'deleteDocImpot' :
+            if ($_SESSION['user']->hasDroit('delete', 'com_accounting')) {
+                include_once ("impot/controleur.php");
             }
             break;
     }

@@ -516,6 +516,28 @@ class agence
         return $agence;
     }
 
+    // Recherche globale (bandeau de recherche du bandeau haut) : nom/ville (table détails, par
+    // langue) + raison sociale, gérant, email, téléphone(s), ICE, RC (table agence) - utilisé par
+    // com_search pour retrouver l'agence elle-même (son "espace agence") quand on tape son nom
+    // dans la barre de recherche. "nom"/"ville" ne vivent PAS sur la table agence elle-même mais
+    // sur crm_details_agence (comme "adresse") - d'où le besoin de filtrer aussi sur B, pas
+    // seulement sur A comme les autres colonnes.
+    public static function search($terme, $langue = 'fr')
+    {
+        global $db;
+        $items = array();
+        $like = GetSQLValueString('%' . $terme . '%', 'text');
+        // Pas de sprintf() ici (contrairement à find()/findAll() ci-dessous) : $like contient des
+        // "%" littéraux (jokers LIKE) qui seraient réinterprétés comme des specifiers de format et
+        // feraient planter sprintf() ("X arguments are required, 2 given").
+        $SQLselect = "SELECT A.id as ID, A.*, B.* FROM " . static::$table . " A LEFT JOIN " . static::$table2 . " B ON A.id = B.id_agence AND B.langue = " . GetSQLValueString($langue, "text")
+            . " WHERE (B.nom LIKE $like OR B.ville LIKE $like OR A.raison_social LIKE $like OR A.manager LIKE $like OR A.email LIKE $like OR A.tel LIKE $like OR A.tel2 LIKE $like OR A.ice LIKE $like OR A.rc LIKE $like) ORDER BY A.id ASC LIMIT 8";
+        foreach ($db->queryS($SQLselect) as $data) {
+            array_push($items, static::build($data));
+        }
+        return $items;
+    }
+
     public static function findAll($langue, $active = false)
     {
         global $db;

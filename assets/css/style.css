@@ -4480,6 +4480,18 @@ div.table-responsive > div.dataTables_wrapper > div.row:first-child{
 	margin-bottom: 8px;
 }
 
+/* picto "Assistant IA" par ligne de prestation (devis/facture) : remplace l'ancienne étoile
+   générique par une icône dédiée, colorée pour la distinguer des autres actions de la ligne */
+i.ask-ai-item-row {
+	color: #7638ff;
+	cursor: pointer;
+	transition: transform 0.15s ease, color 0.15s ease;
+}
+i.ask-ai-item-row:hover {
+	color: #5b21c4;
+	transform: scale(1.15);
+}
+
 /* zones de résultat de l'assistant IA (description proposée, pages détectées) :
    ces blocs sont insérés à l'intérieur de lignes de tableau étroites (devis/facture),
    ils ont donc besoin de leur propre largeur/scroll pour rester lisibles */

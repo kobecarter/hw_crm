@@ -26,7 +26,155 @@ if (isset($_GET['task']) && !empty($_GET['task'])) {
         case 'extractChargeDocument':
             extractChargeDocument($_FILES);
             break;
+        case 'extractChatDevis':
+            extractChatDevis($_POST);
+            break;
+        case 'rechercheClientChatDevis':
+            rechercheClientChatDevis($_GET);
+            break;
     }
+}
+
+// Recherche manuelle d'un autre client depuis l'étape de validation du chat devis (le client
+// identifié automatiquement n'était pas le bon) - même forme de réponse que client_matches dans
+// extractChatDevis(), cross-agence comme le reste de ce workflow.
+function rechercheClientChatDevis($params)
+{
+    header('Content-Type: application/json');
+
+    if (!isset($_SESSION['user']) || !$_SESSION['user']->hasDroit('view', 'com_client')) {
+        echo json_encode(array('success' => 0, 'matches' => array()));
+        return;
+    }
+
+    $terme = isset($params['q']) ? trim($params['q']) : '';
+    if (mb_strlen($terme) < 2) {
+        echo json_encode(array('success' => 1, 'matches' => array()));
+        return;
+    }
+
+    $matches = array();
+    foreach (client::search($terme, false) as $c) {
+        $nom = trim((string) $c->getRaisonSocial()) !== '' ? $c->getRaisonSocial() : trim($c->getPrenom() . ' ' . $c->getNom());
+        $matches[] = array(
+            'id' => $c->getId(),
+            'nom' => $nom !== '' ? $nom : '(sans nom)',
+            'email' => (string) $c->getEmail(),
+            'tel' => (string) $c->getTel(),
+            'agence_id' => $c->getAgence() ? $c->getAgence()->getId() : null,
+            'agence_nom' => $c->getAgence() ? $c->getAgence()->getNom() : ''
+        );
+    }
+
+    echo json_encode(array('success' => 1, 'matches' => $matches));
+}
+
+// Correspondance titre extrait -> service existant (id_service si correspondance exacte,
+// suggested_service si seulement une forte ressemblance) - factorisé car identique à celle
+// d'extractPresentation() ci-dessous, seule la source du texte diffère (chat vs PDF déposé).
+function com_ia_matcherServicesExistants($extracted)
+{
+    $servicesExistants = service::findAll($_SESSION['langue'], true, false, true);
+    $seuilSuggestion = 55; // % de similarité minimum pour proposer un service existant comme correspondance probable
+
+    foreach ($extracted['services'] as &$ligne) {
+        $ligne['id_service'] = null;
+        $ligne['suggested_service'] = null;
+        $titreLigne = trim(mb_strtolower(isset($ligne['titre']) ? $ligne['titre'] : ''));
+        if ($titreLigne === '') {
+            continue;
+        }
+
+        $meilleurScore = 0;
+        $meilleurService = null;
+        foreach ($servicesExistants as $s) {
+            $titreExistant = trim(mb_strtolower($s->getTitre()));
+            if ($titreExistant === $titreLigne) {
+                $ligne['id_service'] = $s->getId();
+                $ligne['unite'] = $s->getUnite();
+                $meilleurService = null;
+                break;
+            }
+            similar_text($titreExistant, $titreLigne, $score);
+            if ($score > $meilleurScore) {
+                $meilleurScore = $score;
+                $meilleurService = $s;
+            }
+        }
+
+        if (!$ligne['id_service'] && $meilleurService && $meilleurScore >= $seuilSuggestion) {
+            $ligne['suggested_service'] = array(
+                'id_service' => $meilleurService->getId(),
+                'titre' => $meilleurService->getTitre(),
+                'unite' => $meilleurService->getUnite(),
+                'score' => round($meilleurScore)
+            );
+        }
+    }
+    unset($ligne);
+
+    return $extracted;
+}
+
+// Module 4 (Assistant IA devis) : point d'entrée du chat "décrivez le besoin" - même extraction
+// structurée que le dépôt de présentation PDF (aiExtractor::extractStructuredData), appliquée
+// directement au texte tapé par l'utilisateur au lieu du texte d'un fichier. En plus des
+// prestations, cherche des clients existants correspondant au client mentionné, pour l'étape de
+// validation demandée avant toute génération de devis (jamais de création silencieuse).
+function extractChatDevis($params)
+{
+    header('Content-Type: application/json');
+
+    if (!isset($_SESSION['user']) || !$_SESSION['user']->hasDroit('add', 'com_devis')) {
+        echo json_encode(array('success' => 0, 'message' => 'Accès refusé'));
+        return;
+    }
+
+    $message = isset($params['message']) ? trim($params['message']) : '';
+    if ($message === '') {
+        echo json_encode(array('success' => 0, 'message' => 'Merci de décrire le besoin.'));
+        return;
+    }
+
+    try {
+        $extracted = aiExtractor::extractStructuredData($message);
+    } catch (Exception $e) {
+        echo json_encode(array('success' => 0, 'message' => $e->getMessage()));
+        return;
+    }
+
+    $extracted = com_ia_matcherServicesExistants($extracted);
+
+    $clientInfo = $extracted['client'];
+    $terme = trim((string) (isset($clientInfo['raison_social']) ? $clientInfo['raison_social'] : ''));
+    if ($terme === '') {
+        $terme = trim(trim((string) (isset($clientInfo['prenom']) ? $clientInfo['prenom'] : '')) . ' ' . trim((string) (isset($clientInfo['nom']) ? $clientInfo['nom'] : '')));
+    }
+    if ($terme === '') {
+        $terme = trim((string) (isset($clientInfo['email']) ? $clientInfo['email'] : ''));
+    }
+
+    $clientMatches = array();
+    if ($terme !== '' && $_SESSION['user']->hasDroit('view', 'com_client')) {
+        foreach (client::search($terme, false) as $c) {
+            $nom = trim((string) $c->getRaisonSocial()) !== '' ? $c->getRaisonSocial() : trim($c->getPrenom() . ' ' . $c->getNom());
+            $clientMatches[] = array(
+                'id' => $c->getId(),
+                'nom' => $nom !== '' ? $nom : '(sans nom)',
+                'email' => (string) $c->getEmail(),
+                'tel' => (string) $c->getTel(),
+                'agence_id' => $c->getAgence() ? $c->getAgence()->getId() : null,
+                'agence_nom' => $c->getAgence() ? $c->getAgence()->getNom() : ''
+            );
+        }
+    }
+
+    echo json_encode(array(
+        'success' => 1,
+        'extracted' => $extracted,
+        'client_recherche' => $terme,
+        'client_matches' => $clientMatches
+    ));
 }
 
 function extractEmployeeDocument($files)
@@ -395,47 +543,7 @@ function extractPresentation($params)
         return;
     }
 
-    $servicesExistants = service::findAll($_SESSION['langue'], true, false, true);
-    $seuilSuggestion = 55; // % de similarité minimum pour proposer un service existant comme correspondance probable
-
-    foreach ($extracted['services'] as &$ligne) {
-        $ligne['id_service'] = null;
-        $ligne['suggested_service'] = null;
-        $titreLigne = trim(mb_strtolower(isset($ligne['titre']) ? $ligne['titre'] : ''));
-        if ($titreLigne === '') {
-            continue;
-        }
-
-        $meilleurScore = 0;
-        $meilleurService = null;
-        foreach ($servicesExistants as $s) {
-            $titreExistant = trim(mb_strtolower($s->getTitre()));
-            if ($titreExistant === $titreLigne) {
-                // correspondance exacte : sélection automatique, pas besoin de confirmation
-                $ligne['id_service'] = $s->getId();
-                $ligne['unite'] = $s->getUnite();
-                $meilleurService = null;
-                break;
-            }
-            similar_text($titreExistant, $titreLigne, $score);
-            if ($score > $meilleurScore) {
-                $meilleurScore = $score;
-                $meilleurService = $s;
-            }
-        }
-
-        // pas de correspondance exacte, mais un service existant y ressemble suffisamment :
-        // on le propose à l'utilisateur pour confirmation plutôt que de créer un doublon
-        if (!$ligne['id_service'] && $meilleurService && $meilleurScore >= $seuilSuggestion) {
-            $ligne['suggested_service'] = array(
-                'id_service' => $meilleurService->getId(),
-                'titre' => $meilleurService->getTitre(),
-                'unite' => $meilleurService->getUnite(),
-                'score' => round($meilleurScore)
-            );
-        }
-    }
-    unset($ligne);
+    $extracted = com_ia_matcherServicesExistants($extracted);
 
     echo json_encode(array(
         'success' => 1,

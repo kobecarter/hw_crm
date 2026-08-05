@@ -33,11 +33,20 @@ function addCharge($data)
         // insère aussi dans crm_payslip, ce qui écraserait LAST_INSERT_ID() si on appelait
         // charge::getLastId() après coup — même bug déjà rencontré et corrigé côté TVA/charges).
         $idCharge = charge::getLastId();
+        $charge->setId($idCharge);
 
         if (isset($data['is_payslip']) && $data['is_payslip'] == '1'
             && isset($data['id_resourcehumaine_payslip']) && $data['id_resourcehumaine_payslip'] !== ''
             && $charge->getPhoto() != '') {
             creerBulletinDepuisCharge($data, $idCharge, $charge->getPhoto());
+        }
+
+        // Module 1 : ne doit jamais faire échouer l'ajout de la charge elle-même en cas de souci
+        // (client/rappel introuvable, etc.) - la charge est déjà enregistrée à ce stade.
+        try {
+            rappel::synchroniserDepuisCharge($charge);
+        } catch (\Throwable $e) {
+            error_log('addCharge - échec synchronisation rappel depuis charge #' . $idCharge . ' - ' . $e->getMessage());
         }
 
         echo "1";
@@ -50,7 +59,13 @@ function editCharge($data)
 {
     $indices = array("id", "titre");
     if (fieldCheck($data, $indices)) {
-        if (buildCharge($data, $data['id'])->edit() == 1) {
+        $charge = buildCharge($data, $data['id']);
+        if ($charge->edit() == 1) {
+            try {
+                rappel::synchroniserDepuisCharge($charge);
+            } catch (\Throwable $e) {
+                error_log('editCharge - échec synchronisation rappel depuis charge #' . $charge->getId() . ' - ' . $e->getMessage());
+            }
             echo "1";
         } else {
             echo "2";
@@ -112,7 +127,15 @@ function buildCharge($data, $id = null)
 	$charge->setAgence(agence::find($data['id_agence'],$_SESSION['langue']));
 	$charge->setPaidBy(user::find($data['paid_by']));
     $charge->setUser(user::find($data['id_user']));
+	if (isset($data['client']) && $data['client'] !== '') {
+		$charge->setClient(client::find($data['client'], $_SESSION['agence']));
+	}
 	$charge->setType($data['type']);
+	// Module 1 : filtre strict par slug fixe (jamais de correspondance sur le titre libre, qui
+	// serait sensible à la casse/aux espaces comme demandé) - '' = aucun service concerné.
+	$charge->setServiceConcerne(isset($data['service_concerne']) ? $data['service_concerne'] : '');
+	// Module 2 : liste de fournisseurs (multi-select), tableau vide si aucun sélectionné.
+	$charge->setFournisseursIds(isset($data['fournisseurs']) && is_array($data['fournisseurs']) ? $data['fournisseurs'] : array());
 	$charge->setTitre($data['titre']);
 	$charge->setDescription($data['description']);
 	$charge->setTotal($data['total']);

@@ -13,6 +13,9 @@
 				</div>
 				<?php if ($_SESSION['user']->hasDroit('add', 'com_devis')) :?>
     				<div class="col-auto">
+    					<button type="button" class="btn btn-outline-primary mr-1" data-toggle="modal" data-target="#dialog-ia-devis-chat" data-original-title="Assistant IA">
+    						<i class="fa fa-magic"></i> Assistant IA
+    					</button>
     					<a href="index.php?option=com_devis&task=add" class="btn btn-success mr-1" data-toggle="tooltip" data-placement="top" data-original-title="Ajouter devis">
     						<i class="fas fa-plus"></i>
     					</a>
@@ -126,15 +129,194 @@
 					</div>
 				</div>
 
-			</div>					
-		</div>					
-	</div>			
+			</div>
+		</div>
+	</div>
 </div>
 <!-- /Page Wrapper -->
 
+<!-- Assistant IA - Nouveau devis (Module 4) : décrire le besoin en langage libre, valider le
+     client identifié, puis reprendre le formulaire normal de création de devis pré-rempli. -->
+<div id="dialog-ia-devis-chat" class="modal fade" role="dialog">
+	<div class="modal-dialog modal-lg" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title"><i class="fa fa-magic mr-1"></i> Assistant IA — Nouveau devis</h5>
+				<button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+			</div>
+			<div class="modal-body">
+
+				<div id="iaDevisChatEtape1">
+					<p class="text-muted">Décrivez le projet ou la prestation demandée par le client (son nom, ce qu'il souhaite, un budget si connu...). L'assistant identifie le client et propose les prestations correspondantes.</p>
+					<div class="form-group">
+						<textarea class="form-control" id="iaDevisChatMessage" rows="5" placeholder="Ex : Le client ABC Corp souhaite un site e-commerce avec un pack SEO, budget autour de 25000 MAD, à livrer avant fin du mois."></textarea>
+					</div>
+					<div id="iaDevisChatErreur" class="alert alert-danger" style="display:none;"></div>
+					<button type="button" class="btn btn-primary" id="iaDevisChatAnalyser">
+						<span class="spinner-border spinner-border-sm mr-1" id="iaDevisChatLoading" style="display:none;"></span>
+						Analyser la demande
+					</button>
+				</div>
+
+				<div id="iaDevisChatEtape2" style="display:none;">
+					<h6 class="form-section-title"><i class="fa fa-user-tie mr-1"></i> Étape 1 — Confirmez le client</h6>
+					<div id="iaDevisChatClientMatches"></div>
+
+					<div class="form-group mt-3">
+						<label class="small text-muted mb-1">Ce n'est pas le bon client ? Cherchez-en un autre :</label>
+						<input type="text" class="form-control" id="iaDevisChatClientRecherche" placeholder="Nom du client...">
+						<div id="iaDevisChatClientRechercheResultats" class="mt-2"></div>
+					</div>
+
+					<div class="mt-3">
+						<button type="button" class="btn btn-outline-secondary btn-sm" id="iaDevisChatNouveauClient"><i class="fa fa-plus mr-1"></i> Aucun client trouvé — en créer un nouveau</button>
+						<button type="button" class="btn btn-link btn-sm" id="iaDevisChatRetour">&larr; Revenir à la description</button>
+					</div>
+				</div>
+
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Modale "Ajouter client" (même partiel que la page Ajouter/Modifier devis, ia-client-modal.js
+     l'utilise indifféremment) : permet de créer le client identifié par l'assistant SANS quitter
+     ce flux - la fiche s'ouvre pré-remplie avec ce que l'IA a détecté, et une fois créée, reprend
+     exactement le même chemin que si un client existant avait été confirmé. -->
+<div id="dialog-client" class="modal client-modal fade" role="dialog">
+	<div class="modal-dialog modal-dialog-scrollable" role="document" style="max-width: 800px;">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title">Ajouter client</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+			</div>
+			<div class="modal-body">
+			</div>
+		</div>
+	</div>
+</div>
+<!-- /Add Client Modal -->
+
 <script type="text/javascript">
 $(function () {
-	
+
+	function escHtmlIaDevisChat(s) {
+		return $('<div>').text(s === undefined || s === null ? '' : s).html();
+	}
+
+	function rendreClientMatchesIaDevisChat(matches) {
+		var $zone = $('#iaDevisChatClientMatches').empty();
+		if (!matches || !matches.length) {
+			$zone.html('<div class="alert alert-warning mb-0">Aucun client existant ne correspond au nom mentionné. Cherchez-en un manuellement ci-dessous, ou créez un nouveau client.</div>');
+			return;
+		}
+		matches.forEach(function (m) {
+			var sousTitre = [m.email, m.tel].filter(function (v) { return v; }).join(' · ');
+			var $card = $(
+				'<div class="card mb-2"><div class="card-body d-flex justify-content-between align-items-center py-2 flex-wrap">' +
+				'<div class="mr-2"><strong>' + escHtmlIaDevisChat(m.nom) + '</strong>' +
+				(m.agence_nom ? ' <span class="badge badge-light">' + escHtmlIaDevisChat(m.agence_nom) + '</span>' : '') +
+				'<br><span class="text-muted small">' + escHtmlIaDevisChat(sousTitre) + '</span></div>' +
+				'<button type="button" class="btn btn-sm btn-success confirmer-client-ia-devis-chat">Confirmer ce client</button>' +
+				'</div></div>'
+			);
+			$card.find('.confirmer-client-ia-devis-chat').on('click', function () {
+				confirmerClientEtOuvrirDevis(m.id, m.agence_id);
+			});
+			$zone.append($card);
+		});
+	}
+
+	function confirmerClientEtOuvrirDevis(idClient, agenceClient) {
+		var extracted = window.iaDevisChatExtracted || {};
+		sessionStorage.setItem('ia_services', JSON.stringify(extracted.services || []));
+		sessionStorage.setItem('ia_conditions', JSON.stringify(extracted.conditions || []));
+		sessionStorage.setItem('ia_client_pays', (extracted.client && extracted.client.pays) || '');
+		ensureSessionAgence(agenceClient, function () {
+			document.location = 'index.php?option=com_devis&task=add&id_client=' + idClient;
+		});
+	}
+
+	$('#iaDevisChatAnalyser').on('click', function () {
+		var message = $('#iaDevisChatMessage').val().trim();
+		if (!message) {
+			return;
+		}
+		var $btn = $(this);
+		$('#iaDevisChatErreur').hide();
+		$('#iaDevisChatLoading').show();
+		$btn.prop('disabled', true);
+		$.post('components/com_ia/controleurs/router.php?task=extractChatDevis', { message: message }, function (response) {
+			$('#iaDevisChatLoading').hide();
+			$btn.prop('disabled', false);
+			if (!response.success) {
+				$('#iaDevisChatErreur').text(response.message || "Erreur lors de l'analyse.").show();
+				return;
+			}
+			window.iaDevisChatExtracted = response.extracted;
+			rendreClientMatchesIaDevisChat(response.client_matches || []);
+			$('#iaDevisChatEtape1').hide();
+			$('#iaDevisChatEtape2').show();
+		}, 'json').fail(function () {
+			$('#iaDevisChatLoading').hide();
+			$btn.prop('disabled', false);
+			$('#iaDevisChatErreur').text('Erreur réseau, merci de réessayer.').show();
+		});
+	});
+
+	$('#iaDevisChatRetour').on('click', function () {
+		$('#iaDevisChatEtape2').hide();
+		$('#iaDevisChatEtape1').show();
+	});
+
+	// "Aucun client trouvé" : création SANS quitter ce flux - même modale/JS que celle utilisée
+	// pour "+ client" sur la page Ajouter devis (ia-client-modal.js), pré-remplie avec ce que
+	// l'IA a détecté (mêmes clés prenom/nom/raison_social/fonction/tel/email/adresse/ville que
+	// components/com_client/views/client/form.php attend). Une fois le client créé, on reprend
+	// exactement le même chemin que la confirmation d'un client existant.
+	$('#iaDevisChatNouveauClient').on('click', function () {
+		var extracted = window.iaDevisChatExtracted || {};
+		openIaClientModal({
+			modalSelector: '#dialog-client',
+			prefillClient: extracted.client || {},
+			onCreated: function (newClientId, newClientAgence) {
+				$('#dialog-client').modal('hide');
+				confirmerClientEtOuvrirDevis(newClientId, newClientAgence);
+			}
+		});
+	});
+
+	var timerRechercheClientIaDevisChat = null;
+	$('#iaDevisChatClientRecherche').on('input', function () {
+		var terme = $(this).val().trim();
+		clearTimeout(timerRechercheClientIaDevisChat);
+		if (terme.length < 2) {
+			$('#iaDevisChatClientRechercheResultats').empty();
+			return;
+		}
+		timerRechercheClientIaDevisChat = setTimeout(function () {
+			$.get('components/com_ia/controleurs/router.php', { task: 'rechercheClientChatDevis', q: terme }, function (resp) {
+				rendreClientMatchesIaDevisChat((resp && resp.matches) || []);
+			}, 'json');
+		}, 350);
+	});
+
+	$('#dialog-ia-devis-chat').on('hidden.bs.modal', function () {
+		$('#iaDevisChatEtape2').hide();
+		$('#iaDevisChatEtape1').show();
+		$('#iaDevisChatMessage').val('');
+		$('#iaDevisChatErreur').hide();
+		$('#iaDevisChatClientRecherche').val('');
+		$('#iaDevisChatClientRechercheResultats').empty();
+	});
+});
+</script>
+
+<script type="text/javascript">
+$(function () {
+
 	var msgsucces = "";
 	
 	$(document).on( "click", ".delete", function() {

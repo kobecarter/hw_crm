@@ -61,11 +61,11 @@
                 <div class="form-checks">
                     <div class="form-check mb-3">
                         <input type="radio" name="status" class="form-check-input" id="status1" value="1"  <?= isset($taxeprofessionnelle) ? ($taxeprofessionnelle->getStatus() == 1 ? 'checked' : '') : '' ?>>
-                        <label class="form-check-label" for="status1">Payé</label>
+                        <label class="form-check-label" for="status1">Déposé</label>
                     </div>
                     <div class="form-check mb-3">
                         <input type="radio" name="status" class="form-check-input" value="0" id="status2" <?= isset($taxeprofessionnelle) ? ($taxeprofessionnelle->getStatus() == 0 ? 'checked' : '') : 'checked' ?>>
-                        <label class="form-check-label" for="status2">Non payé</label>
+                        <label class="form-check-label" for="status2">Non déposé</label>
                     </div>
                 </div>
 			</div>

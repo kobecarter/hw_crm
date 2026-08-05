@@ -169,6 +169,75 @@ class releveLot
         return $lot;
     }
 
+    // Traçabilité "quel relevé bancaire couvrait la période où le comptable a calculé cette TVA" -
+    // un simple recoupement de dates (date_debut/date_fin du lot vs mois de la déclaration),
+    // jamais une lecture du contenu des lignes : la TVA est saisie/poussée par le comptable
+    // indépendamment du module BANK STATEMENT, on veut seulement voir avec quel(s) relevé(s) elle
+    // coïncide dans le temps. $dateDebutPeriode/$dateFinPeriode = premier/dernier jour du mois
+    // couvert par la déclaration (voir com_accounting/index.php, case 'tva').
+    public static function findAllByTva($idAgence, $dateDebutPeriode, $dateFinPeriode)
+    {
+        global $db;
+        $items = array();
+        $SQLselect = sprintf("SELECT * FROM " . static::$table . " WHERE id_agence = %s AND date_debut <= %s AND date_fin >= %s ORDER BY date_debut DESC",
+            GetSQLValueString($idAgence, "int"),
+            GetSQLValueString($dateFinPeriode, "date"),
+            GetSQLValueString($dateDebutPeriode, "date")
+        );
+        $result = $db->queryS($SQLselect);
+        foreach ($result as $data) {
+            array_push($items, static::build($data));
+        }
+        return $items;
+    }
+
+    // Même recoupement que findAllByTva() ci-dessus, mais agrégé pour TOUTES les déclarations TVA
+    // d'une agence en une seule requête groupée (JOIN direct sur les dates) - alimente l'icône
+    // "relevé(s) lié(s)" affichée sur chaque ligne de la liste TVA sans un aller-retour par ligne.
+    public static function compterLotsParTva($idAgence)
+    {
+        global $db;
+        $compteurs = array();
+        $SQLselect = sprintf(
+            "SELECT t.id as id_tva, COUNT(l.id) as nb FROM " . __prefixe_db__ . "tva t
+             INNER JOIN " . static::$table . " l ON l.id_agence = t.id_agence
+                AND l.date_debut <= t.date AND l.date_fin >= DATE_FORMAT(t.date, '%%Y-%%m-01')
+             WHERE t.id_agence = %s
+             GROUP BY t.id",
+            GetSQLValueString($idAgence, "int")
+        );
+        $result = $db->queryS($SQLselect);
+        foreach ($result as $row) {
+            $compteurs[(int) $row['id_tva']] = (int) $row['nb'];
+        }
+        return $compteurs;
+    }
+
+    // Regroupe tous les lots (relevés déjà importés) d'un même compte bancaire qui couvrent la
+    // même période TVA (mois ou trimestre selon agence::getTvaPeriodicite()) - alimente la
+    // question posée juste après confirmation d'un import ("X relevé(s) pour cette période,
+    // faire le rapprochement maintenant ?"). periode_libelle est une chaîne dérivée (ex: "Août
+    // 2026"/"T3 2026"), pas une vraie clé de période, mais un simple match exact suffit puisque
+    // tous les lots d'une même agence la calculent via la même fonction (tva::libellePeriode()).
+    public static function findAllByPeriode($idAgence, $idBank, $periodeLibelle)
+    {
+        global $db;
+        $items = array();
+        if ($periodeLibelle === null || trim((string) $periodeLibelle) === '') {
+            return $items;
+        }
+        $SQLselect = sprintf("SELECT * FROM " . static::$table . " WHERE id_agence = %s AND id_bank = %s AND periode_libelle = %s ORDER BY id DESC",
+            GetSQLValueString($idAgence, "int"),
+            GetSQLValueString($idBank, "int"),
+            GetSQLValueString($periodeLibelle, "text")
+        );
+        $result = $db->queryS($SQLselect);
+        foreach ($result as $data) {
+            array_push($items, static::build($data));
+        }
+        return $items;
+    }
+
     public static function findAll($agence)
     {
         global $db;

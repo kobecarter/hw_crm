@@ -266,6 +266,23 @@ class bank
         return $bank;
     }
 
+    // Recherche globale (bandeau de recherche du bandeau haut) : nom de banque, raison sociale,
+    // RIB/IBAN ou ICE - utilisé par com_search pour la recherche "intelligente" par mot-clé
+    // institutionnel (ex: "BMCE") ou par numéro de compte.
+    public static function search($terme)
+    {
+        global $db;
+        $items = array();
+        $like = GetSQLValueString('%' . $terme . '%', 'text');
+        $SQLselect = "SELECT * FROM " . static::$table
+            . " WHERE banque LIKE $like OR raison_sociale LIKE $like OR rib LIKE $like OR iban_number LIKE $like OR ice LIKE $like"
+            . " ORDER BY id DESC LIMIT 8";
+        foreach ($db->queryS($SQLselect) as $data) {
+            array_push($items, static::build($data));
+        }
+        return $items;
+    }
+
     public static function findAll($id_agence = false)
     {
         global $db;

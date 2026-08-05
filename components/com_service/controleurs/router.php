@@ -35,6 +35,7 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
                 $submitName = "addservicerapide";
                 $submitValue = "Ajouter service";
                 $categories = categorie::findAll($_SESSION["langue"], true, true);
+                $intervenantsConnus = service::intervenantsConnus();
                 $prefillTitre = isset($_GET['titre']) ? $_GET['titre'] : '';
                 $prefillPrix = isset($_GET['prix']) ? $_GET['prix'] : '';
                 $prefillUnite = isset($_GET['unite']) ? $_GET['unite'] : '';

@@ -13,6 +13,7 @@ class rappel
     private $domaine;
     private $date_expir;
     private $remarque;
+    private $fournisseurs_ids;
     private $date_add;
     private $last_edit;
     private $archived;
@@ -50,6 +51,25 @@ class rappel
     public function getRemarque()
     {
         return $this->remarque;
+    }
+
+    // Fournisseurs associés (Module 2 - multi-sélection), JSON plutôt qu'une table pivot - même
+    // choix et même raisonnement que charge::getFournisseursIds().
+    public function getFournisseursIds()
+    {
+        return is_array($this->fournisseurs_ids) ? $this->fournisseurs_ids : array();
+    }
+
+    public function getFournisseurs()
+    {
+        $items = array();
+        foreach ($this->getFournisseursIds() as $idFournisseur) {
+            $fournisseur = fournisseur::find($idFournisseur);
+            if ($fournisseur->getId()) {
+                $items[] = $fournisseur;
+            }
+        }
+        return $items;
     }
 
     public function getDateAdd()
@@ -106,6 +126,11 @@ class rappel
         $this->remarque = $seo_titre;
     }
 
+    public function setFournisseursIds($fournisseurs_ids)
+    {
+        $this->fournisseurs_ids = is_array($fournisseurs_ids) ? array_values(array_unique(array_map('intval', $fournisseurs_ids))) : array();
+    }
+
     public function setDateAdd($date_add)
     {
         $this->date_add = $date_add;
@@ -125,12 +150,13 @@ class rappel
     {
         global $db;
         $SQLinsert = sprintf(
-            "INSERT INTO " . static::$table . " (id_client, type, domaine, date_expir, remarque, date_add, last_edit, archived) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            "INSERT INTO " . static::$table . " (id_client, type, domaine, date_expir, remarque, fournisseurs_ids, date_add, last_edit, archived) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->client->getId(), "int"),
             GetSQLValueString($this->type, "text"),
             GetSQLValueString($this->domaine, "text"),
             GetSQLValueString($this->date_expir, "date"),
             GetSQLValueString($this->remarque, "text"),
+            GetSQLValueString(!empty($this->getFournisseursIds()) ? json_encode($this->getFournisseursIds()) : null, "text"),
             GetSQLValueString($this->date_add, "date"),
             GetSQLValueString($this->last_edit, "date"),
             GetSQLValueString($this->archived, "int")
@@ -149,12 +175,13 @@ class rappel
     {
         global $db;
         $SQLupdate = sprintf(
-            "UPDATE " . static::$table . " SET  id_client = %s, type = %s, domaine = %s, date_expir = %s, remarque = %s, last_edit = %s , archived = %s WHERE id = %s",
+            "UPDATE " . static::$table . " SET  id_client = %s, type = %s, domaine = %s, date_expir = %s, remarque = %s, fournisseurs_ids = %s, last_edit = %s , archived = %s WHERE id = %s",
             GetSQLValueString($this->client->getId(), "int"),
             GetSQLValueString($this->type, "text"),
             GetSQLValueString($this->domaine, "text"),
             GetSQLValueString($this->date_expir, "date"),
             GetSQLValueString($this->remarque, "text"),
+            GetSQLValueString(!empty($this->getFournisseursIds()) ? json_encode($this->getFournisseursIds()) : null, "text"),
             GetSQLValueString($this->last_edit, "date"),
             GetSQLValueString($this->archived, "int"),
             GetSQLValueString($this->getId(), "int")
@@ -233,6 +260,7 @@ class rappel
         $rappel->setDomaine($data['domaine']);
         $rappel->setDateExpir($data['date_expir']);
         $rappel->setRemarque($data['remarque']);
+        $rappel->setFournisseursIds(!empty($data['fournisseurs_ids']) ? json_decode($data['fournisseurs_ids'], true) : array());
         $rappel->setDateAdd($data['date_add']);
         $rappel->setLastEdit($data['last_edit']);
         $rappel->setArchived($data['archived']);
@@ -255,6 +283,188 @@ class rappel
             return $data["c"];
         }
         return 0;
+    }
+
+    // Module 1 (cahier des charges "charges d'achat -> rappels") : appelée depuis
+    // com_charge/controleurs/charge/controleur.php (addCharge/editCharge) quand une charge validée
+    // correspond à l'un des 3 services suivis (getServiceConcerne() = 'domaine'/'hosting'/'ssl',
+    // mêmes slugs que le champ "type" ci-dessus) ET porte un client. Cherche un rappel actif du
+    // même client + même type : s'il existe, pousse son échéance à date_charge+365 jours et
+    // l'annote "Renouvelé" ; sinon en crée un nouveau avec cette échéance. Dans les deux cas, les
+    // fournisseurs de la charge sont fusionnés (jamais remplacés) avec ceux déjà sur le rappel.
+    // Ne fait jamais échouer la sauvegarde de la charge elle-même (appelant responsable du
+    // try/catch si besoin) - une charge doit toujours pouvoir s'enregistrer même si cette
+    // synchronisation échoue pour une raison quelconque.
+    public static function synchroniserDepuisCharge($charge)
+    {
+        $servicesSuivis = array('domaine', 'hosting', 'ssl');
+        if (!$charge->getClient() || $charge->getClient()->getId() == 0) {
+            return null;
+        }
+        if (!in_array($charge->getServiceConcerne(), $servicesSuivis, true)) {
+            return null;
+        }
+
+        $nouvelleExpir = date('Y-m-d', strtotime($charge->getDateCharge() . ' +365 days'));
+        $fournisseursCharge = $charge->getFournisseursIds();
+
+        $correspondant = null;
+        foreach (self::findAll(false, $_SESSION['agence'], $charge->getClient()->getId()) as $r) {
+            if ($r->getType() === $charge->getServiceConcerne()) {
+                $correspondant = $r;
+                break;
+            }
+        }
+
+        if ($correspondant) {
+            $correspondant->setDateExpir($nouvelleExpir);
+            $note = 'Renouvelé automatiquement le ' . date('d/m/Y') . ' (charge #' . $charge->getId() . ' - ' . $charge->getTitre() . ').';
+            $remarqueActuelle = trim((string) $correspondant->getRemarque());
+            $correspondant->setRemarque($remarqueActuelle !== '' ? $note . "\n" . $remarqueActuelle : $note);
+            $correspondant->setFournisseursIds(array_merge($correspondant->getFournisseursIds(), $fournisseursCharge));
+            $correspondant->edit();
+            return $correspondant;
+        }
+
+        $nouveau = new rappel();
+        $nouveau->setClient($charge->getClient());
+        $nouveau->setType($charge->getServiceConcerne());
+        $nouveau->setDomaine($charge->getTitre());
+        $nouveau->setDateExpir($nouvelleExpir);
+        $nouveau->setRemarque('Créé automatiquement depuis la charge #' . $charge->getId() . ' (' . $charge->getTitre() . ').');
+        $nouveau->setFournisseursIds($fournisseursCharge);
+        $nouveau->setDateAdd(date('Y-m-d'));
+        $nouveau->setLastEdit(date('Y-m-d'));
+        $nouveau->setArchived(0);
+        $nouveau->add();
+        return $nouveau;
+    }
+
+    // Relances automatiques d'expiration (cron quotidien, voir com_rappel/controleurs/router.php
+    // task=cronRelancesExpirationRappel) : contrairement à sendRelance() ci-dessous (déclenchement
+    // manuel depuis le listing, "moins de 30 jours" au sens large), celle-ci envoie exactement à
+    // J-30, J-20, J-5 et J0 - une seule fois par palier et par rappel (voir relanceDejaEnvoyee()),
+    // toutes agences confondues puisqu'un cron externe n'a pas de notion d'agence courante.
+    public static function cronEnvoyerRelancesExpiration()
+    {
+        $seuils = array(30, 20, 5, 0);
+        $resume = array('envoyees' => 0, 'deja_envoyees' => 0, 'hors_palier' => 0, 'erreurs' => 0, 'details' => array());
+
+        foreach (agence::findAll('fr') as $ag) {
+            // build() résout le client via client::find($id, $_SESSION['agence']) qui filtre
+            // strictement par agence (voir com_client/classes/client.php:492) - sans ce réglage
+            // par itération, tous les rappels des agences != celle fixée par bootstrapSystemSession()
+            // se retrouveraient avec un client vide et n'enverraient jamais d'email, silencieusement.
+            $_SESSION['agence'] = $ag->getId();
+            foreach (self::findAll(false, $ag->getId()) as $r) {
+                // Pas getDaysLeft() ici : elle diffuse depuis new DateTime() (heure actuelle
+                // incluse), donc son résultat dérive selon l'heure d'exécution du cron - inadapté
+                // à des paliers calendaires fixes. On reproduit plutôt le calcul de
+                // com_accounting/controleurs/router.php::cronCheckEcheanceTvaEndpoint() (diff
+                // depuis 'today', minuit) pour un nombre de jours entiers stable toute la journée.
+                $joursRestants = (int) (new DateTime('today'))->diff(new DateTime($r->getDateExpir()))->format('%r%a');
+                if (!in_array($joursRestants, $seuils, true)) {
+                    $resume['hors_palier']++;
+                    continue;
+                }
+                if (self::relanceDejaEnvoyee($r->getId(), $joursRestants)) {
+                    $resume['deja_envoyees']++;
+                    continue;
+                }
+
+                $nomClient = $r->getClient() ? trim($r->getClient()->getRaisonSocial()) : '';
+                try {
+                    $message = self::envoyerEmailExpiration($r, $joursRestants);
+                    self::enregistrerRelance($r->getId(), $joursRestants, $message);
+                    $resume['envoyees']++;
+                    $resume['details'][] = array('rappel' => $r->getId(), 'client' => $nomClient, 'seuil' => $joursRestants, 'action' => 'envoyee');
+                } catch (\Throwable $e) {
+                    error_log('rappel::cronEnvoyerRelancesExpiration - rappel #' . $r->getId() . ' - ' . $e->getMessage());
+                    $resume['erreurs']++;
+                    $resume['details'][] = array('rappel' => $r->getId(), 'client' => $nomClient, 'seuil' => $joursRestants, 'action' => 'erreur');
+                }
+            }
+        }
+        return $resume;
+    }
+
+    private static function relanceDejaEnvoyee($idRappel, $seuilJours)
+    {
+        global $db;
+        $SQLselect = sprintf(
+            "SELECT id FROM " . static::$table2 . " WHERE id_rappel = %s AND seuil_jours = %s LIMIT 1",
+            GetSQLValueString($idRappel, "int"),
+            GetSQLValueString($seuilJours, "int")
+        );
+        $result = $db->query($SQLselect);
+        return $db->num_rows($result) > 0;
+    }
+
+    private static function enregistrerRelance($idRappel, $seuilJours, $message)
+    {
+        global $db;
+        $SQLinsert = sprintf(
+            "INSERT INTO " . static::$table2 . " (id_rappel, seuil_jours, date_send, message) VALUES (%s, %s, %s, %s)",
+            GetSQLValueString($idRappel, "int"),
+            GetSQLValueString($seuilJours, "int"),
+            GetSQLValueString(date('Y-m-d H:i:s'), "date"),
+            GetSQLValueString($message, "text")
+        );
+        $db->query($SQLinsert);
+    }
+
+    // Construit et envoie l'email d'expiration via PHPMailer/SMTP (contrairement à sendRelance()
+    // ci-dessous, resté sur l'ancien mail() natif) - retourne le corps envoyé, pour l'archiver tel
+    // quel dans crm_relances.message comme le fait déjà sendRelance().
+    private static function envoyerEmailExpiration($rappel, $joursRestants)
+    {
+        if (!defined('SMTP_HOST') || SMTP_HOST == '') {
+            return null;
+        }
+        $client = $rappel->getClient();
+        if (!$client || !$client->getEmail()) {
+            return null;
+        }
+
+        require_once __DIR__ . '/../../../vendor/autoload.php';
+
+        $typeLabels = array('domaine' => 'Nom de domaine', 'hosting' => 'Hébergement web', 'ssl' => 'Certificat SSL');
+        $typeLabel = isset($typeLabels[$rappel->getType()]) ? $typeLabels[$rappel->getType()] : $rappel->getType();
+        $dateExpirFormatee = date('d/m/Y', strtotime($rappel->getDateExpir()));
+        $domaineTexte = trim((string) $rappel->getDomaine()) !== '' ? ' (' . htmlspecialchars($rappel->getDomaine()) . ')' : '';
+
+        if ($joursRestants == 0) {
+            $sujet = "Expiration aujourd'hui - " . $typeLabel . $domaineTexte;
+            $phraseEcheance = "expire <strong>aujourd'hui</strong> (" . $dateExpirFormatee . ")";
+        } else {
+            $sujet = "Expiration dans " . $joursRestants . " jour" . ($joursRestants > 1 ? 's' : '') . " - " . $typeLabel . $domaineTexte;
+            $phraseEcheance = "expire dans <strong>" . $joursRestants . " jour" . ($joursRestants > 1 ? 's' : '') . "</strong>, le " . $dateExpirFormatee;
+        }
+
+        $nomClient = trim((string) $client->getRaisonSocial()) !== '' ? $client->getRaisonSocial() : trim($client->getPrenom() . ' ' . $client->getNom());
+        $corps = "Bonjour " . htmlspecialchars($nomClient) . ",<br><br>"
+            . "Nous vous informons que votre service <strong>" . htmlspecialchars($typeLabel) . "</strong>" . $domaineTexte . " " . $phraseEcheance . ".<br><br>"
+            . "Merci de nous confirmer le renouvellement de ce service afin d'éviter toute interruption.<br><br>"
+            . "Cordialement.";
+
+        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+        $mail->isSMTP();
+        $mail->Host = SMTP_HOST;
+        $mail->SMTPAuth = true;
+        $mail->Username = SMTP_USERNAME;
+        $mail->Password = SMTP_PASSWORD;
+        $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
+        $mail->CharSet = 'UTF-8';
+        $mail->setFrom(SMTP_USERNAME, 'Hello World');
+        $mail->addAddress($client->getEmail(), $nomClient);
+        $mail->isHTML(true);
+        $mail->Subject = $sujet;
+        $mail->Body = $corps;
+        $mail->AltBody = strip_tags($corps);
+        $mail->send();
+
+        return $corps;
     }
 
     public function sendRelance()

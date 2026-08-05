@@ -20,7 +20,45 @@ if (isset($task) && !empty($task)) {
         case "telechargerOffrePDF":
             telechargerOffrePDF($_GET);
             break;
+        case "validerOffreManuellement":
+            validerOffreManuellement($_POST);
+            break;
     }
+}
+
+// Validation manuelle depuis le CRM (sans passer par Slack) : même effet que la validation
+// détectée par cronVerifierValidationSlackEndpoint() ci-dessous - statut, jeton d'acceptation,
+// email au candidat avec la liste des documents requis - mais déclenchée directement par un
+// utilisateur ayant les droits, pour ne pas dépendre uniquement d'une réponse Slack.
+function validerOffreManuellement($data)
+{
+    header('Content-Type: application/json');
+    $indices = array("id");
+    if (!fieldCheck($data, $indices)) {
+        echo json_encode(array('success' => 0, 'message' => 'Offre invalide.'));
+        return;
+    }
+    $offer = joboffer::find($data['id']);
+    if ($offer->getId() == 0) {
+        echo json_encode(array('success' => 0, 'message' => 'Offre introuvable.'));
+        return;
+    }
+    if ($offer->getStatut() !== joboffer::STATUT_EN_ATTENTE_SLACK) {
+        echo json_encode(array('success' => 0, 'message' => 'Cette offre n\'est pas (ou plus) en attente de validation.'));
+        return;
+    }
+
+    $acteur = isset($_SESSION['user']) ? $_SESSION['user']->getName() . ' (validation manuelle CRM)' : 'Validation manuelle (CRM)';
+    $offer->setSlackValidatedBy($acteur);
+    $offer->setSlackValidatedAt(date('Y-m-d H:i:s'));
+    $offer->setStatut(joboffer::STATUT_VALIDEE);
+    $token = bin2hex(random_bytes(32));
+    $offer->setAcceptanceToken($token);
+    $offer->edit();
+
+    $emailEnvoye = envoyerEmailOffreValideeAuCandidat($offer, $token);
+
+    echo json_encode(array('success' => 1, 'email_candidat_envoye' => $emailEnvoye));
 }
 
 function deleteJobOffer($data)

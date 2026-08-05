@@ -51,7 +51,8 @@
 				    <option value="" selected disabled>Sélectionner</option>
 					<?php foreach ($banks as $bank) : ?>
 						<?php $sl = isset($facture) && $facture->getBank() && $facture->getBank()->getId() == $bank->getId() ? "selected" : ""; ?>
-						<option value="<?php echo $bank->getId() ?>" <?php echo $sl; ?>><?php echo $bank->getRaisonSociale() . ' ' . $bank->getRib(); ?></option>
+						<?php $estPersoOption = stripos($bank->getRaisonSociale(), 'PERSO') !== false; ?>
+						<option value="<?php echo $bank->getId() ?>" <?php echo $sl; ?><?php echo $estPersoOption ? ' data-perso="1"' : ''; ?>><?php echo $bank->getRaisonSociale() . ' ' . $bank->getRib(); ?></option>
 					<?php endforeach; ?>
 				</select>
 			</div>
@@ -244,7 +245,7 @@
 								<td class="add-remove text-right">
 									<input type="hidden" name="item_id[]" value="<?php echo $item_facture->getId(); ?>" class="id-item-input">
 									<?php if (!isset($factureavoir)) : ?><i class="fas fa-brush custom-row" data-toggle="tooltip" data-placement="top" data-original-title="Personnaliser" data-id="<?php echo $item_facture->getId(); ?>"></i><?php endif; ?>
-									<i class="fas fa-star ask-ai-item-row" data-toggle="tooltip" data-placement="top" data-original-title="Assistant IA"></i>
+									<i class="fas fa-magic ask-ai-item-row" data-toggle="tooltip" data-placement="top" data-original-title="Assistant IA"></i>
 									<i class="fas fa-plus-circle add-row" data-toggle="tooltip" data-placement="top" data-original-title="Ajouter une ligne"></i>
 									<i class="fas fa-minus-circle remove-row" data-toggle="tooltip" data-placement="top" data-original-title="Supprimer ligne" <?php if (!isset($factureavoir)) : ?>data-id="<?php echo $item_facture->getId(); ?>" <?php endif; ?>></i>
 								</td>
@@ -287,7 +288,7 @@
 							</td>
 							<td class="add-remove text-right">
 								<input type="hidden" name="item_id[]" value="0" class="id-item-input">
-								<i class="fas fa-star ask-ai-item-row" data-toggle="tooltip" data-placement="top" data-original-title="Assistant IA"></i>
+								<i class="fas fa-magic ask-ai-item-row" data-toggle="tooltip" data-placement="top" data-original-title="Assistant IA"></i>
 								<i class="fas fa-plus-circle add-row" data-toggle="tooltip" data-placement="top" data-original-title="Ajouter ligne"></i>
 								<i class="fas fa-minus-circle remove-row" data-toggle="tooltip" data-placement="top" data-original-title="Supprimer ligne"></i>
 							</td>
@@ -369,11 +370,41 @@
 			<input type="hidden" name="avoir" value="1">
 			<input type="hidden" name="id_facture" value="<?php echo $facture->getId(); ?>">
 		<?php endif; ?>
+
+		<?php if (!isset($facture)) : ?>
+			<!-- Rempli par le JS si l'utilisateur choisit de réutiliser un dossier Drive existant
+			     plutôt que d'en créer un nouveau (étape de validation "dossier similaire trouvé"). -->
+			<input type="hidden" name="drive_folder_override" id="driveFolderOverride" value="">
+		<?php endif; ?>
 	</div>
 	<div class="text-right mt-4">
 		<button type="submit" name="<?= $submitName; ?>" class="btn btn-primary submit"><span class="spinner-border spinner-border-sm mr-2 loading"></span> <?php echo $submitValue; ?></button>
 	</div>
 </form>
+
+<?php if (!isset($facture)) : ?>
+<!-- Validation "dossier Drive similaire trouvé" à la création d'une facture : ne s'affiche QUE
+     si un dossier au nom proche existe déjà sous le même pays/ville - sinon la facture se crée
+     normalement, sans interruption (voir verifierDossierDriveClient() côté serveur). -->
+<div id="dialog-drive-similaire" class="modal fade" role="dialog" data-backdrop="static" data-keyboard="false">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title"><i class="fab fa-google-drive mr-1"></i> Dossier Drive similaire trouvé</h5>
+			</div>
+			<div class="modal-body">
+				<p class="mb-2">Un ou plusieurs dossiers déjà présents dans Drive ressemblent au nom du dossier qui serait créé pour ce client (<strong id="driveNomPropose"></strong>) :</p>
+				<div id="driveSimilairesListe" class="mb-3"></div>
+				<p class="text-muted mb-0" style="font-size:0.85rem;">Choisissez le dossier existant s'il s'agit bien du même client, ou créez quand même un nouveau dossier s'il s'agit d'un client différent.</p>
+			</div>
+			<div class="modal-footer justify-content-between">
+				<button type="button" class="btn btn-white" id="driveSimilaireAnnuler">Annuler</button>
+				<button type="button" class="btn btn-outline-primary" id="driveSimilaireCreerQuandMeme">Créer un nouveau dossier quand même</button>
+			</div>
+		</div>
+	</div>
+</div>
+<?php endif; ?>
 
 <!-- Add Category Modal -->
 <div id="dialog-custom" class="modal custom-modal fade" role="dialog">
@@ -518,9 +549,88 @@
 		})
 
 
+		<?php if (!isset($facture)) : ?>
+		// Étape de validation "dossier Drive similaire" - uniquement à la CRÉATION d'une facture
+		// (jamais en modification, le dossier a déjà été résolu à la création). driveCheckOk passe
+		// à true une fois la vérification faite pour ce client (ou l'utilisateur ayant tranché),
+		// pour ne relancer la vérification qu'une fois par client réellement sélectionné.
+		var driveCheckOk = false;
+		var driveCheckClientId = null;
+		var driveSimilairesEnCours = [];
+
+		function escHtmlDrive(s) {
+			return $('<div>').text(s === undefined || s === null ? '' : s).html();
+		}
+
+		function afficherSimilairesDrive(nomPropose, similaires) {
+			driveSimilairesEnCours = similaires;
+			$('#driveNomPropose').text(nomPropose);
+			var $zone = $('#driveSimilairesListe').empty();
+			similaires.forEach(function (s, index) {
+				var $carte = $(
+					'<div class="card mb-2"><div class="card-body d-flex justify-content-between align-items-center py-2 flex-wrap">' +
+					'<div class="mr-2"><a href="' + escHtmlDrive(s.lien) + '" target="_blank">' + escHtmlDrive(s.nom) + '</a>' +
+					'<span class="badge badge-light ml-1">' + s.score + '% similaire</span></div>' +
+					'<button type="button" class="btn btn-sm btn-success drive-utiliser-dossier" data-index="' + index + '">Utiliser ce dossier</button>' +
+					'</div></div>'
+				);
+				$zone.append($carte);
+			});
+			$('#dialog-drive-similaire').modal('show');
+		}
+
+		$(document).on('click', '.drive-utiliser-dossier', function () {
+			var index = $(this).data('index');
+			var choisi = driveSimilairesEnCours[index];
+			if (choisi) {
+				$('#driveFolderOverride').val(choisi.id);
+			}
+			driveCheckOk = true;
+			$('#dialog-drive-similaire').modal('hide');
+			$('form#factureForm').submit();
+		});
+
+		$('#driveSimilaireCreerQuandMeme').on('click', function () {
+			$('#driveFolderOverride').val('');
+			driveCheckOk = true;
+			$('#dialog-drive-similaire').modal('hide');
+			$('form#factureForm').submit();
+		});
+
+		$('#driveSimilaireAnnuler').on('click', function () {
+			$('#dialog-drive-similaire').modal('hide');
+			$("#factureForm .submit").prop("disabled", false);
+		});
+		<?php endif; ?>
+
 		// envoi du formulaire en ajax
 		$('form#factureForm').ajaxForm({
 			beforeSubmit: function() {
+				<?php if (!isset($facture)) : ?>
+				var idClientActuel = $('.client-select').val();
+				if (!driveCheckOk || driveCheckClientId !== idClientActuel) {
+					driveCheckOk = false;
+					driveCheckClientId = idClientActuel;
+					$("#factureForm .submit").prop("disabled", true);
+					$("#factureForm .loading").css('display', 'inline-block');
+					$.post('components/com_facture/controleurs/router.php?task=verifierDossierDriveClient', { client: idClientActuel }, function (response) {
+						$("#factureForm .loading").fadeOut();
+						if (response && response.configure && response.similaires && response.similaires.length) {
+							$("#factureForm .submit").prop("disabled", false);
+							afficherSimilairesDrive(response.nom_propose, response.similaires);
+						} else {
+							driveCheckOk = true;
+							$('form#factureForm').submit();
+						}
+					}, 'json').fail(function () {
+						// La vérification Drive ne doit jamais bloquer la création de la facture :
+						// en cas d'erreur réseau, on laisse simplement passer sans validation.
+						driveCheckOk = true;
+						$('form#factureForm').submit();
+					});
+					return false;
+				}
+				<?php endif; ?>
 				$("#factureForm .submit").prop("disabled", true);
 				$("#factureForm .loading").css('display', 'inline-block');
 			},

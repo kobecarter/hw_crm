@@ -66,7 +66,8 @@ $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFa
 				    <option value="" selected disabled>Sélectionner</option>
 					<?php foreach ($banks as $bank) : ?>
 						<?php $sl = isset($devis) && $devis->getBank() && $devis->getBank()->getId() == $bank->getId() ? "selected" : ""; ?>
-						<option value="<?php echo $bank->getId() ?>" <?php echo $sl; ?>><?php echo $bank->getRaisonSociale() . ' ' . $bank->getRib(); ?></option>
+						<?php $estPersoOption = stripos($bank->getRaisonSociale(), 'PERSO') !== false; ?>
+						<option value="<?php echo $bank->getId() ?>" <?php echo $sl; ?><?php echo $estPersoOption ? ' data-perso="1"' : ''; ?>><?php echo $bank->getRaisonSociale() . ' ' . $bank->getRib(); ?></option>
 					<?php endforeach; ?>
 				</select>
 				<small class="text-muted">La liste se filtre selon l'agence du client sélectionné.</small>
@@ -324,7 +325,7 @@ $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFa
 								<td class="add-remove text-right">
 									<input type="hidden" name="item_id[]" value="<?php echo $item_devis->getId(); ?>" class="id-item-input">
 									<i class="fas fa-brush custom-row" data-toggle="tooltip" data-placement="top" data-original-title="Personnaliser" data-id="<?php echo $item_devis->getId(); ?>"></i>
-									<i class="fas fa-star ask-ai-item-row" data-toggle="tooltip" data-placement="top" data-original-title="Assistant IA"></i>
+									<i class="fas fa-magic ask-ai-item-row" data-toggle="tooltip" data-placement="top" data-original-title="Assistant IA"></i>
 									<i class="fas fa-plus-circle add-row" data-toggle="tooltip" data-placement="top" data-original-title="Ajouter une ligne"></i>
 									<i class="fas fa-minus-circle remove-row" data-toggle="tooltip" data-placement="top" data-original-title="Supprimer ligne" data-id="<?php echo $item_devis->getId(); ?>"></i>
 								</td>
@@ -367,7 +368,7 @@ $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFa
 							</td>
 							<td class="add-remove text-right">
 								<input type="hidden" name="item_id[]" value="0" class="id-item-input">
-								<i class="fas fa-star ask-ai-item-row" data-toggle="tooltip" data-placement="top" data-original-title="Assistant IA"></i>
+								<i class="fas fa-magic ask-ai-item-row" data-toggle="tooltip" data-placement="top" data-original-title="Assistant IA"></i>
 								<i class="fas fa-plus-circle add-row" data-toggle="tooltip" data-placement="top" data-original-title="Ajouter ligne"></i>
 								<i class="fas fa-minus-circle remove-row" data-toggle="tooltip" data-placement="top" data-original-title="Supprimer ligne"></i>
 							</td>

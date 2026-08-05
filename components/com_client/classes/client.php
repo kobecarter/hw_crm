@@ -593,7 +593,9 @@ class client
     }
 
     // Recherche globale (bandeau de recherche du bandeau haut) : nom, prénom, raison sociale,
-    // email ou téléphone - utilisé par com_search, jamais par le listing standard des clients.
+    // email, téléphone, ICE ou RC - utilisé par com_search, jamais par le listing standard des
+    // clients. Inclure ICE/RC/tel2/tel3 permet à une saisie purement numérique de retomber
+    // naturellement sur le bon client sans logique de détection de format séparée.
     // $agence = false : pas de filtre d'agence du tout (recherche globale "autres agences" du
     // bandeau haut, com_search/controleurs/search/controleur.php - déclenchée seulement après un
     // premier essai sans résultat dans l'agence en cours, jamais par défaut).
@@ -604,7 +606,7 @@ class client
         $like = GetSQLValueString('%' . $terme . '%', 'text');
         $SQLselect = "SELECT id AS ID, " . static::$table . ".* FROM " . static::$table . " WHERE 1=1"
             . ($agence ? " AND id_agence = " . intval($agence) : "")
-            . " AND (nom LIKE $like OR prenom LIKE $like OR raison_social LIKE $like OR email LIKE $like OR tel LIKE $like)"
+            . " AND (nom LIKE $like OR prenom LIKE $like OR raison_social LIKE $like OR email LIKE $like OR tel LIKE $like OR tel2 LIKE $like OR tel3 LIKE $like OR ice LIKE $like OR rc LIKE $like)"
             . " ORDER BY id DESC LIMIT 8";
         foreach ($db->queryS($SQLselect) as $data) {
             array_push($items, static::build($data));

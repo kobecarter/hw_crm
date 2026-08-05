@@ -97,6 +97,32 @@
 		</div>
 		<?php endif; ?>
 
+		<?php if (isset($tva) && !empty($relevesLiesTva)) : ?>
+		<div class="col-md-12">
+			<div class="alert alert-info mb-2" style="font-size:0.9rem;">
+				<i class="fa fa-university mr-1"></i> <?= count($relevesLiesTva) ?> relevé(s) bancaire(s) couvrant la période de cette TVA (traçabilité — pour voir avec quel relevé le comptable a calculé ce montant) :
+				<div class="table-responsive mt-2">
+					<table class="table table-sm table-striped mb-0">
+						<thead><tr><th>Compte</th><th>Période du relevé</th><th>Fichier</th></tr></thead>
+						<tbody>
+							<?php foreach ($relevesLiesTva as $lotTva) :
+								$bankTva = $lotTva->getBank();
+								$nomCompteTva = $bankTva ? ($bankTva->getLabel() !== null && $bankTva->getLabel() !== '' ? $bankTva->getLabel() : ($bankTva->getRaisonSociale() !== null && $bankTva->getRaisonSociale() !== '' ? $bankTva->getRaisonSociale() : $bankTva->getBanque())) : '—';
+							?>
+							<tr>
+								<td><?= htmlspecialchars($nomCompteTva) ?></td>
+								<td><?= $lotTva->getDateDebut() ? date('d/m/Y', strtotime($lotTva->getDateDebut())) : '—' ?> → <?= $lotTva->getDateFin() ? date('d/m/Y', strtotime($lotTva->getDateFin())) : '—' ?></td>
+								<td><?= htmlspecialchars($lotTva->getFichierSource()) ?></td>
+							</tr>
+							<?php endforeach; ?>
+						</tbody>
+					</table>
+				</div>
+				<a href="index.php?option=com_rapprochement" class="d-inline-block mt-2" style="font-size:0.85rem;">Voir dans BANK STATEMENT <i class="fa fa-arrow-right ml-1"></i></a>
+			</div>
+		</div>
+		<?php endif; ?>
+
 		<?php if (isset($tva) && $tva->getIdCharge() != '' && $tva->getIdCharge() !== null) : ?>
 		<div class="col-md-12">
 			<div class="alert alert-success mb-2" style="font-size:0.9rem;">

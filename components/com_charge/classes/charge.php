@@ -9,7 +9,10 @@ class charge
     private $agence;
     private $paid_by;
     private $user;
+    private $client;
 	private $type;
+	private $service_concerne;
+	private $fournisseurs_ids;
     private $titre;
     private $description;
     private $total;
@@ -50,10 +53,48 @@ class charge
     {
         return $this->user;
     }
-	
+
+    public function getClient()
+    {
+        return $this->client;
+    }
+
 	public function getType()
     {
         return $this->type;
+    }
+
+    // Filtre strict Module 1 (Nom de domaine / Hébergement web / Certificat SSL) - distinct de
+    // getType() qui reste la classification comptable existante (fixe/variable/hors_hw), jamais
+    // touchée. Valeurs : '' (aucun), 'domaine', 'hosting', 'ssl' - mêmes slugs que rappel::getType()
+    // pour rester directement compatibles lors de la synchronisation automatique.
+    public function getServiceConcerne()
+    {
+        return $this->service_concerne;
+    }
+
+    // Fournisseurs associés à cette charge (Module 2 - multi-sélection), stockés en JSON plutôt
+    // qu'une table pivot (aucun précédent many-to-many dans ce projet, et le volume par charge
+    // reste faible - un JSON reste largement suffisant et plus simple à maintenir ici). Toujours
+    // un tableau d'entiers, jamais null, pour éviter d'avoir à tester le type à chaque usage.
+    public function getFournisseursIds()
+    {
+        return is_array($this->fournisseurs_ids) ? $this->fournisseurs_ids : array();
+    }
+
+    // Résolution paresseuse en objets fournisseur (uniquement quand affiché, jamais dans build()
+    // qui tournerait pour chaque ligne d'un listing) - fournisseur::find() ignore silencieusement
+    // un id introuvable (objet vide, id=0), filtré ici pour ne jamais afficher de badge cassé.
+    public function getFournisseurs()
+    {
+        $items = array();
+        foreach ($this->getFournisseursIds() as $idFournisseur) {
+            $fournisseur = fournisseur::find($idFournisseur);
+            if ($fournisseur->getId()) {
+                $items[] = $fournisseur;
+            }
+        }
+        return $items;
     }
 
     public function getTitre()
@@ -170,7 +211,22 @@ class charge
     {
         $this->user = $user;
     }
-	
+
+    public function setClient($client)
+    {
+        $this->client = $client;
+    }
+
+    public function setServiceConcerne($service_concerne)
+    {
+        $this->service_concerne = $service_concerne;
+    }
+
+    public function setFournisseursIds($fournisseurs_ids)
+    {
+        $this->fournisseurs_ids = is_array($fournisseurs_ids) ? array_values(array_unique(array_map('intval', $fournisseurs_ids))) : array();
+    }
+
 	public function setType($type)
     {
         $this->type = $type;
@@ -254,11 +310,14 @@ class charge
     public function add()
     {
         global $db;
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence,paid_by,id_user,type, titre, description, total, devise, tva_taux, tva_deductible, paid, facture, refunded, date_charge, date_payment, mode_payment, photo, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence,paid_by,id_user,id_client,type,service_concerne,fournisseurs_ids, titre, description, total, devise, tva_taux, tva_deductible, paid, facture, refunded, date_charge, date_payment, mode_payment, photo, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->agence->getId(), "int"),
             GetSQLValueString($this->paid_by->getId(), "int"),
             GetSQLValueString($this->user->getId(), "int"),
+            GetSQLValueString($this->client && $this->client->getId() ? $this->client->getId() : null, "int"),
             GetSQLValueString($this->type, "text"),
+            GetSQLValueString($this->service_concerne !== '' ? $this->service_concerne : null, "text"),
+            GetSQLValueString(!empty($this->getFournisseursIds()) ? json_encode($this->getFournisseursIds()) : null, "text"),
 			GetSQLValueString($this->titre, "text"),
             GetSQLValueString($this->description, "text"),
             GetSQLValueString($this->total, "double"),
@@ -285,11 +344,14 @@ class charge
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET id_agence = %s, paid_by = %s, id_user = %s, type = %s, titre = %s, description = %s, total = %s, devise = %s, tva_taux = %s, tva_deductible = %s, paid = %s, facture = %s, refunded = %s, date_charge = %s, date_payment = %s, mode_payment = %s, photo = %s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET id_agence = %s, paid_by = %s, id_user = %s, id_client = %s, type = %s, service_concerne = %s, fournisseurs_ids = %s, titre = %s, description = %s, total = %s, devise = %s, tva_taux = %s, tva_deductible = %s, paid = %s, facture = %s, refunded = %s, date_charge = %s, date_payment = %s, mode_payment = %s, photo = %s, last_edit = %s WHERE id = %s",
             GetSQLValueString($this->agence->getId(), "int"),
             GetSQLValueString($this->paid_by->getId(), "int"),
             GetSQLValueString($this->user->getId(), "int"),
+            GetSQLValueString($this->client && $this->client->getId() ? $this->client->getId() : null, "int"),
             GetSQLValueString($this->type, "text"),
+            GetSQLValueString($this->service_concerne !== '' ? $this->service_concerne : null, "text"),
+            GetSQLValueString(!empty($this->getFournisseursIds()) ? json_encode($this->getFournisseursIds()) : null, "text"),
             GetSQLValueString($this->titre, "text"),
             GetSQLValueString($this->description, "text"),
             GetSQLValueString($this->total, "double"),
@@ -381,7 +443,12 @@ class charge
         $charge->setAgence(agence::find($data['id_agence'],$_SESSION['langue']));
         $charge->setPaidBy(user::find($data['paid_by']));
         $charge->setUser(user::find($data['id_user']));
+		if (!empty($data['id_client'])) {
+			$charge->setClient(client::find($data['id_client'], $_SESSION['agence']));
+		}
 		$charge->setType($data['type']);
+		$charge->setServiceConcerne(isset($data['service_concerne']) ? $data['service_concerne'] : '');
+		$charge->setFournisseursIds(!empty($data['fournisseurs_ids']) ? json_decode($data['fournisseurs_ids'], true) : array());
         $charge->setTitre($data['titre']);
         $charge->setDescription($data['description']);
         $charge->setTotal($data['total']);

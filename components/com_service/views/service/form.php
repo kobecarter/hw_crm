@@ -2,7 +2,12 @@
 <form method="post" action="<?php echo $action; ?>" id="serviceForm" enctype="multipart/form-data">
 	<div class="row">
 		<div class="col-md-12 msgbox"></div>
-		<div class="col-md-3">
+
+		<div class="col-md-12">
+			<h6 class="form-section-title"><i class="fa fa-info-circle mr-1"></i> Informations générales</h6>
+		</div>
+
+		<div class="col-md-4">
 			<div class="form-group">
 				<label>Catégorie</label>
 				<select class="chosen-select" name="id_categorie">
@@ -13,62 +18,14 @@
 				</select>
 			</div>
 		</div>
-		
-		<div class="col-md-3">
+
+		<div class="col-md-8">
 			<div class="form-group">
 				<label>Titre</label>
 				<input type="text" class="form-control" name="titre" value="<?php if(isset($service)) echo $service->getTitre(); elseif(isset($prefillTitre)) echo htmlspecialchars($prefillTitre); ?>">
 			</div>
 		</div>
-	
-		<div class="col-md-3">
-			<div class="form-group">
-				<label>Unité</label>
-				<select class="chosen-select" name="unite">
-				    <option value="">Sélectionner</option>
-					<?php
-				    $unities = getUnities()[isset($devis) ? $devis->getLangue() : $_SESSION['langue']];
-				    foreach ($unities as $key=>  $value) : ?>
-				    <?php $sl = isset($service) ? ($service->getUnite() == $key ? "selected" : "") : (isset($prefillUnite) && $prefillUnite == $key ? "selected" : ""); ?>
-					<option value="<?php echo $key ?>" <?php echo $sl; ?>><?= $value ?></option>
-					<?php endforeach; ?>
-				</select>
-				
-				<!-- <input type="text" class="form-control" name="unite" value="<?php if(isset($service)) echo $service->getUnite(); ?>"> -->
-			</div>
-		</div>
-	
-		<div class="col-md-3">
-			<div class="form-group">
-				<label>Prix</label>
-				<input type="number" step="any" class="form-control" name="prix" value="<?php if(isset($service)) echo $service->getPrix(); elseif(isset($prefillPrix)) echo htmlspecialchars($prefillPrix); ?>">
-			</div>
-		</div>
-	
-		<div class="col-md-3">
-			<div class="form-group">
-				<label>Intervenants</label>
-				<input type="text" class="form-control" name="intervenant" value="<?php if(isset($service)) echo $service->getIntervenant(); ?>">
-			</div>
-		</div>
-		
-		<div class="col-md-3">
-			<div class="form-group">
-				<label>Facturation</label>
-				<select class="chosen-select" name="facturation">
-				    <option value="unique" <?php if(isset($service) && $service->getFacturation() == 'unique') echo "selected"; ?>>Unique</option>
-				    <option value="periodique" <?php if(isset($service) && $service->getFacturation() == 'periodique') echo "selected"; ?>>Périodique</option>
-				</select>
-			</div>
-		</div>
-		
-		<div class="col-md-3">
-			<div class="form-group">
-				<label>Ordre</label>
-				<input type="number" class="form-control" name="ordre" value="<?php if(isset($service)) echo $service->getOrdre(); ?>">
-			</div>
-		</div>
-		
+
 		<div class="col-md-12">
 			<div class="form-group">
 				<label>Description</label>
@@ -82,7 +39,85 @@
                 </script>
 			</div>
 		</div>
-		
+
+		<div class="col-md-12">
+			<h6 class="form-section-title"><i class="fa fa-tags mr-1"></i> Tarification &amp; suivi</h6>
+		</div>
+
+		<div class="col-md-3">
+			<div class="form-group">
+				<label>Prix</label>
+				<input type="number" step="any" class="form-control" name="prix" value="<?php if(isset($service)) echo $service->getPrix(); elseif(isset($prefillPrix)) echo htmlspecialchars($prefillPrix); ?>">
+			</div>
+		</div>
+
+		<div class="col-md-3">
+			<div class="form-group">
+				<label>Unité</label>
+				<select class="chosen-select" name="unite">
+				    <option value="">Sélectionner</option>
+					<?php
+				    $unities = getUnities()[isset($devis) ? $devis->getLangue() : $_SESSION['langue']];
+				    foreach ($unities as $key=>  $value) : ?>
+				    <?php $sl = isset($service) ? ($service->getUnite() == $key ? "selected" : "") : (isset($prefillUnite) && $prefillUnite == $key ? "selected" : ""); ?>
+					<option value="<?php echo $key ?>" <?php echo $sl; ?>><?= $value ?></option>
+					<?php endforeach; ?>
+				</select>
+			</div>
+		</div>
+
+		<div class="col-md-3">
+			<div class="form-group">
+				<label>Facturation</label>
+				<select class="chosen-select" name="facturation">
+				    <option value="unique" <?php if(isset($service) && $service->getFacturation() == 'unique') echo "selected"; ?>>Unique</option>
+				    <option value="periodique" <?php if(isset($service) && $service->getFacturation() == 'periodique') echo "selected"; ?>>Périodique</option>
+				</select>
+			</div>
+		</div>
+
+		<div class="col-md-3">
+			<div class="form-group">
+				<label>Ordre</label>
+				<input type="number" class="form-control" name="ordre" value="<?php if(isset($service)) echo $service->getOrdre(); ?>">
+			</div>
+		</div>
+
+		<div class="col-md-12">
+			<div class="form-group">
+				<label>Intervenants</label>
+				<select class="intervenant-select" multiple="multiple" style="width:100%;">
+					<?php
+					// Options canoniques indexées par forme minuscule, pour rattacher les valeurs
+					// déjà saisies sur ce service (casse potentiellement différente de l'historique
+					// agrégé) à la bonne option plutôt que d'en créer un doublon visuel.
+					$optionsParCleBasse = array();
+					foreach ((isset($intervenantsConnus) ? $intervenantsConnus : array()) as $val) {
+						$optionsParCleBasse[mb_strtolower($val)] = $val;
+					}
+					$clesSelectionnees = array();
+					if (isset($service) && trim((string) $service->getIntervenant()) !== '') {
+						foreach (explode(',', $service->getIntervenant()) as $morceau) {
+							$morceau = trim($morceau);
+							if ($morceau === '') { continue; }
+							$cle = mb_strtolower($morceau);
+							if (!isset($optionsParCleBasse[$cle])) {
+								$optionsParCleBasse[$cle] = $morceau;
+							}
+							$clesSelectionnees[$cle] = true;
+						}
+					}
+					$optionsIntervenants = array_values($optionsParCleBasse);
+					sort($optionsIntervenants, SORT_FLAG_CASE | SORT_STRING);
+					foreach ($optionsIntervenants as $val) : ?>
+						<option value="<?= htmlspecialchars($val) ?>" <?= isset($clesSelectionnees[mb_strtolower($val)]) ? 'selected' : '' ?>><?= htmlspecialchars($val) ?></option>
+					<?php endforeach; ?>
+				</select>
+				<small class="text-muted">Profils déjà utilisés sur d'autres services, ou intitulés de poste des employés actifs - tapez un nom pour ajouter un nouveau profil.</small>
+				<input type="hidden" name="intervenant" id="intervenantHidden" value="<?php if(isset($service)) echo htmlspecialchars($service->getIntervenant()); ?>">
+			</div>
+		</div>
+
 		<!-- Toggle Switch -->
 		<div class="col-md-12">
 			<label class="row form-group toggle-switch">
@@ -96,9 +131,9 @@
 					</span>
 				</span>
 			</label>
-		</div>	
+		</div>
 		<!-- /Toggle Switch -->
-				
+
 		<?php if(isset($service)): ?>
 		<input type="hidden" name="id" value="<?php echo $service->getId(); ?>">
 		<?php endif; ?>
@@ -123,9 +158,27 @@
 <script>
     $(function () {
 
+        // Drop-list "Intervenants" avec création libre (Select2 tags:true) - le champ réellement
+        // envoyé au serveur reste #intervenantHidden, une simple chaîne "A, B, C" comme avant,
+        // pour ne rien changer côté backend/BDD.
+        $('.intervenant-select').select2({
+            tags: true,
+            width: '100%',
+            placeholder: 'Sélectionner ou taper un profil...',
+            language: {
+                noResults: function () { return "Appuyez sur Entrée pour ajouter ce profil"; }
+            }
+        });
+        function syncIntervenantHidden() {
+            $('#intervenantHidden').val(($('.intervenant-select').val() || []).join(', '));
+        }
+        $('.intervenant-select').on('change', syncIntervenantHidden);
+        syncIntervenantHidden();
+
         // envoi du formulaire en ajax
         $('form#serviceForm').ajaxForm({
             beforeSubmit: function () {
+                syncIntervenantHidden();
                 $("#serviceForm .submit").prop("disabled", true);
                 $("#serviceForm .loading").css('display','inline-block');
             },

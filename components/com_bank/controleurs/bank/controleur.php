@@ -164,6 +164,11 @@ function getBanksByAgence($data)
 
     echo '<option value="" selected disabled>Sélectionner</option>';
     foreach ($banks as $bank) {
-        echo '<option value="' . $bank->getId() . '">' . htmlspecialchars($bank->getRaisonSociale() . ' ' . $bank->getRib()) . '</option>';
+        // Comptes personnels (Hamid/Zakaria - "PERSO" dans la raison sociale, voir $reglesParAgence
+        // ci-dessus) : marqués pour que le JS du formulaire devis/facture (assets/js/ia-bank-
+        // filter.js) force automatiquement "Proforma" + TVA à 0 dès qu'un de ces comptes est
+        // choisi - ces comptes ne sont pas éligibles à une facturation avec TVA.
+        $estPerso = stripos($bank->getRaisonSociale(), 'PERSO') !== false;
+        echo '<option value="' . $bank->getId() . '"' . ($estPerso ? ' data-perso="1"' : '') . '>' . htmlspecialchars($bank->getRaisonSociale() . ' ' . $bank->getRib()) . '</option>';
     }
 }

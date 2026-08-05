@@ -11,6 +11,8 @@ switch ($task)
 			$charges = charge::findAll(true,$_SESSION['agence']);
 			$users = user::findAll();
 			$employes = resourcehumaine::findAll();
+			$clients = client::findAll(true,false,$_SESSION['agence']);
+			$fournisseurs = fournisseur::findAll(true);
             include_once("components/com_charge/views/charge/add.php");
         }
         break;
@@ -21,6 +23,8 @@ switch ($task)
                 $charge = charge::find($id,$_SESSION['agence']);
                 $users = user::findAll();
                 $employes = resourcehumaine::findAll();
+                $clients = client::findAll(true,false,$_SESSION['agence']);
+                $fournisseurs = fournisseur::findAll(true);
                 $bulletinLie = payslip::findByIdCharge($id);
                 $action = "components/com_charge/controleurs/router.php?task=editCharge";
                 $submitName = "edit";

@@ -77,6 +77,62 @@ function getCategorieFournisseurIcone($id){
     return isset($icones[$id]) ? $icones[$id] : 'fa-briefcase';
 }
 
+// Icône, couleur d'accent et photo réelle (récupérée du site helloworld-agency.com, une par
+// catégorie) associées à chaque catégorie de service (crm_categorie/crm_details_categorie) - même
+// principe que getCategorieFournisseurIcone() ci-dessus, mais avec en plus une photo puisque la
+// page Services affiche désormais une bannière par catégorie (grille façon page Fournisseurs).
+function getServiceCategorieIcone($id){
+    $icones = array(
+        1 => 'fa-code',
+        2 => 'fa-chart-line',
+        3 => 'fa-palette',
+        4 => 'fa-bullhorn',
+        5 => 'fa-camera-retro',
+    );
+    return isset($icones[$id]) ? $icones[$id] : 'fa-briefcase';
+}
+
+function getServiceCategorieCouleur($id){
+    $couleurs = array(
+        1 => '#6366f1',
+        2 => '#0d9488',
+        3 => '#a855f7',
+        4 => '#3b82f6',
+        5 => '#22c55e',
+    );
+    return isset($couleurs[$id]) ? $couleurs[$id] : '#6366f1';
+}
+
+function getServiceCategoriePhoto($id){
+    $photos = array(
+        1 => '1-developpement.webp',
+        2 => '2-seo.webp',
+        3 => '3-design.webp',
+        4 => '4-marketing.webp',
+        5 => '5-shooting.webp',
+    );
+    return isset($photos[$id]) ? $photos[$id] : null;
+}
+
+// Années sans déclaration enregistrée, depuis la création de l'agence jusqu'à l'année en cours
+// incluse - même principe que le calcul "mois manquants" de la page TVA/CNSS, mais à la maille
+// annuelle pour les déclarations qui n'ont lieu qu'une fois par an (Bilan, Impôts, Taxe
+// professionnelle). Partagé entre les 3 pages plutôt que dupliqué, car $classe change mais la
+// logique (findByYear($agenceId, $annee) vide = manquante) est strictement identique.
+function comAccountingAnneesManquantes($classe, $agenceObj)
+{
+    $anneeCourante = (int) date('Y');
+    $anneeCreation = $agenceObj && $agenceObj->getDateAdd() ? (int) date('Y', strtotime($agenceObj->getDateAdd())) : 2022;
+    $manquantes = array();
+    for ($y = $anneeCreation; $y <= $anneeCourante; $y++) {
+        $lignes = $classe::findByYear($agenceObj->getId(), (string) $y);
+        if (empty($lignes)) {
+            $manquantes[] = $y;
+        }
+    }
+    return array('annees' => $manquantes, 'anneeCreation' => $anneeCreation);
+}
+
 function fileExtension($s) {
   // strrpos() function returns the position 
   // of the last occurrence of a string inside 

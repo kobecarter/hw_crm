@@ -55,6 +55,54 @@
 		<?php endif; ?>
 
 		<div class="col-md-12">
+			<div class="charge-section-title"><i class="fa fa-globe mr-2"></i>Client &amp; service concerné (optionnel)</div>
+			<p class="text-muted mb-2" style="font-size:0.9rem;">
+				Pour un renouvellement de nom de domaine, hébergement web ou certificat SSL, sélectionnez le client
+				et le service concerné : le rappel d'expiration correspondant (<a href="index.php?option=com_rappel" target="_blank">com_rappel</a>)
+				est mis à jour automatiquement (ou créé s'il n'existe pas encore) à l'enregistrement de cette charge.
+			</p>
+		</div>
+
+		<div class="col-md-3">
+			<div class="form-group">
+				<label>Client</label>
+				<select class="chosen-select" name="client">
+					<option value="">Aucun</option>
+					<?php foreach ($clients as $clientOption) : ?>
+						<?php $sl = isset($charge) && $charge->getClient() && $charge->getClient()->getId() == $clientOption->getId() ? "selected" : ""; ?>
+						<option value="<?php echo $clientOption->getId() ?>" <?php echo $sl; ?>><?php echo $clientOption->getNom() . ' ' . $clientOption->getPrenom() . ' - ' . $clientOption->getRaisonSocial(); ?></option>
+					<?php endforeach; ?>
+				</select>
+			</div>
+		</div>
+
+		<div class="col-md-3">
+			<div class="form-group">
+				<label>Service concerné</label>
+				<select class="select" name="service_concerne" id="chargeServiceConcerne">
+					<option value="" <?php echo (isset($charge) && $charge->getServiceConcerne() == '') ? 'selected' : ''; ?>>Aucun</option>
+					<option value="domaine" <?php echo (isset($charge) && $charge->getServiceConcerne() == 'domaine') ? 'selected' : ''; ?>>Nom de domaine</option>
+					<option value="hosting" <?php echo (isset($charge) && $charge->getServiceConcerne() == 'hosting') ? 'selected' : ''; ?>>Hébergement web</option>
+					<option value="ssl" <?php echo (isset($charge) && $charge->getServiceConcerne() == 'ssl') ? 'selected' : ''; ?>>Certificat SSL</option>
+				</select>
+			</div>
+		</div>
+
+		<div class="col-md-6">
+			<div class="form-group">
+				<label>Fournisseur(s)</label>
+				<select class="chosen-select" name="fournisseurs[]" multiple="multiple">
+					<?php $fournisseursActuelsCharge = isset($charge) ? array_map(function ($f) { return $f->getId(); }, $charge->getFournisseurs()) : array(); ?>
+					<?php foreach ($fournisseurs as $fournisseurOption) : ?>
+						<?php $nomFournisseur = trim((string) $fournisseurOption->getRaisonSocial()) !== '' ? $fournisseurOption->getRaisonSocial() : trim($fournisseurOption->getPrenom() . ' ' . $fournisseurOption->getNom()); ?>
+						<option value="<?php echo $fournisseurOption->getId() ?>" <?php echo in_array($fournisseurOption->getId(), $fournisseursActuelsCharge) ? 'selected' : ''; ?>><?php echo htmlspecialchars($nomFournisseur); ?></option>
+					<?php endforeach; ?>
+				</select>
+				<small class="text-muted">Plusieurs fournisseurs possibles (ex: domaine chez A, hébergement chez B).</small>
+			</div>
+		</div>
+
+		<div class="col-md-12">
 			<div class="charge-section-title"><i class="fa fa-info-circle mr-2"></i>Informations générales</div>
 		</div>
 

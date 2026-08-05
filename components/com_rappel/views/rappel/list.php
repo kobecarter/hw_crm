@@ -85,6 +85,7 @@
 										<th>ID</th>
 										<th>Type</th>
 										<th>Domaine</th>
+										<th>Fournisseur(s)</th>
 										<th>Date expiration</th>
 										<th class="text-right">Actions</th>
 									</tr>
@@ -110,6 +111,16 @@
 											<td><?php echo $rappel->getId(); ?></td>
 											<td><?php echo $rappel->getType(); ?></td>
 											<td><?php echo $rappel->getDomaine(); ?></td>
+											<td>
+												<?php if (!empty($rappel->getFournisseurs())) : ?>
+													<?php foreach ($rappel->getFournisseurs() as $fournisseurBadgeRappel) : ?>
+														<?php $nomFournisseurBadgeRappel = trim((string) $fournisseurBadgeRappel->getRaisonSocial()) !== '' ? $fournisseurBadgeRappel->getRaisonSocial() : trim($fournisseurBadgeRappel->getPrenom() . ' ' . $fournisseurBadgeRappel->getNom()); ?>
+														<a href="index.php?option=com_fournisseur&task=edit&id=<?= $fournisseurBadgeRappel->getId() ?>" class="badge bg-default-light mb-1" target="_blank"><i class="fa fa-truck mr-1"></i><?= htmlspecialchars($nomFournisseurBadgeRappel) ?></a>
+													<?php endforeach; ?>
+												<?php else : ?>
+													<span class="text-muted">—</span>
+												<?php endif; ?>
+											</td>
 											<td data-sort="<?= strtotime($rappel->getDateExpir())?>"><?php echo normaldate($rappel->getDateExpir()); ?></td>
 											<td class="text-right">
 											    <?php if ($_SESSION['user']->hasDroit('edit', 'com_rappel') || $_SESSION['user']->hasDroit('add', 'com_rappel')) :?>

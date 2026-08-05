@@ -81,6 +81,7 @@
 									<li class="<?= isset($_GET['option']) && $_GET['option'] == $module->getIdModule() && isset($_GET['task']) && $_GET['task'] == 'tva' ? 'active' : null ?>"><a href="index.php?option=<?= $module->getIdModule(); ?>&task=tva">TVA</a></li>
 									<li class="<?= isset($_GET['option']) && $_GET['option'] == $module->getIdModule() && isset($_GET['task']) && $_GET['task'] == 'bilan' ? 'active' : null ?>"><a href="index.php?option=<?= $module->getIdModule(); ?>&task=bilan">BILAN</a></li>
 									<li class="<?= isset($_GET['option']) && $_GET['option'] == $module->getIdModule() && isset($_GET['task']) && $_GET['task'] == 'taxeprofessionnelle' ? 'active' : null ?>"><a href="index.php?option=<?= $module->getIdModule(); ?>&task=taxeprofessionnelle">TAXE PRO</a></li>
+									<li class="<?= isset($_GET['option']) && $_GET['option'] == $module->getIdModule() && isset($_GET['task']) && $_GET['task'] == 'impot' ? 'active' : null ?>"><a href="index.php?option=<?= $module->getIdModule(); ?>&task=impot">IMPÔTS</a></li>
 									<?php if ($_SESSION['user']->hasDroit('view', 'com_rapprochement')) :?>
 									<li class="<?= isset($_GET['option']) && $_GET['option'] == 'com_rapprochement' ? 'active' : null ?>"><a href="index.php?option=com_rapprochement">BANK STATEMENT</a></li>
 									<?php endif;?>

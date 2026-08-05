@@ -29,7 +29,20 @@
 		?>
 
 		<div class="row">
-			<div class="col-xl-4 col-sm-6 col-12 d-flex">
+			<div class="col-xl-3 col-sm-6 col-12 d-flex">
+				<div class="card flex-fill mb-0">
+					<div class="card-body">
+						<div class="dash-widget-header">
+							<span class="dash-widget-icon bg-2"><i class="far fa-file-excel"></i></span>
+							<div class="dash-count">
+								<div class="dash-title">Relevés bancaires importés</div>
+								<div class="dash-counts"><p><?= sizeof($lotsData) ?></p></div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="col-xl-3 col-sm-6 col-12 d-flex">
 				<div class="card flex-fill mb-0">
 					<div class="card-body">
 						<div class="dash-widget-header">
@@ -42,7 +55,7 @@
 					</div>
 				</div>
 			</div>
-			<div class="col-xl-4 col-sm-6 col-12 d-flex">
+			<div class="col-xl-3 col-sm-6 col-12 d-flex">
 				<div class="card flex-fill mb-0">
 					<div class="card-body">
 						<div class="dash-widget-header">
@@ -55,7 +68,7 @@
 					</div>
 				</div>
 			</div>
-			<div class="col-xl-4 col-sm-6 col-12 d-flex">
+			<div class="col-xl-3 col-sm-6 col-12 d-flex">
 				<div class="card flex-fill mb-0 <?= $compteursGlobal['sans_justificatif'] > 0 ? 'kpi-blink' : '' ?>">
 					<div class="card-body">
 						<div class="dash-widget-header">
@@ -151,7 +164,11 @@
 					$nbRapprocheesLot = $compteurs['matched_facture'] + $compteurs['matched_charge'] + $compteurs['matched_tva'];
 					$bankLot = $lot->getBank();
 					$nomCompteLot = $bankLot ? ($bankLot->getLabel() !== null && $bankLot->getLabel() !== '' ? $bankLot->getLabel() : ($bankLot->getRaisonSociale() !== null && $bankLot->getRaisonSociale() !== '' ? $bankLot->getRaisonSociale() : $bankLot->getBanque())) : '—';
-					$expanded = ($index === 0);
+					// Replié même s'il vient d'être importé si l'utilisateur a répondu "Non" à la
+					// question "faire le rapprochement maintenant ?" (collapse_dernier=1 posé par
+					// le rechargement de afficherGatePeriode()) - dans ce cas on ne veut pas
+					// dérouler automatiquement l'écran de résolution ligne par ligne.
+					$expanded = ($index === 0) && !isset($_GET['collapse_dernier']);
 					$fromExport = $lot->getDateDebut() ? date('d/m/Y', strtotime($lot->getDateDebut())) : '';
 					$toExport = $lot->getDateFin() ? date('d/m/Y', strtotime($lot->getDateFin())) : '';
 				?>
@@ -566,6 +583,15 @@
 	</div>
 </div>
 
+<!-- Question posée juste après confirmation d'un import : les relevés de la période TVA (mois ou
+     trimestre selon l'agence) sont regroupés ici, avant de proposer de lancer la résolution ligne
+     par ligne - voir afficherGatePeriode() dans le script ci-dessous. Contenu injecté en JS. -->
+<div id="dialog-gate-periode" class="modal custom-modal fade" role="dialog">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content"></div>
+	</div>
+</div>
+
 <!-- Popup "Pousser ce relevé dans le dossier comptable" — étape de vérification avant d'exporter :
      rappelle où en est le lot (rapprochées / à valider / sans justificatif) pour que l'utilisateur
      confirme en connaissance de cause plutôt que de pousser des données encore incomplètes. -->
@@ -662,11 +688,19 @@ $(function () {
 		}
 	});
 
-	function importerFichier(fichier) {
+	// Conservé pour permettre de relancer l'analyse avec un compte choisi manuellement sans
+	// redemander le fichier à l'utilisateur (afficherChoixCompteManuel() ci-dessous).
+	var dernierFichierImporte = null;
+
+	function importerFichier(fichier, idBankForce) {
+		dernierFichierImporte = fichier;
 		$('#rapprochementMsgBox').html('<div class="alert alert-info"><i class="fa fa-spinner fa-spin mr-2"></i>Analyse du relevé en cours (détection du compte, lecture des lignes)...</div>');
 
 		var formData = new FormData();
 		formData.append('document[]', fichier);
+		if (idBankForce) {
+			formData.append('id_bank_force', idBankForce);
+		}
 
 		$.ajax({
 			url: 'components/com_rapprochement/controleurs/router.php?task=previewReleve',
@@ -678,6 +712,8 @@ $(function () {
 				$('#rapprochementMsgBox').empty();
 				if (response.success) {
 					afficherApercu(response);
+				} else if (response.bank_non_detecte) {
+					afficherChoixCompteManuel(response);
 				} else {
 					$('#rapprochementMsgBox').html('<div class="alert alert-danger">' + escHtml(response.message || "Erreur lors de l'analyse") + '</div>');
 				}
@@ -688,6 +724,41 @@ $(function () {
 		});
 	}
 
+	// ---- Compte bancaire non reconnu automatiquement (RIB/IBAN non lus, format inhabituel...) :
+	// plutôt que de bloquer l'import, on propose de choisir le compte manuellement dans la liste
+	// des comptes de l'agence, puis on relance l'analyse avec ce choix (id_bank_force) sur le
+	// MÊME fichier déjà en mémoire côté navigateur - pas besoin de le redéposer. -----------------
+	function afficherChoixCompteManuel(r) {
+		var comptes = r.comptes_disponibles || [];
+		var options = comptes.map(function (c) {
+			return '<option value="' + c.id + '">' + escHtml(c.nom) + '</option>';
+		}).join('');
+
+		var html = '<div class="alert alert-warning">'
+			+ '<div class="d-flex align-items-center flex-wrap">'
+			+ '<div class="mr-3 mb-2"><i class="fa fa-university mr-2"></i>Compte bancaire non reconnu automatiquement dans ce document. Choisissez-le manuellement :</div>'
+			+ '</div>'
+			+ '<div class="d-flex align-items-center flex-wrap mt-2">'
+			+ '<select id="compteManuelSelect" class="form-control mr-2 mb-2" style="max-width:320px;"><option value="">Sélectionner un compte…</option>' + options + '</select>'
+			+ '<button type="button" class="btn btn-primary mb-2" id="compteManuelConfirmerBtn"><i class="fa fa-check mr-1"></i> Continuer avec ce compte</button>'
+			+ '</div>'
+			+ '</div>';
+		$('#rapprochementMsgBox').html(html);
+	}
+
+	$(document).on('click', '#compteManuelConfirmerBtn', function () {
+		var idChoisi = $('#compteManuelSelect').val();
+		if (!idChoisi) {
+			alert('Veuillez sélectionner un compte.');
+			return;
+		}
+		if (!dernierFichierImporte) {
+			$('#rapprochementMsgBox').html('<div class="alert alert-danger">Fichier perdu, veuillez le redéposer.</div>');
+			return;
+		}
+		importerFichier(dernierFichierImporte, idChoisi);
+	});
+
 	// ---- Aperçu avant validation ------------------------------------------------------------
 	var apercuCourant = null;
 
@@ -695,6 +766,9 @@ $(function () {
 		var infos = l.donnees_matching || {};
 		if (l.statut === 'sans_justificatif') {
 			return '<span class="badge bg-danger-light"><i class="fa fa-exclamation-triangle mr-1"></i>Sans justificatif</span>';
+		}
+		if (infos.type === 'ligne_dupliquee') {
+			return '<span class="badge badge-light text-muted" data-toggle="tooltip" data-title="' + (infos.date_import_existant ? 'Déjà importée le ' + formatDateFr(infos.date_import_existant) : '') + '"><i class="fa fa-copy mr-1"></i>Déjà importée</span>';
 		}
 		if (infos.type === 'debit_commission') {
 			return '<span class="badge bg-info-light">Commission bancaire (agrégée)</span>';
@@ -734,10 +808,24 @@ $(function () {
 	function afficherApercu(r) {
 		apercuCourant = r;
 		var html = '';
-		html += '<div class="alert alert-success mb-3">Compte détecté : <strong>' + escHtml(r.banque) + '</strong>'
+		var bloque = r.compteurs && r.compteurs.doublon > 0;
+
+		html += '<div class="alert ' + (bloque ? 'alert-warning' : 'alert-success') + ' mb-3">Compte détecté : <strong>' + escHtml(r.banque) + '</strong>'
 			+ (r.periode_libelle ? ' — période <strong>' + escHtml(r.periode_libelle) + '</strong>' : '')
 			+ (r.agence_basculee ? '<br><i class="fa fa-exchange-alt mr-1"></i>Ce compte appartient à <strong>' + escHtml(r.nouvelle_agence) + '</strong> — la session basculera sur cette agence à la validation.' : '')
 			+ '</div>';
+
+		// Doublon détecté (partiel ou total) : on bloque simplement la validation plutôt que de
+		// proposer un choix garder/écraser - l'utilisateur doit supprimer l'ancien relevé (bouton
+		// 🗑 sur sa carte dans "Relevés importés" ci-dessous) avant de pouvoir réimporter celui-ci.
+		if (bloque) {
+			var lotExistant = r.lot_existant_info || null;
+			html += '<div class="alert alert-danger mb-3">'
+				+ '<i class="fa fa-ban mr-2"></i><strong>' + (r.releve_entierement_deja_importe ? 'Ce relevé bancaire a déjà été importé' : (r.compteurs.doublon + ' ligne(s) de ce relevé ont déjà été importées')) + '</strong>'
+				+ (lotExistant && lotExistant.date_debut ? ' (période du ' + formatDateFr(lotExistant.date_debut) + ' au ' + formatDateFr(lotExistant.date_fin) + ', importé le ' + formatDateFr(lotExistant.date_add) + ')' : '')
+				+ '.<br>Supprimez l\'ancien relevé dans la liste "Relevés importés" ci-dessous (icône <i class="fa fa-trash"></i>), puis réimportez ce fichier.'
+				+ '</div>';
+		}
 
 		html += '<div class="table-responsive mb-3"><table class="table table-sm table-striped mb-0"><thead><tr><th>Date</th><th>Libellé</th><th>Débit</th><th>Crédit</th><th>Statut proposé</th></tr></thead><tbody>';
 		(r.lignes || []).forEach(function (l) {
@@ -748,7 +836,7 @@ $(function () {
 		});
 		html += '</tbody></table></div>';
 
-		if (r.commissions) {
+		if (r.commissions && !bloque) {
 			html += '<div class="rapprochement-commissions-bloc mb-3">'
 				+ '<h5><i class="fa fa-receipt mr-2"></i>Commissions bancaires détectées (' + r.commissions.nb_lignes + ' ligne(s))</h5>'
 				+ '<p class="text-muted mb-3" style="font-size:0.82rem;">Regroupées en une seule charge, avec ce relevé bancaire comme justificatif. Le taux de TVA récupérable est modifiable avant validation.</p>'
@@ -762,7 +850,7 @@ $(function () {
 
 		html += '<div class="d-flex justify-content-end">'
 			+ '<button type="button" class="btn btn-white mr-2" id="apercuAnnulerBtn">Annuler</button>'
-			+ '<button type="button" class="btn btn-primary" id="apercuValiderBtn"><i class="fa fa-check mr-1"></i> Valider la lecture</button>'
+			+ '<button type="button" class="btn btn-primary" id="apercuValiderBtn"' + (bloque ? ' disabled title="Supprimez l\'ancien relevé avant de continuer"' : '') + '><i class="fa fa-check mr-1"></i> Valider la lecture</button>'
 			+ '</div>';
 
 		$('#rapprochementImportZone').hide();
@@ -782,17 +870,70 @@ $(function () {
 		fileInput.val('');
 	});
 
+	// Simple : si l'aperçu a détecté des lignes déjà importées, le bouton est désactivé (voir
+	// afficherApercu()) et ce clic ne peut normalement jamais arriver dans ce cas - garde
+	// défensive quand même, plutôt que de compter uniquement sur l'attribut disabled.
 	$(document).on('click', '#apercuValiderBtn', function () {
 		if (!apercuCourant) { return; }
-		var $btn = $(this).prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Validation...');
+		if (apercuCourant.compteurs && apercuCourant.compteurs.doublon > 0) { return; }
+		posterConfirmerReleve();
+	});
+
+	function posterConfirmerReleve() {
+		if (!apercuCourant) { return; }
+		var $btn = $('#apercuValiderBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Validation...');
 		$.post('components/com_rapprochement/controleurs/router.php?task=confirmerReleve', { payload: JSON.stringify(apercuCourant) }, function (response) {
 			if (response.success) {
-				window.location.reload();
+				afficherGatePeriode(response);
 			} else {
 				alert(response.message || 'Erreur lors de la validation');
 				$btn.prop('disabled', false).html('<i class="fa fa-check mr-1"></i> Valider la lecture');
 			}
 		});
+	}
+
+	// ---- Question posée après insertion : le/les relevé(s) de la période sont réunis, veut-on
+	// faire le rapprochement bancaire maintenant ou plus tard ? L'insertion elle-même a déjà eu
+	// lieu (confirmerReleve() a écrit le lot et ses lignes juste avant) - cette étape ne fait que
+	// décider comment recharger la page : lot déplié prêt à résoudre (Oui), ou replié (Non). -----
+	function afficherGatePeriode(r) {
+		var groupe = r.groupe_periode || [];
+		var html = '<div class="modal-header">'
+			+ '<h5 class="modal-title"><i class="fa fa-layer-group mr-2"></i>Relevé inséré' + (r.periode_libelle ? ' — période ' + escHtml(r.periode_libelle) : '') + '</h5>'
+			+ '</div>';
+		html += '<div class="modal-body">';
+
+		if (groupe.length > 1) {
+			html += '<p>Cette période regroupe déjà <strong>' + groupe.length + ' relevé(s)</strong> importé(s) pour ce compte :</p>';
+			html += '<ul class="rapprochement-gate-liste mb-3">';
+			groupe.forEach(function (g) {
+				html += '<li>'
+					+ (g.date_debut ? formatDateFr(g.date_debut) + ' → ' + formatDateFr(g.date_fin) : escHtml(g.fichier_source || ''))
+					+ (g.est_nouveau ? ' <span class="badge bg-primary-light ml-1">celui-ci</span>' : '')
+					+ (g.a_valider > 0 ? ' <span class="badge bg-warning-light ml-1">' + g.a_valider + ' à valider</span>' : ' <span class="badge bg-success-light ml-1">à jour</span>')
+					+ '</li>';
+			});
+			html += '</ul>';
+		} else {
+			html += '<p>1 relevé importé pour cette période.</p>';
+		}
+
+		html += '<p class="mb-0">Voulez-vous faire le rapprochement bancaire maintenant ?</p>';
+		html += '</div>';
+		html += '<div class="modal-footer">'
+			+ '<button type="button" class="btn btn-white" id="gatePeriodeNonBtn">Non, plus tard</button>'
+			+ '<button type="button" class="btn btn-primary" id="gatePeriodeOuiBtn"><i class="fa fa-check mr-1"></i> Oui, faire le rapprochement</button>'
+			+ '</div>';
+
+		$('#dialog-gate-periode .modal-content').html(html);
+		$('#dialog-gate-periode').modal({ backdrop: 'static', keyboard: false }).modal('show');
+	}
+
+	$(document).on('click', '#gatePeriodeOuiBtn', function () {
+		window.location.href = 'index.php?option=com_rapprochement';
+	});
+	$(document).on('click', '#gatePeriodeNonBtn', function () {
+		window.location.href = 'index.php?option=com_rapprochement&collapse_dernier=1';
 	});
 
 	// ---- Actions par ligne ------------------------------------------------------------------

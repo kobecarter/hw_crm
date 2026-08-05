@@ -103,7 +103,11 @@ class rapprochementMoteur
         // - la confirmation manuelle de la déclaration exacte est explicitement demandée. La
         // période est détectée à partir de la date de l'opération, avec le même calcul que le
         // widget d'échéance TVA (un paiement en août couvre la période de juillet, en mensuel).
-        if (mb_strpos($libelleMin, 'tva') !== false) {
+        // Le portail marocain de paiement en ligne des impôts (SIMPL) libelle souvent l'opération
+        // "PAIEMENT FACT TAXES EN LIGNE" sur le relevé bancaire, sans jamais écrire "TVA" - repéré
+        // ici en confirmé sur un cas réel (relevé BMCE, 03/10/2025, 2605 DH = montant exact de la
+        // déclaration TVA du mois correspondant, restée invisible côté relevés faute de ce trigger).
+        if (mb_strpos($libelleMin, 'tva') !== false || mb_strpos($libelleMin, 'taxes en ligne') !== false) {
             $agenceObjet = agence::find($agence, isset($_SESSION['langue']) ? $_SESSION['langue'] : 'fr');
             $periodicite = $agenceObjet->getTvaPeriodicite() === 'trimestriel' ? 'trimestriel' : 'mensuel';
             $periode = tva::periodeReference($periodicite, new DateTime($ligne->getDateOperation()), -1);

@@ -468,6 +468,7 @@
                                         <th>Date</th>
                                         <th>Statut</th>
                                         <th>Charges</th>
+                                        <th class="text-center">Relevé bancaire</th>
                                         <th class="text-right">Actions</th>
                                     </tr>
                                 </thead>
@@ -490,6 +491,14 @@
                                                     <a href="index.php?option=com_charge&task=edit&id=<?= $tvaRow->getIdCharge() ?>" target="_blank" class="badge badge-success" data-toggle="tooltip" data-placement="top" data-original-title="Voir la charge liée">Poussé <i class="fa fa-external-link-alt ml-1" style="font-size:10px;"></i></a>
                                                 <?php else : ?>
                                                     <span class="badge badge-secondary">Pas encore</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="text-center">
+                                                <?php $nbRelevesTvaRow = isset($releveLotParTva[$tvaRow->getId()]) ? $releveLotParTva[$tvaRow->getId()] : 0; ?>
+                                                <?php if ($nbRelevesTvaRow > 0) : ?>
+                                                    <a href="index.php?option=com_rapprochement" class="badge badge-success" data-toggle="tooltip" data-placement="top" data-original-title="<?= $nbRelevesTvaRow ?> relevé(s) bancaire(s) couvrant la période de cette TVA — voir dans BANK STATEMENT"><i class="fa fa-university mr-1"></i><?= $nbRelevesTvaRow ?></a>
+                                                <?php else : ?>
+                                                    <span class="badge badge-secondary" data-toggle="tooltip" data-placement="top" data-original-title="Aucun relevé bancaire lié à cette TVA"><i class="fa fa-university mr-1"></i>Aucun</span>
                                                 <?php endif; ?>
                                             </td>
                                             <td class="text-right">

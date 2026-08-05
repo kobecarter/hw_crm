@@ -10,6 +10,32 @@ if (isset($task) && !empty($task)) {
         case 'deleteCnss':
             deleteCnss($_POST);
             break;
+        case 'toggleCnssStatus':
+            toggleCnssStatus($_POST);
+            break;
+    }
+}
+
+// Bascule rapide "Non déposé" -> "Déposé" depuis le listing, sans repasser par le formulaire
+// complet (même idiome que les pastilles de mois manquants de la TVA/des bulletins de paie).
+function toggleCnssStatus($data)
+{
+    $indices = array("id");
+    if (!fieldCheck($data, $indices)) {
+        echo "0";
+        return;
+    }
+    $cnss = cnss::find($data['id'], $_SESSION['agence']);
+    if ($cnss->getId() == 0) {
+        echo "2";
+        return;
+    }
+    $cnss->setStatus(1);
+    $cnss->setLastEdit(date("Y-m-d"));
+    if ($cnss->edit() == 0) {
+        echo "1";
+    } else {
+        echo "2";
     }
 }
 

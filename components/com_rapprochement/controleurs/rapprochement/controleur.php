@@ -247,19 +247,38 @@ function previewReleve($data, $files)
     $transactionsBrutes = array();
     $bank = null;
 
+    // Sélection manuelle du compte (voir afficherChoixCompteManuel() côté navigateur) : posée
+    // quand une PREMIÈRE tentative d'auto-détection a échoué sur ce même fichier déjà uploadé.
+    // Prime sur l'auto-détection - inutile de la relancer si l'utilisateur a déjà tranché - et
+    // n'est acceptée que si l'id correspond bien à un compte de la liste autorisée pour cette
+    // agence (jamais un id arbitraire fourni par le navigateur).
+    $idBankForce = isset($data['id_bank_force']) && !empty($data['id_bank_force']) ? intval($data['id_bank_force']) : null;
+    if ($idBankForce !== null) {
+        foreach ($comptes as $c) {
+            if ($c->getId() == $idBankForce) {
+                $bank = $c;
+                break;
+            }
+        }
+    }
+
     try {
         if ($extension === 'csv') {
             // Pas d'IA nécessaire pour un CSV : le compte est identifié par simple recherche
             // textuelle du RIB/IBAN/nom de banque dans le contenu brut du fichier.
             $contenuBrut = file_get_contents($cheminAbsolu);
-            $bank = detecterCompteBancaire($contenuBrut, $comptes);
+            if ($bank === null) {
+                $bank = detecterCompteBancaire($contenuBrut, $comptes);
+            }
             $transactionsBrutes = parserCsvReleve($contenuBrut);
         } else {
             $extrait = aiExtractor::extractReleveBancaire($cheminAbsolu, $extension);
-            $signature = (isset($extrait['banque_detectee']) ? $extrait['banque_detectee'] : '') . ' '
-                . (isset($extrait['rib_detecte']) ? $extrait['rib_detecte'] : '') . ' '
-                . (isset($extrait['iban_detecte']) ? $extrait['iban_detecte'] : '');
-            $bank = detecterCompteBancaire($signature, $comptes);
+            if ($bank === null) {
+                $signature = (isset($extrait['banque_detectee']) ? $extrait['banque_detectee'] : '') . ' '
+                    . (isset($extrait['rib_detecte']) ? $extrait['rib_detecte'] : '') . ' '
+                    . (isset($extrait['iban_detecte']) ? $extrait['iban_detecte'] : '');
+                $bank = detecterCompteBancaire($signature, $comptes);
+            }
             foreach ($extrait['transactions'] as $t) {
                 $transactionsBrutes[] = array(
                     'date' => isset($t['date']) ? $t['date'] : '',
@@ -274,8 +293,20 @@ function previewReleve($data, $files)
         return;
     }
 
+    // Compte non reconnu automatiquement (RIB/IBAN absents ou non lus par l'IA sur un PDF, format
+    // inhabituel sur un CSV...) : plutôt que de bloquer l'import, on renvoie la liste des comptes
+    // disponibles pour que l'utilisateur tranche lui-même - voir afficherChoixCompteManuel() côté
+    // navigateur, qui rappelle previewReleve() avec id_bank_force une fois le choix fait. Le
+    // fichier est déjà sur le disque (uploadFiles() ci-dessus) donc pas besoin de le redéposer.
     if (!$bank) {
-        echo json_encode(array('success' => 0, 'message' => "Compte bancaire non reconnu automatiquement dans ce document. Vérifiez qu'il est bien enregistré (RIB/IBAN) dans Gestion des banques."));
+        echo json_encode(array(
+            'success' => 0,
+            'bank_non_detecte' => true,
+            'message' => "Compte bancaire non reconnu automatiquement dans ce document.",
+            'comptes_disponibles' => array_map(function ($c) {
+                return array('id' => $c->getId(), 'nom' => nomAfficheCompte($c));
+            }, $comptes)
+        ));
         return;
     }
 
@@ -295,9 +326,11 @@ function previewReleve($data, $files)
 
     $lignes = array();
     $lignesCommission = array();
-    $compteurs = array('matched_facture' => 0, 'a_valider' => 0, 'sans_justificatif' => 0, 'debit_commission' => 0);
+    $compteurs = array('matched_facture' => 0, 'a_valider' => 0, 'sans_justificatif' => 0, 'debit_commission' => 0, 'doublon' => 0);
     $dateMin = null;
     $dateMax = null;
+    $nbLignesValides = 0;
+    $lotsImportExistantsVus = array();
 
     foreach ($transactionsBrutes as $t) {
         $dateOperation = normaliserDateOperation($t['date']);
@@ -314,7 +347,22 @@ function previewReleve($data, $files)
         $ligneSimulee->setDebit($t['debit']);
         $ligneSimulee->setCredit($t['credit']);
 
-        if (!empty($t['credit'])) {
+        // Une ligne déjà importée dans un lot antérieur (même compte/date/libellé/montant) n'est
+        // jamais soumise au moteur de matching - inutile de proposer une suggestion pour une
+        // opération déjà traitée. Dès qu'au moins une ligne est ainsi détectée, la validation est
+        // bloquée côté navigateur (voir afficherApercu()) : l'utilisateur doit supprimer l'ancien
+        // relevé avant de pouvoir réimporter celui-ci - voir trouverDoublons().
+        $nbLignesValides++;
+        $doublonsExistants = releveLigne::trouverDoublons($bank->getId(), $dateOperation, $t['debit'], $t['credit'], $t['libelle']);
+        if (!empty($doublonsExistants)) {
+            $ligneSimulee->setStatut('doublon');
+            $ligneSimulee->setDonneesMatchingArray(array(
+                'type' => 'ligne_dupliquee',
+                'date_import_existant' => $doublonsExistants[0]->getDateAdd(),
+                'lot_import_existant' => $doublonsExistants[0]->getLotImport()
+            ));
+            $lotsImportExistantsVus[$doublonsExistants[0]->getLotImport()] = true;
+        } elseif (!empty($t['credit'])) {
             rapprochementMoteur::matcherCredit($ligneSimulee, $idAgenceReelle);
         } else {
             rapprochementMoteur::matcherDebit($ligneSimulee, $idAgenceReelle);
@@ -331,6 +379,8 @@ function previewReleve($data, $files)
         if (isset($infos['type']) && $infos['type'] === 'debit_commission') {
             $lignesCommission[] = $ligneSimulee;
             $compteurs['debit_commission']++;
+        } elseif (isset($infos['type']) && $infos['type'] === 'ligne_dupliquee') {
+            $compteurs['doublon']++;
         } else {
             $compteurs[$ligneSimulee->getStatut()] = isset($compteurs[$ligneSimulee->getStatut()]) ? $compteurs[$ligneSimulee->getStatut()] + 1 : 1;
         }
@@ -354,6 +404,27 @@ function previewReleve($data, $files)
         $periodeLibelle = tva::libellePeriode($periode['debut'], $periodicite);
     }
 
+    // Le relevé déposé est-il, dans son ENSEMBLE, un doublon d'un relevé déjà importé (même
+    // compte, mêmes lignes, toutes rattachées au même lot antérieur) ? Différent d'un doublon
+    // PARTIEL (quelques lignes seulement en commun avec un ou plusieurs anciens relevés) - dans ce
+    // cas précis, afficherApercu() côté navigateur affiche un message dédié ("ce relevé bancaire a
+    // déjà été importé") plutôt que le message générique "X ligne(s) déjà importée(s)". Dans les
+    // deux cas, la validation reste bloquée : l'utilisateur doit supprimer l'ancien relevé avant
+    // de pouvoir réimporter celui-ci (voir confirmerReleve() ci-dessous, qui revérifie et refuse).
+    $releveEntierementDejaImporte = $nbLignesValides > 0 && $compteurs['doublon'] === $nbLignesValides && count($lotsImportExistantsVus) === 1;
+    $lotExistantInfo = null;
+    if ($releveEntierementDejaImporte) {
+        $lotExistant = releveLot::findByLotImport(array_key_first($lotsImportExistantsVus));
+        if ($lotExistant->getId()) {
+            $lotExistantInfo = array(
+                'date_debut' => $lotExistant->getDateDebut(),
+                'date_fin' => $lotExistant->getDateFin(),
+                'date_add' => $lotExistant->getDateAdd() ? date('Y-m-d', strtotime($lotExistant->getDateAdd())) : null,
+                'fichier_source' => $lotExistant->getFichierSource()
+            );
+        }
+    }
+
     echo json_encode(array(
         'success' => 1,
         'lot_import' => uniqid('lot_'),
@@ -368,7 +439,9 @@ function previewReleve($data, $files)
         'periode_libelle' => $periodeLibelle,
         'lignes' => $lignes,
         'commissions' => $agregatCommissions,
-        'compteurs' => $compteurs
+        'compteurs' => $compteurs,
+        'releve_entierement_deja_importe' => $releveEntierementDejaImporte,
+        'lot_existant_info' => $lotExistantInfo
     ));
 }
 
@@ -408,6 +481,25 @@ function confirmerReleve($data)
         $agenceBasculee = true;
     }
     $agenceObjet = agence::find($idAgenceReelle, $_SESSION['langue']);
+
+    // Blocage simple : si ne serait-ce qu'UNE ligne de ce dépôt est déjà en base (même compte/
+    // date/libellé/montant), on refuse tout net, avant toute écriture (lot / charge commissions /
+    // lignes) - l'utilisateur doit supprimer l'ancien relevé (bouton "Supprimer cet import" sur sa
+    // carte dans "Relevés importés") puis réimporter. Revérifié ici (pas seulement à l'aperçu, qui
+    // a normalement déjà désactivé le bouton "Valider la lecture" dans ce cas) pour couvrir un
+    // aperçu resté ouvert un moment ou un autre import concurrent du même relevé.
+    foreach ($payload['lignes'] as $l) {
+        if (!isset($l['date_operation']) || trim((string) $l['libelle']) === '') {
+            continue;
+        }
+        if (!empty(releveLigne::trouverDoublons($bank->getId(), $l['date_operation'], isset($l['debit']) ? $l['debit'] : null, isset($l['credit']) ? $l['credit'] : null, $l['libelle']))) {
+            echo json_encode(array(
+                'success' => 0,
+                'message' => "Ce relevé a déjà été importé (au moins une ligne identique existe déjà). Supprimez l'ancien relevé dans la liste \"Relevés importés\", puis réimportez ce fichier."
+            ));
+            return;
+        }
+    }
 
     $lot = new releveLot();
     $lot->setAgence($agenceObjet);
@@ -520,13 +612,36 @@ function confirmerReleve($data)
         $compteurs[$statut] = isset($compteurs[$statut]) ? $compteurs[$statut] + 1 : 1;
     }
 
+    // Regroupement par période (mois ou trimestre selon la TVA de l'agence) : tous les lots déjà
+    // en base pour ce même compte et cette même période (celui qu'on vient d'insérer inclus) -
+    // sert à poser la question "voulez-vous faire le rapprochement bancaire maintenant ?" une
+    // fois que le/les relevé(s) de la période sont réunis, plutôt que de forcer la résolution
+    // ligne par ligne immédiatement après chaque import pris isolément.
+    $groupePeriode = array();
+    if ($lot->getPeriodeLibelle()) {
+        foreach (releveLot::findAllByPeriode($idAgenceReelle, $bank->getId(), $lot->getPeriodeLibelle()) as $lotPeriode) {
+            $compteursLotPeriode = releveLigne::compterParLot($lotPeriode->getLotImport());
+            $groupePeriode[] = array(
+                'id' => $lotPeriode->getId(),
+                'lot_import' => $lotPeriode->getLotImport(),
+                'fichier_source' => $lotPeriode->getFichierSource(),
+                'date_debut' => $lotPeriode->getDateDebut(),
+                'date_fin' => $lotPeriode->getDateFin(),
+                'est_nouveau' => $lotPeriode->getLotImport() === $payload['lot_import'],
+                'a_valider' => $compteursLotPeriode['a_valider'] + $compteursLotPeriode['sans_justificatif']
+            );
+        }
+    }
+
     echo json_encode(array(
         'success' => 1,
         'lot_import' => $payload['lot_import'],
         'total' => $nbImportees,
         'compteurs' => $compteurs,
         'agence_basculee' => $agenceBasculee,
-        'nouvelle_agence' => $agenceBasculee ? $agenceObjet->getNom() : null
+        'nouvelle_agence' => $agenceBasculee ? $agenceObjet->getNom() : null,
+        'periode_libelle' => $lot->getPeriodeLibelle(),
+        'groupe_periode' => $groupePeriode
     ));
 }
 

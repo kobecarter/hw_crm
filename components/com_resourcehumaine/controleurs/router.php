@@ -125,6 +125,11 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
                 include_once ("joboffer/controleur.php");
             }
             break;
+        case 'validerOffreManuellement' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_resourcehumaine')) {
+                include_once ("joboffer/controleur.php");
+            }
+            break;
         case 'deleteJobOffer' :
             if ($_SESSION['user']->hasDroit('delete', 'com_resourcehumaine')) {
                 include_once ("joboffer/controleur.php");

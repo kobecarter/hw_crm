@@ -42,6 +42,20 @@
 			</div>
 		</div>
 
+		<div class="col-md-6">
+			<div class="form-group">
+				<label>Fournisseur(s)</label>
+				<select class="chosen-select" name="fournisseurs[]" multiple="multiple" style="width:100%;">
+					<?php $fournisseursActuelsRappel = isset($rappel) ? array_map(function ($f) { return $f->getId(); }, $rappel->getFournisseurs()) : array(); ?>
+					<?php foreach ($fournisseurs as $fournisseurOption) : ?>
+						<?php $nomFournisseurRappel = trim((string) $fournisseurOption->getRaisonSocial()) !== '' ? $fournisseurOption->getRaisonSocial() : trim($fournisseurOption->getPrenom() . ' ' . $fournisseurOption->getNom()); ?>
+						<option value="<?php echo $fournisseurOption->getId() ?>" <?php echo in_array($fournisseurOption->getId(), $fournisseursActuelsRappel) ? 'selected' : ''; ?>><?php echo htmlspecialchars($nomFournisseurRappel); ?></option>
+					<?php endforeach; ?>
+				</select>
+				<small class="text-muted">Ex: domaine chez un fournisseur, hébergement chez un autre.</small>
+			</div>
+		</div>
+
 		<div class="col-md-12">
 			<div class="form-group">
 				<label>Remarque</label>

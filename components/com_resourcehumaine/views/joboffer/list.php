@@ -135,6 +135,11 @@
                                                 <?php endif; ?>
                                             </td>
                                             <td class="text-nowrap">
+                                                <?php if ($offer->getStatut() === joboffer::STATUT_EN_ATTENTE_SLACK && $_SESSION['user']->hasDroit('edit', 'com_resourcehumaine')) : ?>
+                                                <a href="javascript:void(0)" class="btn btn-success btn-sm mb-1 btn-valider-manuellement" data-id="<?= $offer->getId() ?>" data-toggle="tooltip" title="Valider sans passer par Slack — envoie immédiatement l'email d'acceptation au candidat">
+                                                    <i class="fa fa-check-circle mr-1"></i> Valider manuellement
+                                                </a><br>
+                                                <?php endif; ?>
                                                 <a href="javascript:void(0)" class="btn btn-warning btn-sm mb-1 btn-modifier-renvoyer"
                                                     data-periode-essai="<?= htmlspecialchars($offer->getPeriodeEssai()) ?>"
                                                     data-salaire="<?= htmlspecialchars($offer->getSalaire()) ?>"
@@ -254,6 +259,28 @@
             $('input[name=commissions]').val($btn.data('commissions'));
             CKEDITOR.instances.jobOfferContenu.setData(String($btn.data('contenu')));
             $('html, body').animate({ scrollTop: $('#jobOfferForm').offset().top - 100 }, 'slow');
+        });
+
+        // Validation manuelle depuis le CRM (sans attendre une réponse Slack) : même effet côté
+        // serveur qu'une validation détectée par le cron Slack (statut, jeton d'acceptation,
+        // email au candidat) - voir validerOffreManuellement() dans le contrôleur.
+        $(document).on('click', '.btn-valider-manuellement', function () {
+            var $btn = $(this);
+            if (!confirm('Valider cette offre manuellement ? Un email avec le lien d\'acceptation sera envoyé immédiatement au candidat.')) {
+                return;
+            }
+            $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Validation...');
+            $.post('components/com_resourcehumaine/controleurs/router.php?task=validerOffreManuellement', { id: $btn.data('id') }, function (response) {
+                if (response.success) {
+                    location.reload();
+                } else {
+                    $btn.prop('disabled', false).html('<i class="fa fa-check-circle mr-1"></i> Valider manuellement');
+                    alert(response.message || 'Erreur lors de la validation.');
+                }
+            }, 'json').fail(function () {
+                $btn.prop('disabled', false).html('<i class="fa fa-check-circle mr-1"></i> Valider manuellement');
+                alert('Erreur de connexion.');
+            });
         });
 
         $(document).on('click', '.btn-supprimer-offre', function () {

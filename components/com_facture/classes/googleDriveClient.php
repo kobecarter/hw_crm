@@ -173,17 +173,128 @@ class googleDriveClient
         return 'https://drive.google.com/drive/folders/' . $folderId;
     }
 
+    /* Normalisation grossière (minuscules, accents retirés au mieux, ponctuation réduite à des
+       espaces) pour comparer deux noms de dossier indépendamment de la casse/accentuation/
+       ponctuation - même idée que normaliserTitreServiceIa() côté devis (assets JS), ici côté
+       serveur puisque la comparaison se fait avant même d'afficher quoi que ce soit au client. */
+    private static function normaliserNomDossier($texte)
+    {
+        $t = mb_strtolower(trim((string) $texte), 'UTF-8');
+        $translitere = @iconv('UTF-8', 'ASCII//TRANSLIT', $t);
+        if ($translitere !== false) {
+            $t = $translitere;
+        }
+        $t = preg_replace('/[^a-z0-9]+/', ' ', $t);
+        return trim($t);
+    }
+
+    /* Liste les dossiers déjà présents directement sous $parentId (sans filtre de nom) - utilisé
+       par rechercherDossiersSimilaires() pour comparer un nom proposé à l'existant plutôt que de
+       ne tester qu'une correspondance exacte comme le fait findOrCreateFolder(). */
+    private static function listerDossiers($parentId)
+    {
+        $query = "'{$parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
+        $url = 'https://www.googleapis.com/drive/v3/files?q=' . urlencode($query) . '&fields=files(id,name)&pageSize=200&supportsAllDrives=true&includeItemsFromAllDrives=true';
+        $result = self::request('GET', $url);
+        return ($result && !empty($result['files'])) ? $result['files'] : array();
+    }
+
+    /* Cherche, parmi les dossiers déjà présents sous $parentId, ceux dont le nom RESSEMBLE à $nom
+       sans y correspondre exactement (une correspondance exacte est déjà gérée silencieusement et
+       sans intervention par findOrCreateFolder - inutile de la remonter ici). Retourne un tableau
+       trié par score de ressemblance décroissant, uniquement au-dessus de $seuil (%). */
+    public static function rechercherDossiersSimilaires($nom, $parentId, $seuil = 55)
+    {
+        if (!self::isConfigured() || !$parentId) {
+            return array();
+        }
+        $nomNormalise = self::normaliserNomDossier($nom);
+        if ($nomNormalise === '') {
+            return array();
+        }
+
+        $correspondances = array();
+        foreach (self::listerDossiers($parentId) as $fichier) {
+            $autreNormalise = self::normaliserNomDossier($fichier['name']);
+            if ($autreNormalise === '' || $autreNormalise === $nomNormalise) {
+                continue;
+            }
+            similar_text($nomNormalise, $autreNormalise, $score);
+            if ($score >= $seuil) {
+                $correspondances[] = array(
+                    'id' => $fichier['id'],
+                    'nom' => $fichier['name'],
+                    'score' => (int) round($score),
+                    'lien' => self::getFolderLink($fichier['id']),
+                );
+            }
+        }
+        usort($correspondances, function ($a, $b) { return $b['score'] <=> $a['score']; });
+        return $correspondances;
+    }
+
+    /* Résout le dossier PARENT (Maroc/Ville ou International/Pays - des dossiers "bucket" jamais
+       source de doublon ambigu, donc créés/retrouvés directement) puis cherche, sous ce parent,
+       des dossiers au nom proche de celui qui serait proposé pour ce client - SANS créer le
+       dossier client lui-même. Utilisé à la création d'une facture pour proposer une étape de
+       validation si un dossier similaire existe déjà, avant de laisser ensureClientFolder() créer
+       ou retrouver le dossier normalement. */
+    public static function verifierDossierClientSimilaire($client)
+    {
+        $resultatVide = array('configure' => false, 'nom_propose' => null, 'parent_id' => null, 'similaires' => array());
+        if (!self::isConfigured() || !$client || $client->getId() == 0) {
+            return $resultatVide;
+        }
+
+        $pays = trim($client->getPays());
+        $isMaroc = ($pays === '') || (stripos($pays, 'maroc') !== false) || (stripos($pays, 'morocco') !== false);
+        if ($isMaroc) {
+            $ville = trim($client->getVille());
+            $segmentsParent = array('MAROC', mb_strtoupper($ville !== '' ? $ville : 'NON CLASSÉ', 'UTF-8'));
+        } else {
+            $segmentsParent = array('INTERNATIONAL', mb_strtoupper($pays, 'UTF-8'));
+        }
+
+        $parentId = self::createFolderPath($segmentsParent, GOOGLE_DRIVE_ROOT_FOLDER_ID);
+        if (!$parentId) {
+            return $resultatVide;
+        }
+
+        $nomClient = $client->getRaisonSocial() != '' ? $client->getRaisonSocial() : trim($client->getNom() . ' ' . $client->getPrenom());
+        $nomPropose = mb_strtoupper($nomClient, 'UTF-8');
+
+        return array(
+            'configure' => true,
+            'nom_propose' => $nomPropose,
+            'parent_id' => $parentId,
+            'similaires' => self::rechercherDossiersSimilaires($nomPropose, $parentId),
+        );
+    }
+
     /* Point d'entrée partagé : classe le client (Maroc par ville / International
        par pays, en MAJUSCULES), crée (ou retrouve, idempotent) son dossier, et
        le partage avec GOOGLE_DRIVE_SHARE_WITH_EMAIL. Appelée à la fois depuis
        la création de facture et depuis la création du ticket Trello (paiement
        devis effectué) : peu importe laquelle des deux arrive en premier, le
        dossier n'est créé qu'une seule fois, l'autre le retrouve simplement.
-       Retourne le lien du dossier, ou null si non configuré / échec. */
-    public static function ensureClientFolder($client)
+       Retourne le lien du dossier, ou null si non configuré / échec.
+
+       $dossierExistantChoisi : ID d'un dossier Drive déjà existant, choisi par l'utilisateur à
+       l'étape de validation "dossier similaire trouvé" (voir verifierDossierClientSimilaire() et
+       com_facture/controleurs/facture/controleur.php:addFacture) plutôt que de laisser cette
+       méthode créer un nouveau dossier - évite le doublon que cette étape de validation existe
+       justement pour prévenir. */
+    public static function ensureClientFolder($client, $dossierExistantChoisi = null)
     {
         if (!self::isConfigured() || !$client || $client->getId() == 0) {
             return null;
+        }
+
+        if ($dossierExistantChoisi) {
+            if (defined('GOOGLE_DRIVE_SHARE_WITH_EMAIL') && GOOGLE_DRIVE_SHARE_WITH_EMAIL !== '') {
+                self::shareFolder($dossierExistantChoisi, GOOGLE_DRIVE_SHARE_WITH_EMAIL, 'writer');
+            }
+            return self::getFolderLink($dossierExistantChoisi);
         }
 
         $pays = trim($client->getPays());
