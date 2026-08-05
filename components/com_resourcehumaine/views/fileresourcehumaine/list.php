@@ -22,21 +22,7 @@
             </div>
         </div>
 
-        <div class="row">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="text-center">
-                            <div class="div-round-profile mb-3">
-                                <img onerror="this.src='./images/default-image.jpeg'" src="./images/resourceshumaines/<?= $resourcehumaine->getPhoto() ?>" alt="<?= $resourcehumaine->getFirstName() . " " . $resourcehumaine->getLastName() ?>">
-                            </div>
-                            <h3 class="mb-0"><?= $resourcehumaine->getFirstName() . " " . $resourcehumaine->getLastName() ?></h3>
-                            <span class="text-secondary"><?= $resourcehumaine->getFunction() ?></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <?php include("components/com_resourcehumaine/views/resourcehumaine/_profile_header.php"); ?>
 
         <div class="row">
             <div class="col-md-12">
@@ -45,11 +31,6 @@
                         <h4 class="card-title">Ajouter un fichier</h4>
                     </div>
                     <div class="card-body">
-                        <div class="row mb-4">
-                            <div class="col-12">
-                                <p class="text-danger">Certains fichiers requis (contrat de travail, règlement interne, copie CIN, Offre d'emploi, Accord de confidentialité) !</p>
-                            </div>
-                        </div>
                         <?php include("form.php"); ?>
                     </div>
 

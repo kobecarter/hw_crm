@@ -66,6 +66,13 @@
 					$submenulistactive = isset($_GET['option']) && $_GET['option'] == $module->getIdModule() ? "block" : "none";
 					if ($_SESSION['user']->hasDroit('view', $module->getIdModule())) {
 						if ($module->getIdModule() == "com_accounting") {
+							// "Rapprochement Bancaire" est un module à part (option=com_rapprochement, pas
+							// une task de com_accounting) mais rangé ici dans Comptabilité à la demande -
+							// il faut donc élargir manuellement la détection active/ouverte du sous-menu.
+							$accountingOuvert = isset($_GET['option']) && in_array($_GET['option'], [$module->getIdModule(), 'com_rapprochement']);
+							$active = $accountingOuvert ? "active" : "";
+							$arrowactive = $accountingOuvert ? "subdrop" : "";
+							$submenulistactive = $accountingOuvert ? "block" : "none";
 						?>
 							<li class="submenu <?= $active ?>">
 								<a href="#" class="<?php echo $arrowactive; ?>"><i class="fa fa-<?= $module->getIcon(); ?>"></i> <span> <?= $module->getNom(); ?></span> <span class="menu-arrow"></span></a>
@@ -74,6 +81,9 @@
 									<li class="<?= isset($_GET['option']) && $_GET['option'] == $module->getIdModule() && isset($_GET['task']) && $_GET['task'] == 'tva' ? 'active' : null ?>"><a href="index.php?option=<?= $module->getIdModule(); ?>&task=tva">TVA</a></li>
 									<li class="<?= isset($_GET['option']) && $_GET['option'] == $module->getIdModule() && isset($_GET['task']) && $_GET['task'] == 'bilan' ? 'active' : null ?>"><a href="index.php?option=<?= $module->getIdModule(); ?>&task=bilan">BILAN</a></li>
 									<li class="<?= isset($_GET['option']) && $_GET['option'] == $module->getIdModule() && isset($_GET['task']) && $_GET['task'] == 'taxeprofessionnelle' ? 'active' : null ?>"><a href="index.php?option=<?= $module->getIdModule(); ?>&task=taxeprofessionnelle">TAXE PRO</a></li>
+									<?php if ($_SESSION['user']->hasDroit('view', 'com_rapprochement')) :?>
+									<li class="<?= isset($_GET['option']) && $_GET['option'] == 'com_rapprochement' ? 'active' : null ?>"><a href="index.php?option=com_rapprochement">BANK STATEMENT</a></li>
+									<?php endif;?>
 								</ul>
 							</li>
 					<?php
@@ -183,7 +193,7 @@
 					$arrowactive = isset($_GET['option']) && $_GET['option'] == $module->getIdModule() ? "subdrop" : "";
 					$submenulistactive = isset($_GET['option']) && $_GET['option'] == $module->getIdModule() ? "block" : "none";
 					if ($_SESSION['user']->hasDroit('view', $module->getIdModule())) {
-						if (!in_array($module->getIdModule(), ['com_facture', 'com_devis', 'com_contract', 'com_client', 'com_accounting', 'com_resourcehumaine', 'com_cheque', 'com_relance', 'com_holiday', 'com_rappel'])) {
+						if (!in_array($module->getIdModule(), ['com_facture', 'com_devis', 'com_contract', 'com_client', 'com_accounting', 'com_resourcehumaine', 'com_cheque', 'com_relance', 'com_holiday', 'com_rappel', 'com_rapprochement'])) {
 					?>
 
 							<li class="<?= $active ?>">

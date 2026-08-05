@@ -40,6 +40,19 @@
 
 		<div class="row">
 			<div class="col-sm-12">
+				<div class="card">
+					<div class="card-header">
+						<h4 class="card-title">Calendrier des jours fériés et événements</h4>
+					</div>
+					<div class="card-body">
+						<div id="holiday-calendar"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="row">
+			<div class="col-sm-12">
 
 				<div class="card card-table">
 					<div class="card-header">
@@ -106,5 +119,13 @@
             filterHolidays(value)
         })
         filterHolidays($('select[name="year"]').val())
+
+        if ($('#holiday-calendar').length) {
+            $('#holiday-calendar').fullCalendar($.extend({
+                header: { left: 'prev,next today', center: 'title', right: 'month,agendaWeek,listYear' },
+                height: 650,
+                events: <?php echo json_encode(array_map(array('holiday', 'toCalendarEvent'), $holidays)); ?>
+            }, window.fullCalendarFrDefaults));
+        }
 	});
 </script>

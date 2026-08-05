@@ -145,6 +145,23 @@
 
 		<div class="col-md-3">
 			<div class="form-group">
+				<label>Seuil d'alerte TVA (DH)</label>
+				<input type="number" step="0.01" class="form-control" name="tva_seuil_alerte" value="<?php if(isset($agenceToEdit)) echo $agenceToEdit->getTvaSeuilAlerte(); ?>">
+			</div>
+		</div>
+
+		<div class="col-md-3">
+			<div class="form-group">
+				<label>Périodicité de déclaration TVA</label>
+				<select class="form-control" name="tva_periodicite">
+					<option value="mensuel" <?php if(isset($agenceToEdit) && $agenceToEdit->getTvaPeriodicite() != 'trimestriel') echo 'selected'; ?>>Mensuelle</option>
+					<option value="trimestriel" <?php if(isset($agenceToEdit) && $agenceToEdit->getTvaPeriodicite() == 'trimestriel') echo 'selected'; ?>>Trimestrielle</option>
+				</select>
+			</div>
+		</div>
+
+		<div class="col-md-3">
+			<div class="form-group">
 				<label>Site web </label>
 				<input type="text" class="form-control" name="website" value="<?php if(isset($agenceToEdit)) echo $agenceToEdit->getWebsite(); ?>">
 			</div>

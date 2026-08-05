@@ -35,35 +35,90 @@ switch ($task) {
 
 		include_once("components/com_dashboard/views/dashboard/stats.php");
 		break;
-	case 'globalStats' : 
-		$from = date('Y-01-01');
-		$to = date('Y-m-d');
-		$creances = facture::getCreanceByDate($from, $to,'DH', false);
-		$creancesEuro = facture::getCreanceByDate($from, $to,'€', false);
-		$creancesPound = facture::getCreanceByDate($from, $to,'£', false);
-		$creancesDollar = facture::getCreanceByDate($from, $to,'$', false);
-		$creancesAed = facture::getCreanceByDate($from, $to,'AED', false);
+	case 'globalStats' :
+		if ($_SESSION['user']->isSuperUser() == false) {
+			include_once("components/com_dashboard/views/dashboard/password.php");
+			break;
+		}
 
-		$factureTotal = facture::getCAbyDate(false, $from, $to,'DH', false);
-		$factureTotalEuro = facture::getCAbyDate(false, $from, $to,'€', false);
-		$factureTotalPound = facture::getCAbyDate(false, $from, $to,'£', false);
-		$factureTotalDollar = facture::getCAbyDate(false, $from, $to,'$', false);
-		$factureTotalAed = facture::getCAbyDate(false, $from, $to,'AED', false);
-		
-		$totalReglement = payment::getReglementbyDate($from, $to, 'DH', false);
-		$totalReglementEuro = payment::getReglementbyDate($from, $to,'€', false);
-		$totalReglementPound = payment::getReglementbyDate($from, $to,'£', false);
-		$totalReglementDollar = payment::getReglementbyDate($from, $to,'$', false);
-		$totalReglementAed = payment::getReglementbyDate($from, $to,'AED', false);
-        
-        $charges = charge::getCharge($from, $to, false, 'DH');
-        $chargesEuro = charge::getCharge($from, $to, false, '€');
-        $chargesPound = charge::getCharge($from, $to, false, '£');
-        $chargesDollar = charge::getCharge($from, $to, false, '$');
-        $chargesAed = charge::getCharge($from, $to, false, 'AED');
+		// Filtres pilotés par l'URL (GET, pas d'AJAX partiel fragile) : un lien de preset ou le
+		// formulaire de dates re-render toute la page avec les bonnes valeurs, jamais d'état à
+		// moitié rafraîchi. isValidDate() existe déjà dans functions.php.
+		$today = date('Y-m-d');
+		$from = (isset($_GET['from']) && isValidDate($_GET['from'])) ? $_GET['from'] : date('Y-01-01');
+		$to = (isset($_GET['to']) && isValidDate($_GET['to'])) ? $_GET['to'] : $today;
+		if ($from > $to) {
+			$tmp = $from; $from = $to; $to = $tmp;
+		}
+		$presetActif = isset($_GET['preset']) ? $_GET['preset'] : 'annee';
+
+		$statsActuelles = statsGlobalesPeriode($from, $to, false);
+
+		// Période de comparaison - deux modes au choix (bascule dans le filtre) : soit la période
+		// précédente de même durée immédiatement avant $from (défaut - utile pour une tendance à
+		// court terme), soit exactement la même période un an plus tôt (utile quand l'activité est
+		// saisonnière et qu'une comparaison au mois précédent n'aurait pas de sens). Seule façon de
+		// dire si "358 738 DH de créances" est une bonne ou une mauvaise nouvelle : comparé à quoi ?
+		$modeComparaison = (isset($_GET['comparaison']) && $_GET['comparaison'] === 'an_dernier') ? 'an_dernier' : 'precedente';
+		if ($modeComparaison === 'an_dernier') {
+			$precFrom = date('Y-m-d', strtotime($from . ' -1 year'));
+			$precTo = date('Y-m-d', strtotime($to . ' -1 year'));
+		} else {
+			$dureeJours = (int) round((strtotime($to) - strtotime($from)) / 86400);
+			$precTo = date('Y-m-d', strtotime($from . ' -1 day'));
+			$precFrom = date('Y-m-d', strtotime($precTo . ' -' . $dureeJours . ' days'));
+		}
+		$statsPrecedentes = statsGlobalesPeriode($precFrom, $precTo, false);
+
+		// Tendance mensuelle (DH uniquement - la conversion multi-devises complète ci-dessus reste
+		// réservée aux totaux KPI, sans quoi la boucle mensuelle multiplierait les requêtes par 5) :
+		// un point par mois entre $from et $to, plafonné à 24 points.
+		$moisNoms = months();
+		$tendanceMensuelle = array();
+		$curseur = new DateTime(date('Y-m-01', strtotime($from)));
+		$finBoucle = new DateTime($to);
+		$moisComptes = 0;
+		while ($curseur <= $finBoucle && $moisComptes < 24) {
+			$moisDebut = $curseur->format('Y-m-d');
+			$finDeMois = clone $curseur;
+			$finDeMois->modify('last day of this month');
+			$moisFin = min($finDeMois->format('Y-m-d'), $to);
+
+			$tendanceMensuelle[] = array(
+				// mb_substr() impératif ici (pas substr()) : les noms de mois accentués ("Février",
+				// "Août"...) sont multi-octets en UTF-8, un substr() par octet coupe parfois en plein
+				// milieu d'un caractère et produit une chaîne UTF-8 invalide - qui fait alors échouer
+				// silencieusement (retourne false) tout json_encode() englobant ce tableau plus bas.
+				'label' => mb_substr($moisNoms[((int) $curseur->format('n')) - 1]['name'], 0, 3) . ' ' . $curseur->format('Y'),
+				'ca' => facture::getCAbyDate(false, $moisDebut, $moisFin, 'DH', false),
+				'encaissements' => payment::getReglementbyDate($moisDebut, $moisFin, 'DH', false),
+				'charges' => charge::getCharge($moisDebut, $moisFin, false, 'DH'),
+			);
+			$curseur->modify('+1 month');
+			$moisComptes++;
+		}
+
+		// Répartition par agence (dynamique - l'ancienne version de cette page ne listait que 3
+		// agences avec des identifiants codés en dur, ignorant silencieusement les autres).
+		$repartitionAgences = array();
+		foreach (agence::findAll($_SESSION['langue']) as $agenceObjet) {
+			$statsAgence = statsGlobalesPeriode($from, $to, $agenceObjet->getId());
+			if ($statsAgence['ca'] > 0 || $statsAgence['charges'] > 0) {
+				$repartitionAgences[] = array(
+					'nom' => $agenceObjet->getNom() !== '' ? $agenceObjet->getNom() : $agenceObjet->getRaisonSocial(),
+					'couleur' => $agenceObjet->getColor() ? $agenceObjet->getColor() : '#6366f1',
+					'ca' => $statsAgence['ca'],
+					'charges' => $statsAgence['charges'],
+				);
+			}
+		}
+
+		// Top 10 services vendus / top 10 charges sur la même période que le reste de la page.
+		$topServices = item_facture::topServices($from, $to, $_SESSION['agence'], 10);
+		$topCharges = charge::topCharges($from, $to, $_SESSION['agence'], 10);
 
 		include_once("components/com_dashboard/views/dashboard/stats-global.php");
-		break;	
+		break;
     case 'absences':
         if($_SESSION['user']->isResourceHumaine()){
             $resourcehumaine = $_SESSION['user'];

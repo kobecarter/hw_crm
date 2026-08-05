@@ -76,8 +76,13 @@ function deleteFournisseur($data)
     $indices = array("id");
     if (fieldCheck($data, $indices))
     {
-        $fournisseur = new fournisseur();
-        $fournisseur->setId($data['id']);
+        // find($id, $agence) plutôt que new+setId() : sans ça, un id valide d'une autre agence se
+        // faisait supprimer sans aucune vérification d'appartenance (IDOR).
+        $fournisseur = fournisseur::find($data['id'], $_SESSION['agence']);
+        if ($fournisseur->getId() == 0) {
+            echo "2";
+            return;
+        }
         if ($fournisseur->delete() == 1) {
             echo "1";
         } else {
@@ -163,60 +168,8 @@ function filterFournisseur($data)
 		$year = intval($data['year']);
 
 		$fournisseurs = fournisseur::filterFournisseur($year,$_SESSION['agence']);
-?>
-		<table class="table table-stripped table-center table-hover datatable">
-			<thead class="thead-light">
-				<tr>
-					<th>ID</th>
-					<th>Nom complet</th>
-					<th>Téléphone</th>
-					<th>Email</th>
-					<th>Raison social</th>
-					<th class="text-right">Actions</th>
-				</tr>
-			</thead>
-			<tbody>
-				<?php foreach ($fournisseurs as $fournisseur): ?>
-				<tr>
-					<td><?php echo $fournisseur->getId(); ?></td>
-					<td>
-						<?php $photoLink = $fournisseur->getPhoto() != '' ? "images/fournisseurs/" . $fournisseur->getPhoto() : "assets/img/profiles/avatar-01.jpg"; ?>
-						<h2 class="table-avatar">
-							<a href="index.php?option=com_fournisseur&task=edit&id=<?= $fournisseur->getId(); ?>"><img class="avatar avatar-sm mr-2 avatar-img rounded-circle" src="<?php echo $photoLink; ?>" alt="Fournisseur Image"> <?php echo $fournisseur->getPrenom() . " " . $fournisseur->getNom(); ?></a>
-						</h2>
-					</td>
-					<td><?php echo $fournisseur->getTel(); ?></td>
-					<td><?php echo $fournisseur->getEmail(); ?></td>
-					<td><?php echo $fournisseur->getRaisonSocial(); ?></td>
-					<td class="text-right">
-						<?php $state = $fournisseur->isActive() ? 'oui' : 'non'; ?>
-						<?php $title = $fournisseur->isActive() ? 'Actif' : 'Inactif'; ?>
-						<?php $color = $fournisseur->isActive() ? 'text-success' : 'text-danger'; ?>
-						<?php $ico = $fournisseur->isActive() ? 'fa fa-toggle-on' : 'fa fa-toggle-off'; ?>
-						<a href="javascript:void(0);" class="btn btn-sm btn-white <?php echo $color; ?> mr-2 enable" data-toggle="tooltip" data-placement="top" data-original-title="<?php echo $title; ?>" data-id="<?= $fournisseur->getId(); ?>" data-state="<?php echo $state; ?>"><i class="<?php echo $ico; ?>"></i></a>
-
-						<a href="index.php?option=com_fournisseur&task=edit&id=<?= $fournisseur->getId(); ?>" class="btn btn-sm btn-white text-warning mr-2" data-toggle="tooltip" data-placement="top" data-original-title="Modifier"><i class="fa fa-pencil-alt"></i></a> 
-
-						<a href="javascript:void(0);" class="btn btn-sm btn-white text-danger mr-2 delete" data-toggle="tooltip" data-placement="top" data-original-title="Supprimer" data-id="<?= $fournisseur->getId(); ?>"><i class="far fa-trash-alt"></i></a>
-					</td>
-				</tr>
-				<?php endforeach; ?>
-			</tbody>
-		</table>
-		<script>
-			$(function() {
-				if ($('.datatable').length > 0) {
-					$('.datatable').DataTable({
-						aoColumnDefs: [{
-							bSortable: !1,
-							aTargets: [0, 1]
-						}],
-						aaSorting: []
-					});
-				}
-			})
-		</script>
-	<?php
+		$messageVideGrille = 'Aucun fournisseur pour cette année.';
+		include __DIR__ . '/../../views/fournisseur/_grid.php';
 	}
 }
 

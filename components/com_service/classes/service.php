@@ -300,7 +300,7 @@ class service
             $SQLselect .= " AND active = 1";
         }
         if($categorie){
-            $SQLselect .= " AND id_categorie = $categorie";
+            $SQLselect .= " AND id_categorie = " . intval($categorie);
         }
 		if($ordre){
 			$SQLselect .= " ORDER BY ordre ASC";
@@ -432,7 +432,7 @@ class service
             $SQLselect .= " AND active = 1";
         }
         if($categorie){
-            $SQLselect .= " AND id_categorie = $categorie";
+            $SQLselect .= " AND id_categorie = " . intval($categorie);
         }
 		if($ordre){
 			$SQLselect .= " ORDER BY ordre ASC";

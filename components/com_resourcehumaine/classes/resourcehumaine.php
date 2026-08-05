@@ -20,6 +20,8 @@ class resourcehumaine
     private $city;
     private $prospecting_source;
     private $rib;
+    private $salaire_initial;
+    private $salaire_actuel;
     private $function;
     private $profil;
     private $status;
@@ -33,6 +35,7 @@ class resourcehumaine
     private $date_add;
     private $last_edit;
     private $connected = false;
+    private $last_document_reminder;
     
 
     public function __construct()
@@ -163,6 +166,16 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
         return $this->rib;
     }
 
+    public function getSalaireInitial()
+    {
+        return $this->salaire_initial;
+    }
+
+    public function getSalaireActuel()
+    {
+        return $this->salaire_actuel;
+    }
+
     public function getFunction()
     {
         return $this->function;
@@ -205,6 +218,30 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
     public function getActive()
     {
         return $this->active;
+    }
+
+    public function getLastDocumentReminder()
+    {
+        return $this->last_document_reminder;
+    }
+
+    public function setLastDocumentReminder($last_document_reminder)
+    {
+        $this->last_document_reminder = $last_document_reminder;
+    }
+
+    // Écriture directe, en dehors de add()/edit() (qui reflètent le formulaire complet de fiche
+    // employé - y ajouter ce champ obligerait à le faire transiter par ce formulaire, au risque
+    // de l'écraser à NULL au moindre enregistrement qui ne le renseignerait pas). Utilisé
+    // uniquement par le rappel bimestriel des documents manquants.
+    public static function updateLastDocumentReminder($id, $date)
+    {
+        global $db;
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET last_document_reminder = %s WHERE id = %s",
+            GetSQLValueString($date, "date"),
+            GetSQLValueString($id, "int")
+        );
+        return !$db->query($SQLupdate);
     }
 
     public function getDateAdd()
@@ -306,6 +343,16 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
         $this->rib = $rib;
     }
 
+    public function setSalaireInitial($salaire_initial)
+    {
+        $this->salaire_initial = $salaire_initial;
+    }
+
+    public function setSalaireActuel($salaire_actuel)
+    {
+        $this->salaire_actuel = $salaire_actuel;
+    }
+
     public function setFunction($function)
     {
         $this->function = $function;
@@ -390,7 +437,7 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
     public function add()
     {
         global $db;
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (reference,reference_pointage,id_agency, cin, cnss_number, firstname, lastname, email, password, phone, second_phone, address, city, prospecting_source, rib, function, id_profil, status, start_date, contract_signing_date, end_date, photo, remark, active, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (reference,reference_pointage,id_agency, cin, cnss_number, firstname, lastname, email, password, phone, second_phone, address, city, prospecting_source, rib, salaire_initial, salaire_actuel, function, id_profil, status, start_date, contract_signing_date, end_date, photo, remark, active, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->reference, "text"),
             GetSQLValueString($this->reference_pointage, "text"),
             GetSQLValueString($this->agency->getId(), "int"),
@@ -402,10 +449,12 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
             GetSQLValueString($this->password, "text"),
 			GetSQLValueString($this->phone, "text"),
 			GetSQLValueString($this->second_phone, "text"),
-			GetSQLValueString($this->address, "text"),				 
+			GetSQLValueString($this->address, "text"),
             GetSQLValueString($this->prospecting_source, "text"),
             GetSQLValueString($this->city, "text"),
             GetSQLValueString($this->rib, "text"),
+            GetSQLValueString($this->salaire_initial, "double"),
+            GetSQLValueString($this->salaire_actuel, "double"),
             GetSQLValueString($this->function, "text"),
             GetSQLValueString($this->profil->getId(), "int"),
             GetSQLValueString($this->status, "text"),
@@ -428,7 +477,7 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET reference = %s, reference_pointage = %s, id_agency = %s, cin = %s, cnss_number = %s, firstname = %s, lastname = %s, email = %s, password = %s, phone = %s, second_phone = %s, address = %s, city = %s, prospecting_source = %s, rib = %s, function = %s, id_profil= %s, status = %s, start_date = %s, contract_signing_date = %s, end_date = %s, photo = %s, remark = %s, active = %s, date_add = %s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET reference = %s, reference_pointage = %s, id_agency = %s, cin = %s, cnss_number = %s, firstname = %s, lastname = %s, email = %s, password = %s, phone = %s, second_phone = %s, address = %s, city = %s, prospecting_source = %s, rib = %s, salaire_initial = %s, salaire_actuel = %s, function = %s, id_profil= %s, status = %s, start_date = %s, contract_signing_date = %s, end_date = %s, photo = %s, remark = %s, active = %s, date_add = %s, last_edit = %s WHERE id = %s",
             GetSQLValueString($this->reference, "text"),
             GetSQLValueString($this->reference_pointage, "text"),
             GetSQLValueString($this->agency->getId(), "int"),
@@ -440,10 +489,12 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
             GetSQLValueString($this->password, "text"),
             GetSQLValueString($this->phone, "text"),
             GetSQLValueString($this->second_phone, "text"),
-            GetSQLValueString($this->address, "text"),				 
+            GetSQLValueString($this->address, "text"),
             GetSQLValueString($this->city, "text"),
             GetSQLValueString($this->prospecting_source, "text"),
             GetSQLValueString($this->rib, "text"),
+            GetSQLValueString($this->salaire_initial, "double"),
+            GetSQLValueString($this->salaire_actuel, "double"),
             GetSQLValueString($this->function, "text"),
             GetSQLValueString($this->profil->getId(), "int"),
             GetSQLValueString($this->status, "text"),
@@ -509,6 +560,23 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
         return $resourcehumaine;
     }
 
+    // Utilisé pour retrouver l'employé concerné par un bulletin de paie lu par l'IA (matching
+    // par CIN, la donnée la plus fiable/unique présente sur un bulletin).
+    public static function findByCin($cin)
+    {
+        global $db;
+        $resourcehumaine = new resourcehumaine();
+        $SQLselect = sprintf("SELECT * FROM " . static::$table . " WHERE cin = %s",
+            GetSQLValueString($cin, "text")
+        );
+        $result = $db->query($SQLselect);
+        if ($db->num_rows($result) == 1) {
+            $data = $db->fetch_assoc($result);
+            $resourcehumaine = static::build($data);
+        }
+        return $resourcehumaine;
+    }
+
     public static function findByReferencePointage($reference_pointage)
     {
         global $db;
@@ -534,6 +602,22 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
         foreach ($result as $data) {
             $resourcehumaine = static::build($data);
             array_push($items, $resourcehumaine);
+        }
+        return $items;
+    }
+
+    // Recherche globale (bandeau de recherche du bandeau haut) : prénom/nom d'employé, limité à
+    // l'agence courante - utilisé par com_search, jamais par le listing standard RH.
+    public static function search($terme, $agence = false)
+    {
+        global $db;
+        $items = array();
+        $like = GetSQLValueString('%' . $terme . '%', 'text');
+        $SQLselect = "SELECT * FROM " . static::$table . " WHERE 1=1"
+            . ($agence ? " AND id_agency = " . intval($agence) : "")
+            . " AND (firstname LIKE $like OR lastname LIKE $like) ORDER BY id DESC LIMIT 8";
+        foreach ($db->queryS($SQLselect) as $data) {
+            array_push($items, static::build($data));
         }
         return $items;
     }
@@ -586,6 +670,8 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
 		$resourcehumaine->setCity($data['city']);
 		$resourcehumaine->setProspectingSource($data['prospecting_source']);
 		$resourcehumaine->setRib($data['rib']);
+        $resourcehumaine->setSalaireInitial(isset($data['salaire_initial']) ? $data['salaire_initial'] : null);
+        $resourcehumaine->setSalaireActuel(isset($data['salaire_actuel']) ? $data['salaire_actuel'] : null);
         $resourcehumaine->setFunction($data['function']);
         $resourcehumaine->setProfil(isset($data['id_profil']) ? profil::find($data['id_profil']) : new profil());
         $resourcehumaine->setStatus($data['status']);
@@ -597,6 +683,7 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
         $resourcehumaine->setActive($data['active']);
         $resourcehumaine->setDateAdd($data['date_add']);
         $resourcehumaine->setLastEdit($data['last_edit']);
+        $resourcehumaine->setLastDocumentReminder(isset($data['last_document_reminder']) ? $data['last_document_reminder'] : null);
         return $resourcehumaine;
     }
 
@@ -610,7 +697,7 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
         $SQLcount = "SELECT count(id) as c FROM " . static::$table;
 		
 		if($year){
-			$SQLcount .= " WHERE YEAR(date_add) = $year";
+			$SQLcount .= " WHERE YEAR(date_add) = " . intval($year);
 		}
 		
         $result = $db->query($SQLcount);
@@ -625,13 +712,32 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
     {
         global $db;
         $resourcehumaine = new resourcehumaine();
-        $SQLselect = sprintf("SELECT * FROM " . static::$table . " WHERE email = %s and password = %s",
-            GetSQLValueString($email, "text"),
-			GetSQLValueString(hash('sha256',$password), "text"));
+        // Même migration en douceur que user::login() (com_users/classes/user.php) : mot de passe
+        // vérifié côté PHP (password_verify(), avec repli sur l'ancien sha256 non salé re-haché
+        // silencieusement au passage) plutôt que comparé dans la clause WHERE.
+        $SQLselect = sprintf("SELECT * FROM " . static::$table . " WHERE email = %s",
+            GetSQLValueString($email, "text"));
         $result = $db->query($SQLselect);
         if ($db->num_rows($result) == 1) {
             $data = $db->fetch_assoc($result);
-            $resourcehumaine = static::build($data);
+            $storedHash = $data['password'];
+            $valid = false;
+
+            if (password_verify($password, $storedHash)) {
+                $valid = true;
+            } elseif (hash_equals($storedHash, hash('sha256', $password))) {
+                $valid = true;
+                $nouveauHash = password_hash($password, PASSWORD_DEFAULT);
+                $db->query(sprintf(
+                    "UPDATE " . static::$table . " SET password = %s WHERE id = %s",
+                    GetSQLValueString($nouveauHash, "text"),
+                    intval($data['id'])
+                ));
+            }
+
+            if ($valid) {
+                $resourcehumaine = static::build($data);
+            }
         }
         return $resourcehumaine;
     }

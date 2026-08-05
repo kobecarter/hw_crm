@@ -23,6 +23,7 @@
 			</thead>
 			<tbody>
 				<?php foreach ($factures as $facture) : ?>
+					<?php if ($facture->getId() == 0) continue; // référence orpheline (facture introuvable) : on ignore la ligne plutôt que planter ?>
 					<?php
 					$payments_by_invoice = payment::findAll($facture->getId());
 					$nbrPayment = sizeof($payments_by_invoice);

@@ -15,10 +15,11 @@ switch ($task) {
             $services = service::findAll($_SESSION['langue'], true);
             $clients = client::findAll(true,false,$_SESSION['agence']);
             $agence = agence::find($_SESSION['agence'],$_SESSION['langue']);
-            $banks = bank::findAll();
+            $banks = bank::findAll($_SESSION['agence']);
             $action = "components/com_facture/controleurs/router.php?task=addFacture";
             $submitName = "add";
             $submitValue = "Ajouter facture";
+            $preselectClientId = isset($_GET['id_client']) ? intval($_GET['id_client']) : 0;
             include_once("components/com_facture/views/facture/add.php");
         }
         break;
@@ -31,7 +32,7 @@ switch ($task) {
                 $clients = client::findAll(true,false,$_SESSION['agence']);
                 $services = service::findAll($_SESSION['langue'], true);
                 $agence = agence::find($_SESSION['agence'],$_SESSION['langue']);
-                $banks = bank::findAll();
+                $banks = bank::findAll($_SESSION['agence']);
                 $action = "components/com_facture/controleurs/router.php?task=editFacture";
                 $submitName = "edit";
                 $submitValue = "Modifier facture";
@@ -47,7 +48,7 @@ switch ($task) {
                 $factureavoir = $facture;
                 $clients = client::findAll(true,false,$_SESSION['agence']);
                 $services = service::findAll($_SESSION['langue'], true);
-                $banks = bank::findAll();
+                $banks = bank::findAll($_SESSION['agence']);
                 $action = "components/com_facture/controleurs/router.php?task=addFactureAvoir";
                 $submitName = "avoir";
                 $submitValue = "Ajouter facture avoir";
@@ -101,6 +102,11 @@ switch ($task) {
     case 'unpaid':
         if ($_SESSION['user']->hasDroit('view', 'com_facture')) {
             $factures = facture::findAll(-1, false, false, true,false,false,$_SESSION['agence']);
+            $clients = client::findAll(false,false,$_SESSION['agence']);
+            $deviss = devis::findAll(false, true, false, $_SESSION['agence']);
+            $contracts = contract::findAll($_SESSION["agence"],$_SESSION["langue"]);
+            $allFactures = facture::findAll(false, false, false, true,false,false,$_SESSION['agence']);
+            $payments = payment::findAll(false,false,$_SESSION['agence']);
             include_once("components/com_facture/views/facture/list.php");
         }
         break;

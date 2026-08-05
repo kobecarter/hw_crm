@@ -23,6 +23,7 @@
 				</thead>
 				<tbody>
 					<?php foreach ($deviss as $devis): ?>
+					<?php if ($devis->getId() == 0) continue; // référence orpheline (devis introuvable) : on ignore la ligne plutôt que planter ?>
 					<?php
 					switch($devis->getStatu()){
 						case '1' : $statu = '<span class="badge bg-success-light">Envoyé</span>'; break;

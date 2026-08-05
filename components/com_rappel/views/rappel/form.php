@@ -18,9 +18,9 @@
 	<div class="form-group">
 		<label>Type</label>
 		<select class="select" name="type">
-			<option value="domaine" <?= ($rappel->getType() == 'domaine') ? 'selected' : '' ?>>Nom de domaine</option>
-			<option value="hosting" <?= ($rappel->getType() == 'hosting') ? 'selected' : '' ?>>Hébergement</option>
-			<option value="ssl" <?= ($rappel->getType() == 'ssl') ? 'selected' : '' ?>>Certificat SSL</option>
+			<option value="domaine" <?= (isset($rappel) && $rappel->getType() == 'domaine') ? 'selected' : '' ?>>Nom de domaine</option>
+			<option value="hosting" <?= (isset($rappel) && $rappel->getType() == 'hosting') ? 'selected' : '' ?>>Hébergement</option>
+			<option value="ssl" <?= (isset($rappel) && $rappel->getType() == 'ssl') ? 'selected' : '' ?>>Certificat SSL</option>
 		</select>
 	</div>
 </div>

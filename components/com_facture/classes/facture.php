@@ -522,7 +522,7 @@ class facture
             if ($statu == -1)
                 $SQLselect .= " AND (A.statu IS NULL OR A.statu IN (0,2,3))";
             else
-                $SQLselect .= " AND A.statu = $statu";
+                $SQLselect .= " AND A.statu = " . intval($statu);
         }
         if ($_SESSION['user']->isSuperUser() == false) {
             $SQLselect .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
@@ -547,7 +547,7 @@ class facture
         }
 
         if ($year) {
-            $SQLselect .= " AND YEAR(A.date_facture) = $year";
+            $SQLselect .= " AND YEAR(A.date_facture) = " . intval($year);
         }
 
         //if ($ordre) {
@@ -562,6 +562,21 @@ class facture
         foreach ($result as $data) {
             $facture = static::build($data);
             array_push($items, $facture);
+        }
+        return $items;
+    }
+
+    // Recherche globale (bandeau de recherche du bandeau haut) : numéro de facture uniquement -
+    // utilisé par com_search, jamais par le listing standard des factures.
+    public static function search($terme, $agence = false)
+    {
+        global $db;
+        $items = array();
+        $like = GetSQLValueString('%' . $terme . '%', 'text');
+        $SQLselect = "SELECT A.id as ID, A.* FROM " . static::$table . " A INNER JOIN " . static::$table5 . " B ON B.id = A.id_client INNER JOIN " . static::$table4 . " C ON C.id = B.id_agence"
+            . " WHERE 1=1" . ($agence ? " AND C.id = " . intval($agence) : "") . " AND A.numero LIKE $like ORDER BY A.id DESC LIMIT 8";
+        foreach ($db->queryS($SQLselect) as $data) {
+            array_push($items, static::build($data));
         }
         return $items;
     }
@@ -615,7 +630,7 @@ class facture
         $SQLselect = "SELECT id as ID, A.* FROM " . static::$table . " as A WHERE 1 = 1";
 
         if ($clientID) {
-            $SQLselect .= " AND id_client = $clientID";
+            $SQLselect .= " AND id_client = " . intval($clientID);
         }
         if ($from) {
             $SQLselect .= " AND date_facture >= '$from'";
@@ -741,15 +756,9 @@ class facture
         $agence = agence::find($_SESSION['agence'], $_SESSION['langue']);
         $date = new DateTime($this->date_add);
         $numero = $date->format('Y') . $date->format('m') . str_pad($agence->getNumeroIncrementFacture(), 4, '0', STR_PAD_LEFT);
-        if (isset($_POST['proforma'])) {
+        if ($this->isProforma()) {
             $this->setSecNumero($numero);
         } else {
-            //get last numero not null
-            // $n = $this->getLastNumeroNotNull();
-            $numero = $date->format('Y') . $date->format('m') . str_pad($agence->getNumeroIncrementFacture(), 4, '0', STR_PAD_LEFT);
-            // if(!empty($n)){
-            //     $numero++;
-            // }
             $this->setNumero($numero);
         }
     }
@@ -775,7 +784,7 @@ class facture
         $facture->setBank(isset($data['id_bank']) ? bank::find($data['id_bank']) : new bank());
         $facture->setNumero($data['numero']);
         $facture->setSecNumero($data['sec_numero']);
-        $facture->setClient(isset($data['id_client']) ? client::find($data['id_client'], $_SESSION['agence']) : new client());
+        $facture->setClient(isset($data['id_client']) ? client::findAny($data['id_client']) : new client());
         $facture->setDevis(isset($data['id_devis']) ? devis::find($data['id_devis'], $_SESSION['agence']) : new devis);
         $facture->setDateFacture($data['date_facture']);
         $facture->setTotal($data['total']);
@@ -814,7 +823,7 @@ class facture
         $items = array();
         $SQLselect = sprintf("SELECT SUM(A.montant) AS totalpayment FROM " . static::$table3 . " A JOIN " . static::$table . " B ON A.id_facture = B.id inner join " . static::$table5 . " C on B.id_client = C.id inner join " . static::$table4 . " D on C.id_agence = D.id WHERE D.id = $agence AND (B.archived IS NULL OR B.archived = 0) AND B.devise = '$devise'");
         if ($year) {
-            $SQLselect .= " AND YEAR(B.date_facture) = $year";
+            $SQLselect .= " AND YEAR(B.date_facture) = " . intval($year);
         }
         if ($_SESSION['user']->isSuperUser() == false) {
             $SQLselect .= " AND (B.id_user_added = " . $_SESSION['user']->getId() . " )";
@@ -827,7 +836,7 @@ class facture
             $SQLselect .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
         if ($year) {
-            $SQLselect .= " AND YEAR(A.date_facture) = $year";
+            $SQLselect .= " AND YEAR(A.date_facture) = " . intval($year);
         }
         $result = $db->query($SQLselect);
         $data = $db->fetch_array($result);
@@ -888,17 +897,17 @@ class facture
             $SQLcount .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
         if ($client) {
-            $SQLcount .= " AND A.id_client = $client";
+            $SQLcount .= " AND A.id_client = " . intval($client);
         }
 
         if ($statu) {
             if ($statu == 3)
                 $SQLcount .= " AND (A.statu = NULL OR A.statu = 0)";
             else
-                $SQLcount .= " AND A.statu = $statu";
+                $SQLcount .= " AND A.statu = " . intval($statu);
         }
         if ($year) {
-            $SQLcount .= " AND YEAR(A.date_facture) = $year";
+            $SQLcount .= " AND YEAR(A.date_facture) = " . intval($year);
         }
         //echo $SQLcount;
         $result = $db->query($SQLcount);
@@ -918,17 +927,17 @@ class facture
             $SQLcount .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
         if ($client) {
-            $SQLcount .= " AND A.id_client = $client";
+            $SQLcount .= " AND A.id_client = " . intval($client);
         }
 
         if ($statu) {
             if ($statu == 3)
                 $SQLcount .= " AND (A.statu = NULL OR A.statu = 0)";
             else
-                $SQLcount .= " AND A.statu = $statu";
+                $SQLcount .= " AND A.statu = " . intval($statu);
         }
         if ($year) {
-            $SQLcount .= " AND YEAR(A.date_facture) = $year";
+            $SQLcount .= " AND YEAR(A.date_facture) = " . intval($year);
         }
 
         //echo $SQLcount;
@@ -955,10 +964,10 @@ class facture
             if ($statu == 3)
                 $SQLcount .= " AND A.statu = NULL";
             else
-                $SQLcount .= " AND A.statu = $statu";
+                $SQLcount .= " AND A.statu = " . intval($statu);
         }
         if ($year) {
-            $SQLcount .= " AND YEAR(A.date_facture) = $year";
+            $SQLcount .= " AND YEAR(A.date_facture) = " . intval($year);
         }
 
         $result = $db->query($SQLcount);
@@ -986,7 +995,7 @@ class facture
             if ($statu == 3)
                 $SQLcount .= " AND A.statu = NULL";
             else
-                $SQLcount .= " AND A.statu = $statu";
+                $SQLcount .= " AND A.statu = " . intval($statu);
         }
         if ($from) {
             $SQLcount .= " AND A.date_facture >= '$from'";
@@ -1656,7 +1665,7 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
         $htmlInvoice = mb_convert_encoding($htmlInvoice, 'UTF-8', 'UTF-8');
         $mpdf->WriteHTML($htmlInvoice);
 
-        $file_name = $traduction['FACTURE'][$facture->getLangue()] . ' - ' . $invoiceFor . '.pdf';
+        $file_name = $traduction['FACTURE'][$facture->getLangue()] . ' - ' . str_replace(array('/', '\\'), '-', $invoiceFor) . '.pdf';
         if ($output == "show") {
 
             $mpdf->Output($file_name, 'I');
@@ -1669,7 +1678,12 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
         }
     }
     
-    public static function pdfFactures($factures)
+    // $zipExterne (optionnel) : permet à un appelant (ex. export comptable TVA) d'ajouter les
+    // PDF de factures à un ZipArchive qu'il gère lui-même (déjà ouvert, fermé/téléchargé par
+    // lui) au lieu de créer/télécharger un ZIP dédié — dans ce mode, la fonction renvoie la
+    // liste des PDF temporaires écrits sur disque (à l'appelant de les supprimer après avoir
+    // fermé son ZIP, puisque ZipArchive ne lit le contenu des fichiers ajoutés qu'à la fermeture).
+    public static function pdfFactures($factures, $zipExterne = null)
     {
         global $db;
 
@@ -1678,10 +1692,11 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
 
         $dirPath = "../../../";
 
-        $zip = new ZipArchive();
+        $zip = $zipExterne !== null ? $zipExterne : new ZipArchive();
         $zipFileName = "factures-" . date("Y-m-d H:i:s") . ".zip";
+        $tempFiles = array();
 
-        if ($zip->open($zipFileName, ZipArchive::CREATE) === TRUE) {
+        if ($zipExterne !== null || $zip->open($zipFileName, ZipArchive::CREATE) === TRUE) {
             foreach ($factures as $key => $facture) {
                 $typefacture = $traduction['FACTURE'][$facture->getLangue()];
                 if ($facture->getIdFacture()) {
@@ -1939,25 +1954,36 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
                 $htmlInvoice = mb_convert_encoding($htmlInvoice, 'UTF-8', 'UTF-8');
                 $mpdf->WriteHTML($htmlInvoice);
 
-                $pdfFileName = $traduction['FACTURE'][$facture->getLangue()] . ' - ' . $invoiceFor . '.pdf';
-                
+                // Numéro de facture inclus dans le nom : évite que deux factures d'un même
+                // client (même $invoiceFor) ne s'écrasent l'une l'autre dans le ZIP.
+                $pdfFileName = $traduction['FACTURE'][$facture->getLangue()] . ' ' . $facture->getNumero() . ' - ' . str_replace(array('/', '\\'), '-', $invoiceFor) . '.pdf';
+
                 $dirPathFile = $dirPath . "uploads/";
                 $mpdf->Output($dirPathFile.$pdfFileName, \Mpdf\Output\Destination::FILE);
                 //    Add to ZIP
                 if (file_exists($dirPathFile.$pdfFileName)) {
                     $zip->addFile($dirPathFile.$pdfFileName, basename($dirPathFile.$pdfFileName));
+                    $tempFiles[] = $dirPathFile.$pdfFileName;
                 }
             }
         }
+
+        if ($zipExterne !== null) {
+            return $tempFiles;
+        }
+
         $zip->close();
 
         // Serve ZIP file for download
         header('Content-Type: application/zip');
         header('Content-Disposition: attachment; filename=' . $zipFileName);
         readfile($zipFileName);
-        
+
         // Cleanup - delete ZIP & individual PDFs
         unlink($zipFileName);
+        foreach ($tempFiles as $tempFile) {
+            @unlink($tempFile);
+        }
 
         exit();
     }
@@ -2063,7 +2089,7 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
             $SQLselect = "SELECT A.id as ID,A.*,B.* FROM " . static::$table . " A INNER JOIN " . static::$table5 . " B ON B.id = A.id_client INNER JOIN " . static::$table4 . " C ON C.id =B.id_agence where (A.proforma = 0 or  A.proforma is null)";
 
             if ($clientID) {
-                $SQLselect .= " AND A.id_client = $clientID";
+                $SQLselect .= " AND A.id_client = " . intval($clientID);
             }
             if ($from) {
                 $SQLselect .= " AND A.date_facture >= '$from'";
@@ -2390,7 +2416,7 @@ $htmlInvoice .= '
 
         $htmlInvoice = mb_convert_encoding($htmlInvoice, 'UTF-8', 'UTF-8');
         $mpdf->WriteHTML($htmlInvoice);
-        $file_name = 'invoice-' . $facture["ID"] . '-' . str_replace(' ', '-', trim($invoiceFor)) . '.pdf';
+        $file_name = 'invoice-' . $facture["ID"] . '-' . str_replace(array(' ', '/', '\\'), '-', trim($invoiceFor)) . '.pdf';
         if ($output == "show") {
 
             $mpdf->Output($file_name, 'I');

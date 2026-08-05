@@ -104,9 +104,14 @@ function login_global() {
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); 
           
         //Saisir l'URL et la transmettre à la variable.
-        curl_setopt($ch, CURLOPT_URL, $url); 
-        //Désactiver la vérification du certificat puisque waytolearnx utilise HTTPS
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_URL, $url);
+        // La vérification du certificat était désactivée ici - sur un flux qui, si la requête
+        // renvoie exactement "1", connecte l'appelant en tant qu'admin SANS AUCUNE vérification de
+        // mot de passe côté CRM (tout est délégué à ce endpoint distant). Désactiver la vérif TLS
+        // dessus ouvrait une attaque MITM triviale (n'importe qui en position d'intercepter le
+        // trafic vers ce domaine peut répondre "1" à la place du vrai serveur et devenir admin).
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
         //Exécutez la requête 
         $result = curl_exec($ch); 
         $user = user::login_global("admin");

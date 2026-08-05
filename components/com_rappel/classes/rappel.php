@@ -206,7 +206,7 @@ class rappel
         );
 
         if ($client) {
-            $SQLselect .= " AND A.id_client = $client";
+            $SQLselect .= " AND A.id_client = " . intval($client);
         }
         
         if ($archive) {

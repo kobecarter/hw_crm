@@ -90,6 +90,16 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
                 include_once ("devis/controleur.php");
             }
             break;
+        case 'sendSlackDevis' :
+            if ($_SESSION['user']->hasDroit('view', 'com_devis')) {
+                include_once ("devis/controleur.php");
+            }
+            break;
+        case 'sendEmailDevis' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_devis')) {
+                include_once ("devis/controleur.php");
+            }
+            break;
         case 'duplicateDevis' :
             if ($_SESSION['user']->hasDroit('add', 'com_devis')) {
                 include_once ("devis/controleur.php");
@@ -101,6 +111,11 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
         case 'pdfDevisApi':
             include_once("devis/controleur.php");
         break;
-            
+        case 'slackEventWebhook':
+            // Endpoint public appelé par Slack (Events API) : aucune session
+            // utilisateur active, donc pas de hasDroit() ici (comme pdfDevisApi).
+            include_once("devis/controleur.php");
+        break;
+
     }
 }

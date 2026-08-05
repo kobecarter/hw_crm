@@ -39,21 +39,21 @@ switch ($task) {
                 $relances = relance::findByClient($id,$_SESSION['agence']);
                 include_once("components/com_relance/views/relance/view.php");
             } else{
-                $clients = client::findWhereHaveRelance(true,false,$_SESSION['agence']);
+                $relances = relance::findAll($_SESSION['agence']);
                 include_once("components/com_relance/views/relance/list.php");
             }
-                
+
         }
         break;
     case 'list':
         if ($_SESSION['user']->hasDroit('view', 'com_relance')) {
-                $relances = relance::findAllNonTraite($_SESSION['agence']);
-                include_once("components/com_relance/views/relance/list2.php");
+                $relances = relance::findAll($_SESSION['agence']);
+                include_once("components/com_relance/views/relance/list.php");
         }
         break;
     default:
         if ($_SESSION['user']->hasDroit('view', 'com_relance')) {
-            $clients = client::findWhereHaveRelance(true,false,$_SESSION['agence']);
+            $relances = relance::findAll($_SESSION['agence']);
             include_once("components/com_relance/views/relance/list.php");
         }
         break;

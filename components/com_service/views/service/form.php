@@ -17,7 +17,7 @@
 		<div class="col-md-3">
 			<div class="form-group">
 				<label>Titre</label>
-				<input type="text" class="form-control" name="titre" value="<?php if(isset($service)) echo $service->getTitre(); ?>">
+				<input type="text" class="form-control" name="titre" value="<?php if(isset($service)) echo $service->getTitre(); elseif(isset($prefillTitre)) echo htmlspecialchars($prefillTitre); ?>">
 			</div>
 		</div>
 	
@@ -29,7 +29,7 @@
 					<?php
 				    $unities = getUnities()[isset($devis) ? $devis->getLangue() : $_SESSION['langue']];
 				    foreach ($unities as $key=>  $value) : ?>
-				    <?php $sl = isset($service) && $service->getUnite() == $key ? "selected" : ""; ?>
+				    <?php $sl = isset($service) ? ($service->getUnite() == $key ? "selected" : "") : (isset($prefillUnite) && $prefillUnite == $key ? "selected" : ""); ?>
 					<option value="<?php echo $key ?>" <?php echo $sl; ?>><?= $value ?></option>
 					<?php endforeach; ?>
 				</select>
@@ -41,7 +41,7 @@
 		<div class="col-md-3">
 			<div class="form-group">
 				<label>Prix</label>
-				<input type="number" step="any" class="form-control" name="prix" value="<?php if(isset($service)) echo $service->getPrix(); ?>">
+				<input type="number" step="any" class="form-control" name="prix" value="<?php if(isset($service)) echo $service->getPrix(); elseif(isset($prefillPrix)) echo htmlspecialchars($prefillPrix); ?>">
 			</div>
 		</div>
 	
@@ -72,7 +72,7 @@
 		<div class="col-md-12">
 			<div class="form-group">
 				<label>Description</label>
-				<textarea name="description" id="description"><?php if (isset($service)) echo $service->getDescription(); ?></textarea>
+				<textarea name="description" id="description"><?php if (isset($service)) echo $service->getDescription(); elseif (isset($prefillDescription)) echo $prefillDescription; ?></textarea>
                 <script type="text/javascript">
                     CKEDITOR.replace('description', {
                         allowedContent: true,
@@ -108,12 +108,25 @@
 	</div>
 </form>
 
+<div class="card mt-4">
+	<div class="card-body">
+		<h4 class="card-title">Assistant IA</h4>
+		<p class="text-muted">Exemples : "Améliore la description de ce service"<?php if (isset($service)): ?> ou "Scanne https://exemple.com et liste les pages du menu du site"<?php endif; ?>.</p>
+		<div class="form-group">
+			<textarea class="form-control" id="iaServiceChatInput" rows="2" placeholder="Écrivez votre demande ici..."></textarea>
+		</div>
+		<button type="button" class="btn btn-primary" id="iaServiceChatSend">Envoyer</button>
+		<div id="iaServiceChatResult" class="mt-3"></div>
+	</div>
+</div>
+
 <script>
     $(function () {
 
         // envoi du formulaire en ajax
         $('form#serviceForm').ajaxForm({
             beforeSubmit: function () {
+                $("#serviceForm .submit").prop("disabled", true);
                 $("#serviceForm .loading").css('display','inline-block');
             },
             success: function (theResponse) {
@@ -125,18 +138,107 @@
                     msgsucces = "Service modifié avec succès";
                 }
                 if (parseInt(theResponse) === 1) {
-                    $('#serviceForm .msgbox').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><strong>Success!</strong> ' + msgsucces + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
-					
-                    setTimeout(function () {
-                        document.location = "index.php?option=com_service";
-                    }, 1500)
-					
+
+                    if ($("#serviceForm .submit").attr("name") === "addservicerapide") {
+
+                        var newServiceId = String(theResponse).split('|')[1];
+                        $(document).trigger("iaServiceCreated", [newServiceId]);
+
+                    } else {
+                        $('#serviceForm .msgbox').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><strong>Success!</strong> ' + msgsucces + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+
+                        setTimeout(function () {
+                            document.location = "index.php?option=com_service";
+                        }, 1500)
+                    }
+
                 } else if(parseInt(theResponse) === 0) {
                     $('#serviceForm .msgbox').html('<div class="alert alert-warning alert-dismissible fade show" role="alert"><strong>Attention!</strong> Veuillez remplir les champs obligatoires<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+                    $('#serviceForm .submit').prop('disabled', false);
                 } else {
                     $('#serviceForm .msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> Erreur lors de l\'execution de l\'opération<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+                    $('#serviceForm .submit').prop('disabled', false);
                 }
             }
         });
+
+        var currentIdService = <?php echo isset($service) ? intval($service->getId()) : 0; ?>;
+
+        function getCurrentServiceTitre() {
+            return $("#serviceForm [name=titre]").val() || '';
+        }
+
+        function getCurrentServiceDescription() {
+            if (typeof CKEDITOR !== 'undefined' && CKEDITOR.instances['description']) {
+                return CKEDITOR.instances['description'].getData();
+            }
+            return $("#description").val() || '';
+        }
+
+        $("#iaServiceChatSend").on('click', function () {
+            var message = $("#iaServiceChatInput").val().trim();
+            if (!message) {
+                return;
+            }
+            var $btn = $(this);
+            $btn.prop('disabled', true).text('Analyse en cours...');
+            $("#iaServiceChatResult").html('');
+
+            $.post("components/com_ia/controleurs/router.php?task=chatServiceAssistant", {
+                id_service: currentIdService,
+                titre: getCurrentServiceTitre(),
+                description: getCurrentServiceDescription(),
+                message: message
+            }, function (response) {
+                $btn.prop('disabled', false).text('Envoyer');
+
+                if (!response.success) {
+                    $("#iaServiceChatResult").html('<div class="alert alert-danger">' + response.message + '</div>');
+                    return;
+                }
+
+                if (response.intent === 'update_description') {
+                    $("#iaServiceChatResult").html(
+                        '<div class="alert alert-info">Description propos&eacute;e (v&eacute;rifiez avant d\'appliquer) :</div>' +
+                        '<textarea class="form-control" id="iaProposedDescription" rows="5">' + response.proposed_description + '</textarea>' +
+                        '<button type="button" class="btn btn-success mt-2" id="iaApplyDescription">Appliquer dans le formulaire</button>'
+                    );
+                } else if (response.intent === 'scan_website') {
+                    var pages = response.pages || [];
+                    if (!pages.length) {
+                        $("#iaServiceChatResult").html('<div class="alert alert-warning">Aucune page détectée sur ' + response.url + '.</div>');
+                        return;
+                    }
+                    // uniquement les titres des pages, en une ligne compacte, pas de liens ;
+                    // remplace la ligne existante si déjà présente, n'écrase jamais le reste.
+                    var pagesLine = buildPagesLine(pages);
+                    var currentDescription = getCurrentServiceDescription();
+                    var proposed = mergePagesLine(currentDescription, pagesLine);
+                    $("#iaServiceChatResult").html(
+                        '<div class="alert alert-info">Pages détectées sur ' + response.url + ' — texte proposé pour la description (vérifiez avant d\'appliquer) :</div>' +
+                        '<textarea class="form-control" id="iaProposedDescription" rows="8">' + proposed + '</textarea>' +
+                        '<button type="button" class="btn btn-success mt-2" id="iaApplyDescription">Appliquer dans le formulaire</button>'
+                    );
+                } else if (response.intent === 'need_url') {
+                    $("#iaServiceChatResult").html('<div class="alert alert-warning">Merci de préciser l\'URL du site à scanner dans votre message.</div>');
+                } else {
+                    $("#iaServiceChatResult").html('<div class="alert alert-warning">' + response.message + '</div>');
+                }
+            }).fail(function () {
+                $btn.prop('disabled', false).text('Envoyer');
+                $("#iaServiceChatResult").html('<div class="alert alert-danger">Erreur réseau lors de la demande.</div>');
+            });
+        });
+
+        $(document).on('click', '#iaApplyDescription', function () {
+            var newText = $("#iaProposedDescription").val();
+            if (typeof CKEDITOR !== 'undefined' && CKEDITOR.instances['description']) {
+                CKEDITOR.instances['description'].setData(newText);
+            } else {
+                $("#description").val(newText);
+            }
+            $("#iaServiceChatResult").html('<div class="alert alert-success">Description appliquée dans le formulaire — cliquez sur le bouton "' + $("#serviceForm .submit").text().trim() + '" pour enregistrer.</div>');
+        });
+
     })
 </script>

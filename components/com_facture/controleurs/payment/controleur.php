@@ -54,24 +54,10 @@ function addPayment($data)
 
             $facture = facture::find($data['id_facture'],$_SESSION['agence']);
 
-            // Ajout des relances
-            $cpt = 0;
-            if(isset($data['rappel'])){
-                $conditions = $facture->getDevis()->getConditions();
-                foreach($conditions as $condition){
-                    if($cpt > 0){
-                        $relance = new relance();
-                        $relance->setClient($facture->getClient());
-                        $relance->setFacture($facture);
-                        $relance->setType('Email');
-                        $relance->setDate($condition->getDate());
-                        $relance->setDateAdd(date('Y-m-d'));
-                        $relance->add();
-                    }
-                    $cpt++;
-                }
-            }
-            // Fin ajout des relances
+            // Les relances de paiement (échéancier J-15/J-10/J-5/J0 puis retard) sont désormais
+            // générées et envoyées automatiquement par relance::runDailyReminders() (voir
+            // components/com_relance/classes/relance.php), plus par une boucle ici à l'ajout
+            // d'un paiement.
 
             // Ajout des rappels
             if(isset($data['rappel_domaine'])){
@@ -99,6 +85,15 @@ function addPayment($data)
             } 
 
             $facture->checkPayment();
+            sendPaymentConfirmationEmail($facture, $data['montant']);
+            syncDevisStatutPaiement($facture);
+
+            // Tout paiement (même partiel) tente de déclencher le lancement de
+            // projet (Drive + Trello + Slack #familly + email support), mais
+            // projectNotifier::launch() ne fait réellement rien si un ticket
+            // Trello existe déjà pour ce client (déjà lancé précédemment).
+            projectNotifier::launch($facture->getClient(), $facture->getDevis(), 'Paiement ajouté sur la facture #' . $facture->getNumero() . ' (' . number_format($data['montant'], 2, ',', ' ') . ' ' . $facture->getDevise() . ').');
+
             echo "1";
         } else {
             echo "2";
@@ -108,12 +103,99 @@ function addPayment($data)
     }
 }
 
+// Quand une facture est intégralement soldée, le devis d'origine passe aussi à
+// "Paiement effectué" (statu=4), ce qui déclenche le ticket Trello pour le responsable technique.
+function syncDevisStatutPaiement($facture)
+{
+    if ($facture->getReste() > 0) {
+        return;
+    }
+    $devis = $facture->getDevis();
+    if (!$devis || !$devis->getId() || $devis->getStatu() == 4) {
+        return;
+    }
+    $devis->setStatu(4);
+    $devis->setUserEdited($_SESSION['user']);
+    $devis->setLastEdit(date('Y-m-d H:i:s'));
+    $devis->edit();
+    projectNotifier::launch($devis->getClient(), $devis, 'Devis N°' . $devis->getNumero() . ' passé en "Paiement effectué".');
+}
+
+function sendPaymentConfirmationEmail($facture, $montant)
+{
+    if (!defined('SMTP_HOST') || SMTP_HOST == '') {
+        return;
+    }
+    $client = $facture->getClient();
+    if (!$client->getEmail()) {
+        return;
+    }
+
+    require_once '../../../vendor/autoload.php';
+
+    global $siteURL;
+    $baseUrl = (defined('PUBLIC_SITE_URL') && PUBLIC_SITE_URL) ? PUBLIC_SITE_URL : $siteURL;
+    $espaceClientLink = $baseUrl . "index.php?option=com_elogin";
+    $reste = $facture->getReste();
+
+    try {
+        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+        $mail->isSMTP();
+        $mail->Host = SMTP_HOST;
+        $mail->SMTPAuth = true;
+        $mail->Username = SMTP_USERNAME;
+        $mail->Password = SMTP_PASSWORD;
+        $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
+        $mail->CharSet = 'UTF-8';
+
+        $mail->setFrom(SMTP_USERNAME, 'Hello World');
+        $mail->addAddress($client->getEmail(), trim($client->getPrenom() . ' ' . $client->getNom()));
+        $mail->addCC('contact@helloworld-agency.com');
+
+        $mail->isHTML(true);
+        $isEn = ($facture->getLangue() == 'en');
+
+        if ($isEn) {
+            $mail->Subject = "Payment confirmation — Invoice N°" . $facture->getNumero();
+            $mail->Body = "Hello " . htmlspecialchars($client->getPrenom()) . ",<br><br>"
+                . "We confirm we have received your payment of <strong>" . number_format($montant, 2, ',', ' ') . " " . $facture->getDevise() . "</strong> for invoice N°" . $facture->getNumero() . ". Thank you!<br><br>"
+                . ($reste > 0
+                    ? "Remaining balance: <strong>" . number_format($reste, 2, ',', ' ') . " " . $facture->getDevise() . "</strong>.<br><br>"
+                        . "You can find the details of your invoices and payments at any time from your client portal: <a href=\"" . $espaceClientLink . "\">" . $espaceClientLink . "</a> (also available from our mobile app).<br><br>"
+                    : "This invoice is now fully paid. Please download your invoice from your client portal: <a href=\"" . $espaceClientLink . "\">" . $espaceClientLink . "</a>, also available from our mobile app.<br><br>")
+                . "Feel free to reach out with any question, we are always happy to help.<br><br>"
+                . "Have a great day,<br>The Hello World team";
+            $mail->AltBody = "Hello " . $client->getPrenom() . ", we confirm receipt of your payment of " . $montant . " " . $facture->getDevise() . " for invoice N°" . $facture->getNumero() . "."
+                . ($reste > 0 ? "" : " This invoice is now fully paid, please download it from your client portal or mobile app: " . $espaceClientLink);
+        } else {
+            $mail->Subject = "Confirmation de règlement — Facture N°" . $facture->getNumero();
+            $mail->Body = "Bonjour " . htmlspecialchars($client->getPrenom()) . ",<br><br>"
+                . "Nous vous confirmons avoir bien reçu votre règlement de <strong>" . number_format($montant, 2, ',', ' ') . " " . $facture->getDevise() . "</strong> pour la facture N°" . $facture->getNumero() . ". Nous vous en remercions !<br><br>"
+                . ($reste > 0
+                    ? "Solde restant à régler : <strong>" . number_format($reste, 2, ',', ' ') . " " . $facture->getDevise() . "</strong>.<br><br>"
+                        . "Vous pouvez à tout moment retrouver le détail de vos factures et règlements depuis votre espace client : <a href=\"" . $espaceClientLink . "\">" . $espaceClientLink . "</a> (également accessible depuis notre application mobile).<br><br>"
+                    : "Cette facture est désormais soldée intégralement. Merci de télécharger votre facture depuis votre espace client : <a href=\"" . $espaceClientLink . "\">" . $espaceClientLink . "</a>, également accessible depuis notre application mobile.<br><br>")
+                . "N'hésitez pas à revenir vers nous pour la moindre question, nous sommes toujours ravis de vous accompagner.<br><br>"
+                . "Belle journée à vous,<br>L'équipe Hello World";
+            $mail->AltBody = "Bonjour " . $client->getPrenom() . ", nous confirmons la réception de votre règlement de " . $montant . " " . $facture->getDevise() . " pour la facture N°" . $facture->getNumero() . "."
+                . ($reste > 0 ? "" : " Cette facture est soldée intégralement, merci de la télécharger depuis votre espace client ou l'application mobile : " . $espaceClientLink);
+        }
+
+        $mail->send();
+    } catch (\Exception $e) {
+        // Le paiement est déjà enregistré : un échec d'envoi d'email ne doit pas faire échouer l'opération.
+    }
+}
+
 function editPayment($data)
 {
     $indices = array("id", "id_facture", "montant");
     if (fieldCheck($data, $indices)) {
         if (buildPayment($data, $data['id'])->edit() == 1) {
-            facture::find($data['id_facture'],$_SESSION['agence'])->checkPayment();
+            $facture = facture::find($data['id_facture'],$_SESSION['agence']);
+            $facture->checkPayment();
+            syncDevisStatutPaiement($facture);
             echo "1";
         } else {
             echo "2";

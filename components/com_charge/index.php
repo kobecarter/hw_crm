@@ -10,6 +10,7 @@ switch ($task)
             $submitValue = "Ajouter charge";
 			$charges = charge::findAll(true,$_SESSION['agence']);
 			$users = user::findAll();
+			$employes = resourcehumaine::findAll();
             include_once("components/com_charge/views/charge/add.php");
         }
         break;
@@ -19,6 +20,8 @@ switch ($task)
                 $id = intval($_GET['id']);
                 $charge = charge::find($id,$_SESSION['agence']);
                 $users = user::findAll();
+                $employes = resourcehumaine::findAll();
+                $bulletinLie = payslip::findByIdCharge($id);
                 $action = "components/com_charge/controleurs/router.php?task=editCharge";
                 $submitName = "edit";
                 $submitValue = "Modifier charge";

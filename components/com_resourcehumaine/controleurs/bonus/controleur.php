@@ -48,8 +48,15 @@ function deleteBonusResourceHumaine($data)
     $indices = array("id");
     if (fieldCheck($data, $indices))
     {
-        $bonus = new bonus();
-        $bonus->setId($data['id']);
+        // find() + vérification manuelle de l'agence via l'employé lié (bonus::find($id) ne prend
+        // pas d'agence en paramètre) - sans ce contrôle, n'importe quel id de prime valide, même
+        // d'une autre agence, se faisait supprimer (IDOR).
+        $bonus = bonus::find($data['id']);
+        $employeBonus = $bonus->getResourcehumaine();
+        if ($bonus->getId() == 0 || !$employeBonus || !$employeBonus->getAgency() || $employeBonus->getAgency()->getId() != $_SESSION['agence']) {
+            echo "2";
+            return;
+        }
         if ($bonus->delete() == 1) {
             echo "1";
         } else {

@@ -173,10 +173,6 @@ Version      : 1.0
 			$('body').addClass('mini-sidebar');
 			$('.subdrop + ul').slideUp();
 		}
-		setTimeout(function () {
-			mA.redraw();
-			mL.redraw();
-		}, 300);
 		return false;
 	});
 	

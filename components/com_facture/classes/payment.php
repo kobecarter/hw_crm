@@ -212,11 +212,11 @@ class payment
         }
 
         if ($id_facture) {
-            $SQLselect .= " AND A.id_facture = $id_facture";
+            $SQLselect .= " AND A.id_facture = " . intval($id_facture);
         }
 
         if($agence){
-            $SQLselect .= " AND C.id_agence = $agence";
+            $SQLselect .= " AND C.id_agence = " . intval($agence);
         }
 
         if($devise){
@@ -224,7 +224,7 @@ class payment
         }
 
         if($year){
-            $SQLselect .= " AND YEAR(A.date_payment) = $year";
+            $SQLselect .= " AND YEAR(A.date_payment) = " . intval($year);
         }
 
         if ($ordre) {
@@ -285,15 +285,15 @@ class payment
             $SQLcount .= " AND (B.id_user_added = ".$_SESSION['user']->getId()." )";
         }
         if ($year) {
-            $SQLcount .= " AND YEAR(B.date_facture) = $year";
+            $SQLcount .= " AND YEAR(B.date_facture) = " . intval($year);
         }
 
         if ($month) {
-            $SQLcount .= " AND MONTH(B.date_facture) = $month";
+            $SQLcount .= " AND MONTH(B.date_facture) = " . intval($month);
         }
 
         if($invoice){
-            $SQLcount .= " AND B.id = $invoice";
+            $SQLcount .= " AND B.id = " . intval($invoice);
         }
 
         $result = $db->query($SQLcount);

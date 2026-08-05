@@ -295,6 +295,7 @@ function addFacture($data)
 					$agence->edit();
 				}
 			}
+			projectNotifier::launch($facture->getClient(), $facture->getDevis(), 'Facture #' . $facture->getNumero() . ' créée.');
 			echo "1";
 		} else {
 			echo "2";
@@ -489,7 +490,7 @@ function getRowFacture()
 	$services = service::findAll($_SESSION['langue'], true);
 	?>
 	<tr>
-		<td></td>
+		<td><input type="number" name="ordre[]" value="1" class="form-control"></td>
 		<td>
 			<select class="chosen-select service-select" name="id_service[]" style="width:500px;" required>
 				<option value="" selected>Sélectionner</option>
@@ -510,7 +511,7 @@ function getRowFacture()
 			<input type="number" step="any" name="prix[]" value="<?php echo $services[0]->getPrix(); ?>" class="form-control price-input" style="width:100px;">
 		</td>
 		<td>
-			<select class="chosen-select" name="unite[]" style="width:300px;" required>
+			<select class="chosen-select unite-input" name="unite[]" style="width:300px;" required>
 				<option value="" selected>Sélectionner</option>
 				<?php
 				$unities = getUnities()[isset($facture) ? $facture->getLangue() : 'fr'];
@@ -524,6 +525,7 @@ function getRowFacture()
 		</td>
 		<td class="add-remove text-right">
 			<input type="hidden" name="item_id[]" value="0" class="id-item-input">
+			<i class="fas fa-star ask-ai-item-row" data-toggle="tooltip" data-placement="top" data-original-title="Assistant IA"></i>
 			<i class="fas fa-plus-circle add-row" data-toggle="tooltip" data-placement="top" data-original-title="Ajouter ligne"></i>
 			<i class="fas fa-minus-circle remove-row" data-toggle="tooltip" data-placement="top" data-original-title="Supprimer cette ligne"></i>
 		</td>
@@ -603,6 +605,9 @@ function customItemFacture($data)
 				<label>Description <span class="text-danger">*</span></label>
 				<textarea class="form-control" name="description" id="description"><?php echo $item_facture->getDescription(); ?></textarea>
 				<script type="text/javascript">
+					if (CKEDITOR.instances.description) {
+						CKEDITOR.instances.description.destroy(true);
+					}
 					CKEDITOR.replace('description', {
 						//allowedContent: true,
 						allowedContent: 'p b i ul li tr th h2 h1 h3 h4 h5 h6 a; a[!href];',
@@ -732,6 +737,12 @@ function buildFacture($data, $id = null, $factureavoir = false)
 	// print_r($facture);die;
 	return $facture;
 }
+
+/* Le lancement de projet (dossier Drive + ticket Trello + Slack #familly +
+   email support) est désormais géré par la classe partagée projectNotifier
+   (components/com_facture/classes/projectNotifier.php), appelée depuis ici,
+   depuis le paiement, et depuis le changement de statut devis — un seul
+   ticket Trello par client, jamais de doublon. */
 
 function pdfFacture($data)
 {

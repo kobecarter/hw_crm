@@ -24,11 +24,23 @@ function addCharge($data)
 {
     $indices = array("titre");
     if (fieldCheck($data, $indices)) {
-        if (buildCharge($data)->add() == 1) {
-            echo "1";
-        } else {
+        $charge = buildCharge($data);
+        if ($charge->add() != 1) {
             echo "2";
+            return;
         }
+        // Capturé immédiatement après l'insertion, avant toute autre INSERT (creerBulletinDepuisCharge()
+        // insère aussi dans crm_payslip, ce qui écraserait LAST_INSERT_ID() si on appelait
+        // charge::getLastId() après coup — même bug déjà rencontré et corrigé côté TVA/charges).
+        $idCharge = charge::getLastId();
+
+        if (isset($data['is_payslip']) && $data['is_payslip'] == '1'
+            && isset($data['id_resourcehumaine_payslip']) && $data['id_resourcehumaine_payslip'] !== ''
+            && $charge->getPhoto() != '') {
+            creerBulletinDepuisCharge($data, $idCharge, $charge->getPhoto());
+        }
+
+        echo "1";
     } else {
         echo "0";
     }
@@ -105,6 +117,8 @@ function buildCharge($data, $id = null)
 	$charge->setDescription($data['description']);
 	$charge->setTotal($data['total']);
 	$charge->setDevise($data['devise']);
+	$charge->setTvaTaux(isset($data['tva_taux']) && $data['tva_taux'] !== '' ? $data['tva_taux'] : null);
+	$charge->setTvaDeductible(isset($data['tva_deductible']) ? 1 : 0);
     $charge->setPaid(isset($data['paid']) ? 1 : 0);
 	$charge->setFacture(isset($data['facture']) ? 1 : 0);
 	$charge->setRefunded(isset($data['refunded']) ? 1 : 0);
@@ -115,6 +129,53 @@ function buildCharge($data, $id = null)
     $charge->setLastEdit(date("Y-m-d"));
 
     return $charge;
+}
+
+// Bulletin de paie déposé sur la page Charges (dropzone IA) : le justificatif déjà enregistré
+// pour la charge (uploadFiles() dans buildCharge() ci-dessus, dossier images/charges/) est
+// dupliqué vers l'espace employé (images/resourceshumaines/payslips/) — uploadFiles() utilise
+// move_uploaded_file(), le fichier temporaire d'origine n'existe donc plus, une simple copie
+// du fichier déjà sauvegardé est le seul moyen de le faire atterrir dans les deux dossiers.
+// Aucune charge normale n'est affectée : n'est appelée que lorsque l'extraction IA a réussi
+// et que l'employé a été confirmé côté formulaire (jamais de liaison automatique silencieuse).
+function creerBulletinDepuisCharge($data, $idCharge, $nomFichierCharge)
+{
+    $resourcehumaine = resourcehumaine::find(intval($data['id_resourcehumaine_payslip']));
+    if (!$resourcehumaine || $resourcehumaine->getId() == 0) {
+        return false;
+    }
+
+    $cheminSource = '../../../images/charges/' . $nomFichierCharge;
+    if (!file_exists($cheminSource)) {
+        return false;
+    }
+
+    $dossierDestination = '../../../images/resourceshumaines/payslips';
+    $ext = substr($nomFichierCharge, strrpos($nomFichierCharge, '.') + 1);
+    $nomBase = basename($nomFichierCharge, '.' . $ext);
+    $n = '';
+    while (file_exists("$dossierDestination/$nomBase$n.$ext")) {
+        $n++;
+    }
+    $nomFichierDestination = "$nomBase$n.$ext";
+
+    if (!@copy($cheminSource, "$dossierDestination/$nomFichierDestination")) {
+        return false;
+    }
+
+    $mois = isset($data['payslip_mois']) && $data['payslip_mois'] !== '' ? intval($data['payslip_mois']) : (int) date('n');
+    $annee = isset($data['payslip_annee']) && $data['payslip_annee'] !== '' ? intval($data['payslip_annee']) : (int) date('Y');
+
+    $payslip = new payslip();
+    $payslip->setResourcehumaine($resourcehumaine);
+    // Même convention de nommage que l'ajout direct depuis la fiche employé, voir
+    // payslip::titreAuto() - "Bulletin de paie {Nom} {MM/YYYY}".
+    $payslip->setTitle(payslip::titreAuto($resourcehumaine, $mois, $annee));
+    $payslip->setDate(date('Y-m-t', strtotime(sprintf('%04d-%02d-01', $annee, $mois))));
+    $payslip->setFile($nomFichierDestination);
+    $payslip->setIdCharge($idCharge);
+
+    return $payslip->add() == 1;
 }
 
 function exportCharges($data)

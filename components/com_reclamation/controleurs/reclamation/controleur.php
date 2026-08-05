@@ -56,8 +56,13 @@ function deleteReclamation($data)
     $indices = array("id");
     if (fieldCheck($data, $indices))
     {
-        $reclamation = new reclamation();
-        $reclamation->setId($data['id']);
+        // find($id, $agence) plutôt que new+setId() : sans ça, un id valide d'une autre agence se
+        // faisait supprimer sans aucune vérification d'appartenance (IDOR).
+        $reclamation = reclamation::find($data['id'], $_SESSION['agence']);
+        if ($reclamation->getId() == 0) {
+            echo "2";
+            return;
+        }
         if ($reclamation->delete() == 1) {
             echo "1";
         } else {

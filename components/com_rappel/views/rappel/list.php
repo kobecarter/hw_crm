@@ -16,7 +16,7 @@
 		background-color: rgba(220, 53, 69, 0.8) !important;
 	}
 </style>
-<div class="page-wrapper">
+<div class="page-wrapper glass-page">
 	<div class="content container-fluid">
 
 		<div class="page-header">
@@ -46,17 +46,40 @@
 			</div>
 		</div>
 
+		<?php
+		// Compteurs des puces de filtre rapide - mêmes seuils que le code couleur des lignes déjà
+		// en place ci-dessous (30j "bientôt", 10j "urgent", 0j "expiré").
+		$rappelTotal = sizeof($rappels);
+		$rappelBientot = 0;
+		$rappelUrgent = 0;
+		$rappelExpire = 0;
+		foreach ($rappels as $rappelCompte) {
+			$j = $rappelCompte->getDaysLeft();
+			if ($j < 30) { $rappelBientot++; }
+			if ($j < 10) { $rappelUrgent++; }
+			if ($j < 0) { $rappelExpire++; }
+		}
+		?>
 		<div class="row">
 			<div class="col-sm-12">
 
 				<div class="card card-table">
 					<div class="card-header">
-						<h4 class="card-title">Liste des Rappels</h4>
+						<h4 class="card-title">Hosting / Domaines / Renouvellements</h4>
 					</div>
 					<div class="card-body">
 						<div class="col-sm-12 mt-3 msgbox"></div>
+
+						<!-- Filtres rapides : mêmes seuils que le code couleur des lignes (30j/10j/0j). -->
+						<div class="quick-filter-chips mb-3">
+							<button type="button" class="active" data-filter="all">Tous <span class="badge badge-pill ml-1"><?= $rappelTotal ?></span></button>
+							<button type="button" data-filter="soon">Bientôt (30j) <span class="badge badge-pill ml-1"><?= $rappelBientot ?></span></button>
+							<button type="button" data-filter="urgent">Urgent (10j) <span class="badge badge-pill ml-1"><?= $rappelUrgent ?></span></button>
+							<button type="button" data-filter="expired">Expirés <span class="badge badge-pill ml-1"><?= $rappelExpire ?></span></button>
+						</div>
+
 						<div class="table-responsive">
-							<table class="table table-stripped table-center table-hover datatable">
+							<table id="rappels-table" class="table table-stripped table-center table-hover datatable">
 								<thead class="thead-light">
 									<tr>
 										<th>ID</th>
@@ -83,7 +106,7 @@
 											$rowClass = 'table-expired';
 										}
 										?>
-										<tr class="<?php echo $rowClass; ?>">
+										<tr class="<?php echo $rowClass; ?>" data-highlight-id="<?= $rappel->getId(); ?>" data-days-left="<?= $rappel->getDaysLeft(); ?>">
 											<td><?php echo $rappel->getId(); ?></td>
 											<td><?php echo $rappel->getType(); ?></td>
 											<td><?php echo $rappel->getDomaine(); ?></td>
@@ -121,6 +144,31 @@
 <!-- /Page Wrapper -->
 <script type="text/javascript">
 	$(function() {
+
+		// Filtres rapides (Tous / Bientôt / Urgent / Expirés) - même mécanique que la page
+		// Relances (data-* sur les <tr> + extension de recherche DataTables). Scopé par l'id de la
+		// table (rappels-table) : .datatable est une classe générique réutilisée sur tout le site,
+		// sans ce garde-fou le filtre s'appliquerait à toutes les autres listes de l'app.
+		var rappelFilter = 'all';
+		if ($.fn.DataTable) {
+			$.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
+				if (!settings.nTable || settings.nTable.id !== 'rappels-table') return true;
+				if (rappelFilter === 'all') return true;
+				var joursRestants = parseInt($(settings.aoData[dataIndex].nTr).attr('data-days-left'), 10);
+				if (rappelFilter === 'soon') return joursRestants < 30;
+				if (rappelFilter === 'urgent') return joursRestants < 10;
+				if (rappelFilter === 'expired') return joursRestants < 0;
+				return true;
+			});
+		}
+		$(document).on('click', '.quick-filter-chips button', function () {
+			$('.quick-filter-chips button').removeClass('active');
+			$(this).addClass('active');
+			rappelFilter = $(this).data('filter');
+			if ($.fn.DataTable && $.fn.DataTable.isDataTable('#rappels-table')) {
+				$('#rappels-table').DataTable().draw();
+			}
+		});
 
 		var msgsucces = "Rappel supprimé avec succès";
 		$(document).on("click", ".delete", function() {

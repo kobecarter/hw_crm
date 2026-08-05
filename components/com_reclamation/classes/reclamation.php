@@ -179,7 +179,7 @@ class reclamation
         }
 
         if ($client) {
-            $SQLselect .= " WHERE A.id_client = $client";
+            $SQLselect .= " WHERE A.id_client = " . intval($client);
         }
 
         $SQLselect .= " ORDER BY A.date_add DESC, id DESC";
@@ -218,7 +218,7 @@ class reclamation
         $SQLcount = "SELECT count(id) as c FROM " . static::$table;
 
         if ($year) {
-            $SQLcount .= " WHERE YEAR(date_add) = $year";
+            $SQLcount .= " WHERE YEAR(date_add) = " . intval($year);
         }
 
         $result = $db->query($SQLcount);

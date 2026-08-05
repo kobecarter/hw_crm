@@ -200,6 +200,24 @@ class taxeprofessionnelle
         return $items;
     }
 
+    // Utilisé par la vérification anti-doublon de la dropzone Charges : existe-t-il déjà une
+    // taxe professionnelle enregistrée pour cette année et cette agence ?
+    public static function findByYear($agence, $year)
+    {
+        global $db;
+        $items = array();
+        $SQLselect = sprintf("SELECT A.id as ID, A.* FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id where A.id_agence = %s and A.year = %s",
+            GetSQLValueString($agence, "int"),
+            GetSQLValueString($year, "text")
+        );
+        $result = $db->queryS($SQLselect);
+        foreach ($result as $data) {
+            $taxeprofessionnelle = static::build($data);
+            array_push($items, $taxeprofessionnelle);
+        }
+        return $items;
+    }
+
     public static function build($data){
         $taxeprofessionnelle = new taxeprofessionnelle();
         $taxeprofessionnelle->setId($data['ID']);

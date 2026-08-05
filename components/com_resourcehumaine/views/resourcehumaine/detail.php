@@ -15,6 +15,8 @@
             </div>
         </div>
 
+        <?php include("components/com_resourcehumaine/views/resourcehumaine/_profile_header.php"); ?>
+
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
@@ -22,15 +24,7 @@
                         <h4 class="card-title">Information</h4>
                     </div>
                     <div class="card-body">
-                        <div class="text-center">
-                            <div class="div-round-profile mb-3">
-                                <img src="./images/resourceshumaines/<?= $resourcehumaine->getPhoto() ?>" onerror="this.src='./images/default-image.jpeg'" alt="<?= $resourcehumaine->getFirstName() . " " . $resourcehumaine->getLastName() ?>">
-                            </div>
-                            <h3 class="mb-0"><?= $resourcehumaine->getFirstName() . " " . $resourcehumaine->getLastName() ?></h3>
-                            <span class="text-secondary"><?= $resourcehumaine->getFunction() ?></span>
-                        </div>
-
-                        <div class="div-table-information customer-details-group mt-5">
+                        <div class="div-table-information customer-details-group">
                             <div class="row justify-content-center">
                                 <div class="col-7">
                                     <div class="row align-items-center justify-content-center">
@@ -148,6 +142,26 @@
                                             <div class="customer-details">
                                                 <div class="d-flex align-items-center">
                                                     <div class="customer-details-cont">
+                                                        <h6>Salaire premier jour</h6>
+                                                        <p><?= $resourcehumaine->getSalaireInitial() !== null && $resourcehumaine->getSalaireInitial() !== '' ? number_format((float) $resourcehumaine->getSalaireInitial(), 0, ',', ' ') . ' DH' : '<span class="text-danger">Indéfinie</span>' ?></p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-4 col-md-6 col-12">
+                                            <div class="customer-details">
+                                                <div class="d-flex align-items-center">
+                                                    <div class="customer-details-cont">
+                                                        <h6>Salaire actuel</h6>
+                                                        <p><?= $resourcehumaine->getSalaireActuel() !== null && $resourcehumaine->getSalaireActuel() !== '' ? number_format((float) $resourcehumaine->getSalaireActuel(), 0, ',', ' ') . ' DH' : '<span class="text-danger">Indéfinie</span>' ?></p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-4 col-md-6 col-12">
+                                            <div class="customer-details">
+                                                <div class="d-flex align-items-center">
+                                                    <div class="customer-details-cont">
                                                         <h6>Fonction</h6>
                                                         <p><?= $resourcehumaine->getFunction() ? $resourcehumaine->getFunction() : '<span class="text-danger">Indéfinie</span>' ?></p>
                                                     </div>
@@ -209,73 +223,157 @@
                             </div>
                         </div>
 
-                        <div class="table-responsive mt-5">
-                            <table class="table mb-0 text-center">
-                                <thead>
-                                    <tr>
-                                        <th class="text-secondary">Année</th>
-                                        <?php foreach (months() as $month) : ?>
-                                            <th><?= $month['name'] ?></th>
-                                        <?php endforeach; ?>
-                                        <th>Congé total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php
-                                    $start_date = $resourcehumaine->getStartDate();
-                                    $end_date = $resourcehumaine->getEndDate() ? $resourcehumaine->getEndDate() : date("Y-m-d");
-                                    $total_holidays = 0;
-                                    for ($i = date("Y", strtotime($start_date)); $i <= date("Y", strtotime($end_date)); $i++) :
-                                        $total_holidays_per_year = 0;
-                                    ?>
+                        <?php
+                        $start_date = $resourcehumaine->getStartDate();
+                        $end_date = $resourcehumaine->getEndDate() ? $resourcehumaine->getEndDate() : date("Y-m-d");
+                        $total_holidays_consumed = 0;
+                        foreach ($absences as $value) {
+                            $total_holidays_consumed += ($value->getNatureOfAbsence() == 1 ? $value->getNumberOfDays() : 0);
+                        }
+                        $anneesConge = array();
+                        $total_holidays = 0;
+                        for ($i = date("Y", strtotime($start_date)); $i <= date("Y", strtotime($end_date)); $i++) {
+                            $total_holidays_per_year = 0;
+                            $moisDetail = array();
+                            foreach (months() as $month) {
+                                $month_date = date("Y-m-t", strtotime($i . "-" . $month['number'] . "-1"));
+                                $start_month_date = date("Y-m-d", strtotime($start_date));
+                                $end_month_date = date("Y-m-d", strtotime($end_date));
+                                $acquis = ($month_date >= $start_month_date && $month_date <= $end_month_date);
+                                if ($acquis) {
+                                    $total_holidays_per_year += 1.5;
+                                    $total_holidays += 1.5;
+                                }
+                                $moisDetail[] = array('name' => $month['name'], 'acquis' => $acquis);
+                            }
+                            $anneesConge[] = array('annee' => $i, 'mois' => $moisDetail, 'total' => $total_holidays_per_year);
+                        }
+                        $total_holidays_restant = $total_holidays - $total_holidays_consumed;
+                        ?>
 
-                                        <tr>
-                                            <td><?= $i ?></td>
-                                            <?php foreach (months() as $month) : ?>
-                                                <th>
-                                                    <?php
-                                                    $month_date = date("Y-m-t", strtotime($i . "-" . $month['number'] . "-1"));
-                                                    $start_month_date = date("Y-m-d", strtotime($start_date));
-                                                    $end_month_date = date("Y-m-d", strtotime($end_date));
-
-                                                    if ($month_date >= $start_month_date && $month_date <= $end_month_date) {
-                                                        $total_holidays_per_year += 1.5;
-                                                        $total_holidays += 1.5;
-                                                        echo '<span class="text-success">1.5</span>';
-                                                    } else {
-                                                        echo '0';
-                                                    }
-                                                    ?>
-                                                </th>
-                                            <?php endforeach; ?>
-                                            <th><span class="text-success"><?= $total_holidays_per_year ?></span></th>
-                                        </tr>
-                                    <?php endfor; ?>
-                                </tbody>
-                                <tfoot">
-                                    <tr class="text-left">
-                                        <th colspan="10"></th>
-                                        <th colspan="4">Congé total : <span class="text-success"><?= $total_holidays ?> Jour(s)</span></th>
-                                    </tr>
-                                    <tr class="text-left">
-                                        <th colspan="10"></th>
-                                        <th colspan="4">Congé consommé : <span class="text-danger">
-                                                <?php
-                                                $total_holidays_consumed = 0;
-                                                foreach ($absences as $value) :
-                                                    $total_holidays_consumed += ($value->getNatureOfAbsence() == 1 ? $value->getNumberOfDays() : 0);
-                                                endforeach;
-                                                echo $total_holidays_consumed . " Jour(s)";
-                                                ?>
-                                            </span></th>
-                                    </tr>
-                                    <tr class="text-left">
-                                        <th colspan="10"></th>
-                                        <th colspan="4">Congé resté : <span class="text-warning"><?= $total_holidays - $total_holidays_consumed ?> Jour(s)</span></th>
-                                    </tr>
-                                    </tfoot>
-                            </table>
+                        <div class="row mt-4">
+                            <div class="col-md-12 d-flex">
+                                <div class="card flex-fill mb-0 leave-gauge-card">
+                                    <div class="card-body">
+                                        <div class="leave-gauge-row">
+                                            <div class="leave-gauge-canvas-wrap">
+                                                <canvas id="leaveGaugeCanvas" width="150" height="150" data-total="<?= (float) $total_holidays ?>" data-restant="<?= (float) $total_holidays_restant ?>"></canvas>
+                                                <div class="leave-gauge-center">
+                                                    <span class="leave-gauge-value" id="leaveGaugeValue">0</span>
+                                                    <span class="leave-gauge-unit">jours restants</span>
+                                                </div>
+                                            </div>
+                                            <div class="leave-gauge-legend">
+                                                <div class="leave-gauge-legend-item"><span class="leave-dot leave-dot-total"></span> Congé acquis <b><?= $total_holidays ?> j</b></div>
+                                                <div class="leave-gauge-legend-item"><span class="leave-dot leave-dot-consumed"></span> Congé consommé <b><?= $total_holidays_consumed ?> j</b></div>
+                                                <div class="leave-gauge-legend-item"><span class="leave-dot leave-dot-remaining"></span> Congé restant <b><?= $total_holidays_restant ?> j</b></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+
+                        <div class="mt-4">
+                            <a href="javascript:void(0)" data-toggle="collapse" data-target="#leaveMonthDetail" class="text-decoration-none font-weight-bold">
+                                <i class="fa fa-chevron-down mr-1"></i> Détail mensuel par année
+                            </a>
+                            <div class="collapse mt-3" id="leaveMonthDetail">
+                                <div class="table-responsive">
+                                    <table class="table mb-0 text-center">
+                                        <thead>
+                                            <tr>
+                                                <th class="text-secondary">Année</th>
+                                                <?php foreach (months() as $month) : ?>
+                                                    <th><?= $month['name'] ?></th>
+                                                <?php endforeach; ?>
+                                                <th>Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($anneesConge as $annee) : ?>
+                                                <tr>
+                                                    <td><?= $annee['annee'] ?></td>
+                                                    <?php foreach ($annee['mois'] as $mois) : ?>
+                                                        <th><?= $mois['acquis'] ? '<span class="text-success">1.5</span>' : '0' ?></th>
+                                                    <?php endforeach; ?>
+                                                    <th><span class="text-success"><?= $annee['total'] ?></span></th>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <?php
+        $salaireInitial = $resourcehumaine->getSalaireInitial();
+        $salaireActuel = $resourcehumaine->getSalaireActuel();
+        $salaireRenseigne = $salaireInitial !== null && $salaireInitial !== '' && $salaireActuel !== null && $salaireActuel !== '';
+        $evolutionSalairePct = null;
+        if ($salaireRenseigne && (float) $salaireInitial > 0) {
+            $evolutionSalairePct = round(((((float) $salaireActuel) - ((float) $salaireInitial)) / ((float) $salaireInitial)) * 100, 1);
+        }
+        $maxSalaireAffiche = max((float) $salaireInitial, (float) $salaireActuel, 1);
+        $salairePxMin = 50;
+        $salairePxMax = 170;
+        $hauteurInitialePx = $salaireRenseigne ? round($salairePxMin + (((float) $salaireInitial / $maxSalaireAffiche) * ($salairePxMax - $salairePxMin))) : $salairePxMin;
+        $hauteurActuellePx = $salaireRenseigne ? round($salairePxMin + (((float) $salaireActuel / $maxSalaireAffiche) * ($salairePxMax - $salairePxMin))) : $salairePxMin;
+        ?>
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card salary-evolution-card">
+                    <div class="card-header">
+                        <h4 class="card-title"><i class="fa fa-coins mr-2"></i>Évolution salariale</h4>
+                    </div>
+                    <div class="card-body">
+                        <?php if (!$salaireRenseigne) : ?>
+                            <p class="text-muted mb-0">
+                                Salaire non renseigné.
+                                <?php if ($_SESSION['user']->hasDroit('edit', 'com_resourcehumaine')) : ?>
+                                    <a href="index.php?option=com_resourcehumaine&task=edit&id=<?= $resourcehumaine->getId() ?>">Compléter la fiche</a>
+                                <?php endif; ?>
+                            </p>
+                        <?php else : ?>
+                            <div class="salary-3d-scene">
+                                <div class="salary-3d-floor">
+                                    <div class="salary-3d-bar-group">
+                                        <div class="salary-3d-bar salary-3d-bar-initial" style="--bar-h: <?= $hauteurInitialePx ?>px;">
+                                            <div class="salary-3d-face salary-3d-top"></div>
+                                            <div class="salary-3d-face salary-3d-front"></div>
+                                            <div class="salary-3d-face salary-3d-right"></div>
+                                        </div>
+                                    </div>
+                                    <div class="salary-3d-bar-group">
+                                        <div class="salary-3d-bar salary-3d-bar-actuel" style="--bar-h: <?= $hauteurActuellePx ?>px;">
+                                            <div class="salary-3d-face salary-3d-top"></div>
+                                            <div class="salary-3d-face salary-3d-front"></div>
+                                            <div class="salary-3d-face salary-3d-right"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="salary-3d-legend">
+                                <div class="salary-3d-legend-item">
+                                    <span class="salary-dot salary-dot-initial"></span> Salaire premier jour
+                                    <b><?= number_format((float) $salaireInitial, 0, ',', ' ') ?> DH</b>
+                                </div>
+                                <?php if ($evolutionSalairePct !== null) : ?>
+                                    <div class="salary-evolution-badge <?= $evolutionSalairePct > 0 ? 'salary-up' : ($evolutionSalairePct < 0 ? 'salary-down' : 'salary-flat') ?>">
+                                        <i class="fa fa-<?= $evolutionSalairePct > 0 ? 'arrow-up' : ($evolutionSalairePct < 0 ? 'arrow-down' : 'equals') ?>"></i>
+                                        <?= ($evolutionSalairePct > 0 ? '+' : '') . $evolutionSalairePct ?>%
+                                    </div>
+                                <?php endif; ?>
+                                <div class="salary-3d-legend-item">
+                                    <span class="salary-dot salary-dot-actuel"></span> Salaire actuel
+                                    <b><?= number_format((float) $salaireActuel, 0, ',', ' ') ?> DH</b>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -288,9 +386,14 @@
                         <h4 class="card-title">Liste des fichiers</h4>
                     </div>
                     <div class="card-body">
+                        <?php $documentsManquantsDetail = fileresourcehumaine::documentsManquants($resourcehumaine->getStatus(), $files); ?>
                         <div class="row mb-4">
                             <div class="col-12">
-                                <p class="text-danger">Certains fichiers requis (contrat de travail, règlement interne, copie CIN, Offre d'emploi, Accord de confidentialité) !</p>
+                                <?php if (!empty($documentsManquantsDetail)) : ?>
+                                    <p class="text-danger mb-0"><i class="fa fa-exclamation-triangle mr-1"></i> Profil non finalisé — documents manquants : <?= htmlspecialchars(implode(', ', $documentsManquantsDetail)) ?>. <a href="index.php?option=com_resourcehumaine&task=file&id=<?= $resourcehumaine->getId(); ?>">Voir le détail</a></p>
+                                <?php else : ?>
+                                    <p class="text-success mb-0"><i class="fa fa-check-circle mr-1"></i> Dossier complet.</p>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <div class="row">
@@ -397,6 +500,99 @@
 
 <script type="text/javascript">
     $(function() {
+
+        // Jauge circulaire "Congé restant" (Canvas, arc animé depuis 0 jusqu'à la vraie
+        // proportion). Bien plus parlant qu'un chiffre plat pour visualiser en un coup d'œil
+        // la part de congé déjà consommée.
+        (function() {
+            var canvas = document.getElementById('leaveGaugeCanvas');
+            if (!canvas) return;
+            var ctx = canvas.getContext('2d');
+            var dpr = window.devicePixelRatio || 1;
+            var size = canvas.width;
+            canvas.width = size * dpr;
+            canvas.height = size * dpr;
+            canvas.style.width = size + 'px';
+            canvas.style.height = size + 'px';
+            ctx.scale(dpr, dpr);
+
+            var total = parseFloat(canvas.getAttribute('data-total')) || 0;
+            var restant = parseFloat(canvas.getAttribute('data-restant')) || 0;
+            var proportion = total > 0 ? Math.max(0, Math.min(1, restant / total)) : 0;
+
+            var cx = size / 2,
+                cy = size / 2,
+                radius = size / 2 - 12;
+
+            function drawGauge(progress) {
+                ctx.clearRect(0, 0, size, size);
+                // piste de fond
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                ctx.lineWidth = 14;
+                ctx.strokeStyle = 'rgba(109, 40, 217, 0.10)';
+                ctx.stroke();
+                // arc de progression (part du congé restant), départ en haut, sens horaire
+                var startAngle = -Math.PI / 2;
+                var endAngle = startAngle + Math.PI * 2 * proportion * progress;
+                var grad = ctx.createLinearGradient(0, 0, size, size);
+                grad.addColorStop(0, '#6d28d9');
+                grad.addColorStop(1, '#4338ca');
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, startAngle, endAngle);
+                ctx.lineWidth = 14;
+                ctx.lineCap = 'round';
+                ctx.strokeStyle = grad;
+                ctx.stroke();
+            }
+
+            drawGauge(0);
+            var $valeur = $('#leaveGaugeValue');
+            if (typeof gsap !== 'undefined') {
+                var etat = { p: 0, v: 0 };
+                gsap.to(etat, {
+                    p: 1,
+                    v: restant,
+                    duration: 1.3,
+                    ease: 'power2.out',
+                    onUpdate: function() {
+                        drawGauge(etat.p);
+                        $valeur.text(Math.round(etat.v));
+                    }
+                });
+            } else {
+                drawGauge(1);
+                $valeur.text(Math.round(restant));
+            }
+        })();
+
+        // Barres 3D "salaire premier jour / salaire actuel" : montée depuis 0 à l'ouverture,
+        // léger flottement continu ensuite pour renforcer l'illusion de profondeur.
+        (function() {
+            var $bars = $('.salary-3d-bar');
+            if (!$bars.length) return;
+            var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (typeof gsap === 'undefined' || reduceMotion) return;
+
+            gsap.from($bars, {
+                scaleY: 0,
+                transformOrigin: 'bottom center',
+                duration: 1.1,
+                stagger: 0.18,
+                ease: 'back.out(1.5)',
+                clearProps: 'transform',
+                onComplete: function() {
+                    gsap.to('.salary-3d-bar-group', {
+                        z: 8,
+                        duration: 1.8,
+                        ease: 'sine.inOut',
+                        yoyo: true,
+                        repeat: -1,
+                        stagger: 0.3
+                    });
+                }
+            });
+        })();
 
         var msgsucces = "Absence supprimé avec succès";
 

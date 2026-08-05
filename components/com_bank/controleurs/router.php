@@ -23,7 +23,10 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
             if ($_SESSION['user']->hasDroit('delete', 'com_bank')) {
                 include_once ("bank/controleur.php");
             }
-            break; 
+            break;
+        case 'getBanksByAgence' :
+            include_once ("bank/controleur.php");
+            break;
 
     }
 }

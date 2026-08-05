@@ -22,6 +22,8 @@
             </div>
         </div>
 
+        <?php include("components/com_resourcehumaine/views/resourcehumaine/_profile_header.php"); ?>
+
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
@@ -29,15 +31,7 @@
                         <h4 class="card-title">Statistic d'absences et congés</h4>
                     </div>
                     <div class="card-body">
-                        <div class="text-center">
-                            <div class="div-round-profile mb-3">
-                                <img onerror="this.src='./images/default-image.jpeg'" src="./images/resourceshumaines/<?= $resourcehumaine->getPhoto() ?>" onerror="this.src='./images/default-image.jpeg'" alt="<?= $resourcehumaine->getFirstName() . " " . $resourcehumaine->getLastName() ?>">
-                            </div>
-                            <h3 class="mb-0"><?= $resourcehumaine->getFirstName() . " " . $resourcehumaine->getLastName() ?></h3>
-                            <span class="text-secondary"><?= $resourcehumaine->getFunction() ?></span>
-                        </div>
-
-                        <div class="table-responsive mt-5">
+                        <div class="table-responsive mt-2">
                             <table class="table mb-0 text-center">
                                 <thead>
                                     <tr>
@@ -116,7 +110,18 @@
                         <h4 class="card-title"><?= isset($absence) ? 'Modifier l\'absence' : 'Ajouter une absence' ?></h4>
                     </div>
                     <div class="card-body">
-                        <?php include("form.php"); ?>
+                        <?php if (!isset($absence) && !empty($documentsManquantsAbsence)) : ?>
+                            <div class="alert alert-danger mb-0" style="font-size:0.95rem;">
+                                <i class="fa fa-exclamation-triangle mr-1"></i>
+                                <strong>Dossier incomplet — demande de congé indisponible.</strong>
+                                Il manque <?= count($documentsManquantsAbsence) ?> document(s) obligatoire(s) :
+                                <?= htmlspecialchars(implode(', ', $documentsManquantsAbsence)) ?>.
+                                <a href="index.php?option=com_resourcehumaine&task=file&id=<?= $resourcehumaine->getId(); ?>">Voir le détail</a>.
+                                <br>Merci de régulariser votre situation avec l'administration avant de pouvoir faire une demande de congé.
+                            </div>
+                        <?php else : ?>
+                            <?php include("form.php"); ?>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -179,6 +184,8 @@
 
                 } else if (parseInt(theResponse) === 0) {
                     $('#absenceResourceHumaineForm .msgbox').html('<div class="alert alert-warning alert-dismissible fade show" role="alert"><strong>Attention!</strong> Veuillez remplir les champs obligatoires<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+                } else if (parseInt(theResponse) === 3) {
+                    $('#absenceResourceHumaineForm .msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Dossier incomplet !</strong> Merci de régulariser votre situation avec l\'administration avant de pouvoir faire une demande de congé.<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
                 } else {
                     $('#absenceResourceHumaineForm .msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> Erreur lors de l\'execution de l\'opération<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
                 }

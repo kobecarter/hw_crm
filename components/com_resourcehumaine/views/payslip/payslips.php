@@ -5,6 +5,18 @@
                 <h4 class="card-title">Liste des Bulletins de paie </h4>
             </div>
             <div class="card-body">
+                <?php if (!empty($moisManquants)) : ?>
+                    <div class="alert alert-danger payslip-missing-banner">
+                        <i class="fa fa-exclamation-triangle mr-1"></i>
+                        <strong><?= count($moisManquants) ?> bulletin(s) de paie manquant(s)</strong> depuis la signature du contrat.
+                        Cliquez sur un mois pour l'ajouter :
+                        <div class="mt-2">
+                            <?php foreach ($moisManquants as $m) : ?>
+                                <a href="javascript:void(0)" class="payslip-missing-pill" data-ym="<?= $m['ym'] ?>"><i class="fa fa-plus mr-1"></i><?= $m['label'] ?></a>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
                 <div class="row">
                     <div class="col-sm-12 msgbox"></div>
 

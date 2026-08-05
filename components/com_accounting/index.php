@@ -45,6 +45,24 @@ switch ($task)
                 $id_tva = intval($_GET['id_tva']);
                 $tva = tva::find($id_tva,$_SESSION['agence']);
             }
+
+            // Estimation temps réel (indicative) : voir la section "Estimation CRM" de la
+            // page. Calculée séparément de la déclaration officielle ci-dessous (jamais
+            // confondues), avec une comparaison automatique quand une déclaration existe déjà
+            // pour le même mois.
+            $simAnnee = isset($_GET['annee']) && !empty($_GET['annee']) ? intval($_GET['annee']) : intval(date('Y'));
+            $simMois = isset($_GET['mois']) && !empty($_GET['mois']) ? intval($_GET['mois']) : intval(date('n'));
+            $simCredit = isset($_GET['credit']) && $_GET['credit'] !== '' ? floatval($_GET['credit']) : tvaSimulateur::creditReporteExistant($simAnnee, $simMois, $_SESSION['agence']);
+            $simulation = tvaSimulateur::simuler($simAnnee, $simMois, $_SESSION['agence'], $simCredit);
+            $simHistorique = tvaSimulateur::historique($_SESSION['agence']);
+
+            $declarationOfficielle = 0;
+            $lignesOfficielles = tva::findByDate($_SESSION['agence'], $simAnnee . '-' . sprintf('%02d', $simMois));
+            foreach ($lignesOfficielles as $ligneOfficielle) {
+                $declarationOfficielle += (float) $ligneOfficielle->getAmount();
+            }
+            $declarationExiste = !empty($lignesOfficielles);
+
             include_once("components/com_accounting/views/tva/list.php");
         }
         break;

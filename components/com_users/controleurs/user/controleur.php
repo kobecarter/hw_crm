@@ -114,10 +114,10 @@ function buildUser($data, $id = null)
     if($id){
         $user = user::find($id);
         if(isset($data['password']) && !empty($data['password'])){
-            $user->setPassword(hash('sha256',$data['password']));
+            $user->setPassword(password_hash($data['password'], PASSWORD_DEFAULT));
         }
     }else{
-        $user->setPassword(hash('sha256',$data['password']));
+        $user->setPassword(password_hash($data['password'], PASSWORD_DEFAULT));
     }
 	
 	
@@ -151,7 +151,7 @@ function buildUserWithPassword($data, $id = null)
     }
 
     if (isset($data['password']) && !empty($data['password'])) {
-        $user->setPassword(hash('sha256', $data['password']));
+        $user->setPassword(password_hash($data['password'], PASSWORD_DEFAULT));
     }
 
     return $user;

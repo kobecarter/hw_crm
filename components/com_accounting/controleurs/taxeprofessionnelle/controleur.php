@@ -64,8 +64,13 @@ function deleteTaxeprofessionnelle($data)
     $indices = array("id");
     if (fieldCheck($data, $indices))
     {
-        $taxeprofessionnelle = new taxeprofessionnelle();
-        $taxeprofessionnelle->setId($data['id']);
+        // find($id, $agence) plutôt que new+setId() : sans ça, un id valide d'une autre agence se
+        // faisait supprimer sans aucune vérification d'appartenance (IDOR).
+        $taxeprofessionnelle = taxeprofessionnelle::find($data['id'], $_SESSION['agence']);
+        if ($taxeprofessionnelle->getId() == 0) {
+            echo "2";
+            return;
+        }
         if ($taxeprofessionnelle->delete() == 1) {
             echo "1";
         } else {

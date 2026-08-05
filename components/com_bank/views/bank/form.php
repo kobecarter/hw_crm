@@ -37,7 +37,30 @@
 				<input type="text" class="form-control" name="banque" value="<?php if(isset($bank)) echo $bank->getBanque(); ?>">
 			</div>
 		</div>
-		
+
+		<div class="col-md-3">
+			<div class="form-group">
+				<label>Libellé du compte <small class="text-muted">(pour BANK STATEMENT)</small></label>
+				<input type="text" class="form-control" name="label" placeholder="Ex: BCP Verse Concept, BMCE Convertible DH" value="<?php if(isset($bank)) echo $bank->getLabel(); ?>">
+			</div>
+		</div>
+
+		<!-- Toggle Switch -->
+		<div class="col-md-3">
+			<label class="row form-group toggle-switch">
+				<span class="col-8 col-sm-8 toggle-switch-content ml-0">
+					<span class="d-block text-dark">Compte personnel <small class="text-muted">(exclu de BANK STATEMENT)</small></span>
+				</span>
+				<span class="col-4 col-sm-4">
+					<input type="checkbox" name="exclu_rapprochement" class="toggle-switch-input" value="1" <?php if(isset($bank) && $bank->getExcluRapprochement()) echo "checked"; ?>>
+					<span class="toggle-switch-label mt-3">
+						<span class="toggle-switch-indicator"></span>
+					</span>
+				</span>
+			</label>
+		</div>
+		<!-- /Toggle Switch -->
+
 		<div class="col-md-3">
 			<div class="form-group">
 				<label>RIB</label>
@@ -63,6 +86,18 @@
 			<div class="form-group">
 				<label>Devise</label>
 				<input type="text" class="form-control" name="currency" value="<?php if(isset($bank)) echo $bank->getCurrency(); ?>">
+			</div>
+		</div>
+
+		<div class="col-md-3">
+			<div class="form-group">
+				<label>Agence</label>
+				<select class="select" name="agence">
+					<option value="" selected disabled>Sélectionner</option>
+					<?php foreach ($agences as $agence): ?>
+					<option value="<?php echo $agence->getId(); ?>" <?php if(isset($bank) && $bank->getAgence() && $bank->getAgence()->getId() == $agence->getId()) echo "selected"; ?>><?php echo $agence->getNom(); ?></option>
+					<?php endforeach; ?>
+				</select>
 			</div>
 		</div>
 

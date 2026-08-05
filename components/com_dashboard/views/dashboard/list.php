@@ -4,7 +4,7 @@
 	
 <?php else : ?>
 	<!-- Page Wrapper -->
-	<div class="page-wrapper">
+	<div class="page-wrapper glass-page">
 		<div class="content container-fluid">
 			<div class="row">
 				<div class="col-12">
@@ -23,18 +23,19 @@
 					</div>
 				</div>
 			</div>
+
 			<div class="row global-stats">
 				<?php if ($_SESSION['user']->isSuperUser() != false) : ?>
 					<div class="col-xl-3 col-sm-6 col-12">
 						<div class="card">
 							<div class="card-body">
 								<div class="dash-widget-header">
-									<span class="dash-widget-icon bg-1">
+									<span class="dash-widget-icon bg-1" data-toggle="tooltip" title="Montant total restant à encaisser sur l'ensemble des factures ouvertes (impayées ou partiellement payées).">
 										<i class="fas fa-dollar-sign"></i>
 									</span>
 									<div class="dash-count">
-										<div class="dash-title">Créances</div>
-										<div class="dash-counts">
+										<div class="dash-title" data-toggle="tooltip" title="Montant total restant à encaisser sur l'ensemble des factures ouvertes (impayées ou partiellement payées).">Créances</div>
+										<div class="dash-counts money-sensitive">
 											<p><?php echo number_format($creances, 2, ',', ' '); ?></p>
 										</div>
 									</div>
@@ -42,7 +43,7 @@
 								<div class="progress progress-sm mt-3">
 									<div class="progress-bar bg-5" role="progressbar" style="width: 75%" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
 								</div>
-								<p class="text-muted mt-3 mb-0">
+								<p class="text-muted mt-3 mb-0 money-sensitive">
 									<span class="text-danger mr-1"><i class="fas fa-arrow-down mr-1"></i><?php echo number_format($creancesYear, 2, ',', ' '); ?> Dh</span> année <?php echo date('Y'); ?><br>
 									<span class="text-danger mr-1"><i class="fas fa-arrow-down mr-1"></i><?php echo number_format($creancesYearEuro, 2, ',', ' '); ?> €</span> année <?php echo date('Y'); ?><br>
 									<span class="text-danger mr-1"><i class="fas fa-arrow-down mr-1"></i><?php echo number_format($creancesYearPound, 2, ',', ' '); ?> £</span> année <?php echo date('Y'); ?><br>
@@ -57,12 +58,12 @@
 					<div class="card">
 						<div class="card-body">
 							<div class="dash-widget-header">
-								<a href="index.php?option=com_facture&task=client" class="dash-widget-icon bg-2">
+								<a href="index.php?option=com_facture&task=client" class="dash-widget-icon bg-2" data-toggle="tooltip" title="Nombre total de clients actifs enregistrés pour cette agence. Cliquer pour voir la liste.">
 									<i class="fas fa-users"></i>
 								</a>
 								<div class="dash-count">
-									<div class="dash-title">Clients</div>
-									<div class="dash-counts">
+									<div class="dash-title" data-toggle="tooltip" title="Nombre total de clients actifs enregistrés pour cette agence.">Clients</div>
+									<div class="dash-counts money-sensitive">
 										<p><?php echo number_format($clientNumber, 0, '', ','); ?></p>
 									</div>
 								</div>
@@ -84,12 +85,12 @@
 					<div class="card">
 						<div class="card-body">
 							<div class="dash-widget-header">
-								<a href="index.php?option=com_facture&task=facture" class="dash-widget-icon bg-3">
+								<a href="index.php?option=com_facture&task=facture" class="dash-widget-icon bg-3" data-toggle="tooltip" title="Nombre total de factures émises cette année, tous statuts confondus. Cliquer pour voir la liste.">
 									<i class="fas fa-file-alt"></i>
 								</a>
 								<div class="dash-count">
-									<div class="dash-title">Factures</div>
-									<div class="dash-counts">
+									<div class="dash-title" data-toggle="tooltip" title="Nombre total de factures émises cette année, tous statuts confondus.">Factures</div>
+									<div class="dash-counts money-sensitive">
 										<p><?php echo number_format($factureNumber, 0, '', ','); ?></p>
 									</div>
 								</div>
@@ -98,7 +99,7 @@
 								<div class="progress-bar bg-7" role="progressbar" style="width: 85%" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
 							</div>
 							<?php if ($_SESSION['user']->isSuperUser() != false) : ?>
-								<p class="text-muted mt-3 mb-0">
+								<p class="text-muted mt-3 mb-0 money-sensitive">
 									<span class="text-success mr-1"><i class="fas fa-money-bill-alt mr-1"></i><?php echo number_format($factureTotal, 2, ',', ' '); ?> Dh</span> année <?php echo date('Y'); ?><br>
 									<span class="text-success mr-1"><i class="fas fa-money-bill-alt mr-1"></i><?php echo number_format($factureTotalEur, 2, ',', ' '); ?> €</span> année <?php echo date('Y'); ?><br>
 									<span class="text-success mr-1"><i class="fas fa-money-bill-alt mr-1"></i><?php echo number_format($factureTotalPound, 2, ',', ' '); ?> £</span> année <?php echo date('Y'); ?><br>
@@ -113,12 +114,12 @@
 					<div class="card">
 						<div class="card-body">
 							<div class="dash-widget-header">
-								<a href="index.php?option=com_facture&task=devis" class="dash-widget-icon bg-4">
+								<a href="index.php?option=com_facture&task=devis" class="dash-widget-icon bg-4" data-toggle="tooltip" title="Nombre total de devis créés cette année, tous statuts confondus. Cliquer pour voir la liste.">
 									<i class="far fa-file"></i>
 								</a>
 								<div class="dash-count">
-									<div class="dash-title">Devis</div>
-									<div class="dash-counts">
+									<div class="dash-title" data-toggle="tooltip" title="Nombre total de devis créés cette année, tous statuts confondus.">Devis</div>
+									<div class="dash-counts money-sensitive">
 										<p><?php echo number_format($devisNumber, 0, '', ','); ?></p>
 									</div>
 								</div>
@@ -143,7 +144,7 @@
 						<div class="card flex-fill">
 							<div class="card-header">
 								<div class="d-flex justify-content-between align-items-center">
-									<h5 class="card-title">Encaissements reçus</h5>
+									<h5 class="card-title" data-toggle="tooltip" title="Total des paiements reçus par devise, mois par mois, sur l'année sélectionnée.">Encaissements reçus</h5>
 									<div class="dropdown" data-toggle="dropdown">
 										<span class="d-none selected-current-year"><?php echo date('Y'); ?></span>
 										<a href="javascript:void(0);" class="btn btn-white btn-sm dropdown-toggle current-year" role="button" data-toggle="dropdown">Année <?php echo date('Y'); ?></a>
@@ -159,7 +160,7 @@
 								<div class="das-chart-content">
 									<div class="das-chart">
 										<div class="d-flex align-items-center justify-content-between flex-wrap flex-md-nowrap">
-											<div class="w-md-100 d-flex align-items-center mb-3 ca-box">
+											<div class="w-md-100 d-flex align-items-center mb-3 ca-box money-sensitive">
 												<div>
 													<span>En MAD</span>
 													<p class="h4 text-primary mr-5"><?php echo number_format(payment::total(date('Y'), false, 'DH', $_SESSION['agence']), 2, ',', ' '); ?></p>
@@ -187,7 +188,7 @@
 											</div>
 										</div>
 
-										<div id="sales_chart"></div>
+										<div id="sales_chart" class="money-sensitive"></div>
 
 										<?php $paymentPerMonth = $paymentPerMonthEur = $paymentPerMonthPound = $paymentPerMonthDollar = $paymentPerMonthAed = $chargePerMonth = array(); ?>
 										<?php for ($i = 1; $i < 13; $i++) {
@@ -223,7 +224,7 @@
 						<div class="card flex-fill">
 							<div class="card-header">
 								<div class="d-flex justify-content-between align-items-center">
-									<h5 class="card-title">Facture Analytics</h5>
+									<h5 class="card-title" data-toggle="tooltip" title="Répartition des factures de l'année par statut de paiement : payée, impayée, ou partiellement payée.">Facture Analytics</h5>
 									<div class="dropdown" data-toggle="dropdown">
 										<a href="javascript:void(0);" class="btn btn-white btn-sm dropdown-toggle current-year" role="button" data-toggle="dropdown">Année <?php echo date('Y'); ?></a>
 										<div class="dropdown-menu dropdown-menu-right switch-year">
@@ -340,7 +341,7 @@
 														<a href="#0"><img class="avatar avatar-sm mr-2 avatar-img rounded-circle" src="<?php echo $photoLink; ?>" alt="Client Image"> <?php echo $facture->getClient()->getRaisonSocial(); ?></a>
 													</h2>
 												</td>
-												<td><?php echo number_format($facture->getTotal(), 2, ',', ' ') . ' ' . $facture->getDevise(); ?></td>
+												<td class="money-sensitive"><?php echo number_format($facture->getTotal(), 2, ',', ' ') . ' ' . $facture->getDevise(); ?></td>
 												<td><?php echo normaldate($facture->getDateFacture()); ?></td>
 												<td><?php echo $statu; ?></td>
 												<td class="text-right">
@@ -426,7 +427,7 @@
 													</h2>
 												</td>
 												<td><?php echo normaldate($devis->getDateDevis()); ?></td>
-												<td><?php echo number_format($devis->getTotal(), 2, ',', ' ') . ' ' . $devis->getDevise(); ?></td>
+												<td class="money-sensitive"><?php echo number_format($devis->getTotal(), 2, ',', ' ') . ' ' . $devis->getDevise(); ?></td>
 												<td><?php echo $statu; ?></td>
 												<td class="text-right">
 													<div class="dropdown dropdown-action">
@@ -542,5 +543,6 @@
 
 		});
 	</script>
+
 
 <?php endif; ?>

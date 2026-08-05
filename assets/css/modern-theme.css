@@ -1,0 +1,4702 @@
+/* ==========================================================================
+   Modern Theme — couche additive chargée après style.css
+   --------------------------------------------------------------------------
+   v3 : direction "Fincheck" — cartes blanches propres, fond très doux, cartes
+   KPI du dashboard en dégradé coloré, sidebar avec accent d'item actif. Fini
+   le flou/glassmorphism (incompatible avec cette direction plus flat/clean).
+   Ne modifie AUCUNE structure/dimension dont dépend le JS existant (largeurs
+   de sidebar, hauteur de header, classes de collapse "mini-sidebar"/
+   "slide-nav"). Aucun fichier de vue/composant n'est modifié : tout passe
+   par les classes déjà utilisées partout (.card, .btn, .table, .badge,
+   .dash-widget-icon.bg-1..4, .sidebar-menu, etc.).
+   ========================================================================== */
+
+:root {
+	--brand: #6d28d9;
+	--brand-2: #4f46e5;
+	--brand-3: #4338ca;
+	--brand-grad: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+	--accent-teal: #14b8a6;
+	--accent-blue: #0ea5e9;
+	--accent-pink: #ec4899;
+	--accent-purple: #8b5cf6;
+	--accent-amber: #f59e0b;
+
+	--ink: #181a2a;
+	--ink-soft: #6b7280;
+	--border-soft: rgba(30, 30, 60, 0.08);
+
+	--radius-sm: 10px;
+	--radius-md: 16px;
+	--radius-lg: 20px;
+	--shadow-sm: 0 2px 10px rgba(30, 30, 60, 0.05);
+	--shadow-md: 0 10px 26px rgba(30, 30, 60, 0.08);
+	--shadow-lg: 0 20px 44px rgba(30, 30, 60, 0.14);
+	--ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---- Fond de page : très doux, presque neutre ------------------------------- */
+html {
+	background: #f4f5fa;
+}
+body {
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	color: var(--ink);
+	background:
+		radial-gradient(circle at 12% 0%, rgba(99, 102, 241, 0.07), transparent 40%),
+		radial-gradient(circle at 92% 6%, rgba(20, 184, 166, 0.06), transparent 38%),
+		#f4f5fa;
+	background-attachment: fixed;
+}
+
+/* ---- Typographie ------------------------------------------------------- */
+h1, h2, h3, h4, h5, h6,
+.page-title, .card-title {
+	letter-spacing: -0.01em;
+	font-weight: 700;
+	color: var(--ink);
+}
+.page-title {
+	font-size: 1.5rem;
+}
+
+/* ---- Cartes : blanc propre, ombre douce, jamais de flou --------------------- */
+.card,
+.modal-content,
+.dropdown-menu {
+	background: #fff;
+	border: 1px solid var(--border-soft);
+}
+.card {
+	box-shadow: var(--shadow-sm);
+	border-radius: var(--radius-lg);
+	transition: box-shadow 0.25s var(--ease), transform 0.25s var(--ease);
+}
+.card .card-header {
+	border-color: var(--border-soft);
+	background: transparent;
+}
+.card .card-title {
+	font-weight: 700;
+	color: var(--ink);
+}
+
+/* ---- Cartes KPI du dashboard : dégradé + verre léger façon "Fincheck" -------- */
+/* Chaque carte KPI (.dash-widget-icon.bg-N, y compris bg-9 "Charges" utilisé sur
+   la page Statistiques globales) hérite d'un dégradé semi-transparent + flou
+   (verre léger), texte blanc, icône dans un cercle translucide — sans toucher
+   au PHP : on cible juste la carte qui CONTIENT l'icône (:has). Les 2 pages
+   dashboard (list.php) et Statistiques globales (stats-global.php) réutilisent
+   ces mêmes classes, donc ce bloc s'applique aux deux. */
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-1),
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-2),
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-3),
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-4),
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-9) {
+	border: 1px solid rgba(255, 255, 255, 0.4);
+	box-shadow: var(--shadow-md);
+	position: relative;
+	overflow: hidden;
+	backdrop-filter: blur(16px) saturate(160%);
+	-webkit-backdrop-filter: blur(16px) saturate(160%);
+}
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-1) { background: linear-gradient(135deg, rgba(251, 113, 133, 0.82), rgba(236, 72, 153, 0.82)); }
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-2) { background: linear-gradient(135deg, rgba(34, 211, 238, 0.82), rgba(14, 165, 233, 0.82)); }
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-3) { background: linear-gradient(135deg, rgba(52, 211, 153, 0.82), rgba(20, 184, 166, 0.82)); }
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-4) { background: linear-gradient(135deg, rgba(167, 139, 250, 0.82), rgba(139, 92, 246, 0.82)); }
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-9) { background: linear-gradient(135deg, rgba(251, 191, 36, 0.85), rgba(249, 115, 22, 0.85)); }
+/* Léger reflet de verre en haut à gauche */
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-1)::before,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-2)::before,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-3)::before,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-4)::before,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-9)::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: radial-gradient(circle at 22% 15%, rgba(255, 255, 255, 0.35), transparent 55%);
+	pointer-events: none;
+}
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-1) > .card-body,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-2) > .card-body,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-3) > .card-body,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-4) > .card-body,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-9) > .card-body {
+	color: #fff;
+	position: relative;
+	/* Restaure le padding standard : quand cette carte KPI se trouve imbriquée
+	   dans un .card-table (ex. onglet Clients de la page Facturation), la règle
+	   ".card-table .card-body { padding: 0; }" de style.css s'appliquerait sinon
+	   et écraserait la carte (mêmes carte/KPI que sur la page Clients autonome,
+	   qui elle n'est pas dans un .card-table). */
+	padding: 1.5rem;
+}
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-1) .dash-title,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-2) .dash-title,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-3) .dash-title,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-4) .dash-title,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-9) .dash-title {
+	color: rgba(255, 255, 255, 0.88);
+	text-transform: uppercase;
+	font-size: 0.72rem;
+	letter-spacing: 0.05em;
+}
+/* Total en gros/gras : uniquement la 1ère ligne du paragraphe (::first-line).
+   Sur le dashboard principal, .dash-counts p ne contient que le total : cette
+   1ère ligne EST tout le contenu. Sur Statistiques globales, .dash-counts p
+   contient le total + le détail multi-devise séparés par <br> : ::first-line
+   isole alors juste le total sans grossir les lignes de détail qui suivent. */
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-1) .dash-counts p,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-2) .dash-counts p,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-3) .dash-counts p,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-4) .dash-counts p,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-9) .dash-counts p {
+	color: rgba(255, 255, 255, 0.92) !important;
+	font-size: 0.9rem;
+	font-weight: 600;
+	margin: 0;
+}
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-1) .dash-counts p::first-line,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-2) .dash-counts p::first-line,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-3) .dash-counts p::first-line,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-4) .dash-counts p::first-line,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-9) .dash-counts p::first-line {
+	color: #fff;
+	font-size: 1.5rem;
+	font-weight: 800;
+}
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-1) .text-muted,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-2) .text-muted,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-3) .text-muted,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-4) .text-muted,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-9) .text-muted,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-1) .text-danger,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-2) .text-danger,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-3) .text-danger,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-4) .text-danger,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-9) .text-danger,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-1) .text-success,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-2) .text-success,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-3) .text-success,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-4) .text-success,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-9) .text-success,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-1) .text-warning,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-2) .text-warning,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-3) .text-warning,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-4) .text-warning,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-9) .text-warning,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-1) .text-info,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-2) .text-info,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-3) .text-info,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-4) .text-info,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-9) .text-info {
+	color: rgba(255, 255, 255, 0.85) !important;
+}
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-1) .progress,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-2) .progress,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-3) .progress,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-4) .progress,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-9) .progress {
+	background: rgba(255, 255, 255, 0.25);
+}
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-1) .progress-bar,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-2) .progress-bar,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-3) .progress-bar,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-4) .progress-bar,
+.card:has(> .card-body > .dash-widget-header > .dash-widget-icon.bg-9) .progress-bar {
+	background-color: rgba(255, 255, 255, 0.9) !important;
+}
+.dash-widget-icon.bg-1, .dash-widget-icon.bg-2, .dash-widget-icon.bg-3, .dash-widget-icon.bg-4, .dash-widget-icon.bg-9 {
+	background: rgba(255, 255, 255, 0.24) !important;
+	border-radius: 50%;
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+	position: relative;
+}
+.dash-widget-icon.bg-1 i, .dash-widget-icon.bg-2 i, .dash-widget-icon.bg-3 i, .dash-widget-icon.bg-4 i, .dash-widget-icon.bg-9 i {
+	color: #fff !important;
+}
+
+/* Même taille pour toutes les tuiles KPI d'une même rangée (dashboard principal
+   ".global-stats", Statistiques globales ".stats-result") : sans ça, la carte
+   qui a le plus de lignes de détail (ex: 5 devises) est plus haute que ses
+   voisines. On étire les colonnes et cartes en hauteur égale via flexbox. */
+.row.global-stats,
+.row.stats-result {
+	align-items: stretch;
+}
+.row.global-stats > [class*="col-"],
+.row.stats-result > [class*="col-"] {
+	display: flex;
+}
+.row.global-stats .card,
+.row.stats-result .card {
+	width: 100%;
+}
+
+/* ---- Boutons : dégradé de marque -------------------------------------------- */
+.btn {
+	border-radius: var(--radius-sm);
+	font-weight: 600;
+	transition: transform 0.15s var(--ease), box-shadow 0.15s var(--ease), background-color 0.2s var(--ease), border-color 0.2s var(--ease), filter 0.2s var(--ease);
+}
+.btn:active {
+	transform: scale(0.97);
+}
+.btn-primary {
+	background: var(--brand-grad);
+	border-color: transparent;
+	box-shadow: 0 6px 16px rgba(79, 70, 229, 0.28);
+}
+.btn-primary:hover,
+.btn-primary:focus {
+	filter: brightness(1.08);
+	box-shadow: 0 8px 22px rgba(79, 70, 229, 0.36);
+	border-color: transparent;
+}
+.btn-success {
+	background-color: var(--accent-teal);
+	border-color: var(--accent-teal);
+}
+.btn-white:hover {
+	box-shadow: var(--shadow-sm);
+}
+.btn.btn-sm {
+	border-radius: 8px;
+}
+
+/* ---- Formulaires ----------------------------------------------------------- */
+.form-control,
+.select2-container--default .select2-selection--single,
+.chosen-container-single .chosen-single {
+	border-radius: var(--radius-sm) !important;
+	border-color: rgba(30, 30, 60, 0.14);
+	transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.form-control:focus,
+.select2-container--default.select2-container--focus .select2-selection--single,
+.chosen-container-active .chosen-single {
+	border-color: var(--brand-2) !important;
+	box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15) !important;
+}
+label {
+	font-weight: 600;
+	color: var(--ink);
+}
+
+/* ---- Formulaire compact dans les modales (Ajouter client / Ajouter service) --
+   Champs et libellés resserrés pour réduire la hauteur totale du formulaire
+   (donc le défilement nécessaire dans la modale) sans rogner sur la lisibilité. */
+.client-modal .form-group,
+.service-modal .form-group {
+	margin-bottom: 0.75rem;
+}
+.client-modal label,
+.service-modal label {
+	margin-bottom: 0.25rem;
+	font-size: 0.85rem;
+}
+.client-modal .form-control,
+.service-modal .form-control,
+.client-modal .select2-container--default .select2-selection--single,
+.service-modal .select2-container--default .select2-selection--single,
+.client-modal .chosen-container-single .chosen-single,
+.service-modal .chosen-container-single .chosen-single {
+	height: 38px !important;
+	padding-top: 0.35rem;
+	padding-bottom: 0.35rem;
+	font-size: 0.88rem;
+}
+.client-modal .select2-container--default .select2-selection--single .select2-selection__rendered,
+.service-modal .select2-container--default .select2-selection--single .select2-selection__rendered {
+	line-height: 38px;
+}
+.client-modal .select2-container--default .select2-selection--single .select2-selection__arrow,
+.service-modal .select2-container--default .select2-selection--single .select2-selection__arrow {
+	height: 36px;
+}
+.client-modal textarea.form-control,
+.service-modal textarea.form-control {
+	height: auto !important;
+	min-height: 70px;
+}
+.client-modal .profile-cover-avatar,
+.service-modal .profile-cover-avatar {
+	width: 80px;
+	height: 80px;
+}
+.client-modal .form-section-title,
+.service-modal .form-section-title {
+	margin: 0.75rem 0 0.6rem;
+	font-size: 0.72rem;
+}
+.client-modal .modal-body .btn,
+.service-modal .modal-body .btn {
+	height: 38px;
+	padding-top: 0;
+	padding-bottom: 0;
+	font-size: 0.9rem;
+}
+
+/* ---- Tableaux -------------------------------------------------------------- */
+.table thead tr th {
+	text-transform: uppercase;
+	font-size: 0.72rem;
+	letter-spacing: 0.05em;
+	color: var(--ink-soft);
+	border-bottom-width: 1px;
+	border-color: var(--border-soft);
+}
+.table td, .table th {
+	vertical-align: middle;
+	border-color: var(--border-soft);
+}
+.table-hover tbody tr {
+	transition: background-color 0.15s var(--ease);
+}
+.table-hover tbody tr:hover {
+	background-color: rgba(99, 102, 241, 0.05);
+}
+
+/* ---- Badges / statuts ------------------------------------------------------ */
+.badge {
+	border-radius: 7px;
+	font-weight: 700;
+	letter-spacing: 0.01em;
+	padding: 0.35em 0.7em;
+}
+.bg-success-light { background: rgba(20, 184, 166, 0.14) !important; color: #0d9488 !important; }
+.bg-warning-light { background: rgba(245, 158, 11, 0.16) !important; color: #b45309 !important; }
+.bg-primary-light { background: rgba(79, 70, 229, 0.14) !important; color: var(--brand-3) !important; }
+.bg-danger-light { background: rgba(236, 72, 153, 0.15) !important; color: #be185d !important; }
+
+/* ---- Modals ------------------------------------------------------------------ */
+.modal-content {
+	border: 0;
+	border-radius: var(--radius-lg);
+	box-shadow: var(--shadow-lg);
+}
+.modal-header {
+	border-bottom-color: var(--border-soft);
+}
+.modal-footer {
+	border-top-color: var(--border-soft);
+}
+
+
+/* ---- En-tête ------------------------------------------------------------------ */
+.header {
+	background: #fff;
+	box-shadow: var(--shadow-sm);
+	border-bottom: 1px solid var(--border-soft);
+}
+.header .dropdown-menu {
+	border-radius: var(--radius-md);
+	box-shadow: var(--shadow-md);
+}
+
+/* Le calque de teinte "couleur d'agence" (div pleine largeur/hauteur en fin de
+   .header, cf includes/tpl/top.php) inondait toute la barre d'un lavis crème
+   qui datait beaucoup le rendu. On le transforme en un simple liseré d'accent
+   en bas du header : la couleur de marque par agence reste visible, mais de
+   façon discrète et moderne, plutôt qu'en fond plein. */
+.header > div:last-child {
+	position: absolute !important;
+	left: 0;
+	right: 0;
+	top: auto !important;
+	bottom: 0;
+	height: 3px !important;
+	width: 100% !important;
+}
+
+/* Recherche : cf. règle complète plus bas (centrage + verre), fusionnée ici pour n'avoir qu'une
+   seule définition de .top-nav-search plutôt que deux règles qui se chevauchent. */
+
+/* Items du menu haut (Navigation / Agence / Langue / notifications / profil) */
+.user-menu.nav > li > a {
+	display: flex;
+	align-items: center;
+	transition: background-color 0.15s var(--ease);
+}
+.user-menu.nav > li > a:hover {
+	background-color: rgba(99, 102, 241, 0.06);
+}
+.user-menu .btn.btn-sm.text-info {
+	background: rgba(99, 102, 241, 0.1);
+	color: var(--brand-2) !important;
+	border-radius: 50%;
+	width: 30px;
+	height: 30px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+}
+.user-menu.nav > li > a .badge.badge-pill {
+	background: var(--accent-pink);
+	border: 2px solid #fff;
+}
+
+/* Rappels(Urgent) : même badge "verre" circulaire que ses voisins (chat, ...) - cf. la règle de
+   base plus bas (.user-menu > li > a > i). Ici, seule la teinte change selon l'urgence : ambre
+   dès qu'il y a au moins une alerte, rouge (+ badge assorti) s'il y en a au moins une "danger".
+   Remplace l'ancien lavis plein sur toute la puce qui dépendait d'un style inline (#EB462B) posé
+   par includes/tpl/notification.php - une classe est bien plus robuste à faire évoluer. */
+/* :not(.dropdown-toggle) : depuis que le bell partage son <li> avec le chat (.glass-icon-group),
+   ces règles doivent viser seulement le lien du bell (le chat porte .dropdown-toggle, pas lui). */
+.bell-urgent-li > a.nav-link:not(.dropdown-toggle) > i {
+	background: rgba(245, 158, 11, 0.14) !important;
+	color: #b45309 !important;
+}
+.bell-urgent-li > a.nav-link:not(.dropdown-toggle) .badge.badge-pill {
+	background: #f59e0b;
+	border: 2px solid #fff;
+}
+.bell-urgent-li-danger > a.nav-link:not(.dropdown-toggle) > i {
+	background: rgba(239, 68, 68, 0.14) !important;
+	color: #b91c1c !important;
+}
+.bell-urgent-li-danger > a.nav-link:not(.dropdown-toggle) .badge.badge-pill {
+	background: #ef4444;
+}
+
+/* ---- Sidebar "Meniscus" : panneau clair, accent lumineux glissant --------------------------
+   Inspiré d'un dock mobile (bulle lumineuse qui se déplace jusqu'à l'onglet actif) mais adapté
+   à une sidebar verticale dense (~15 modules, plusieurs avec sous-menu) : au lieu de la bulle
+   horizontale du mockup, un "bead" lumineux glisse verticalement jusqu'au lien actif/survolé
+   (voir assets/js/modern-theme.js). Structure/JS de navigation existants (script.js, classes
+   .submenu/.subdrop) intégralement conservés - uniquement l'habillage change. Palette claire
+   (v2, 2026-08-03) : la v1 sombre a été essayée puis remplacée à la demande de l'utilisateur,
+   qui gardait la mécanique du bead/halo mais voulait rester sur un fond clair. ------------- */
+.sidebar {
+	background: linear-gradient(180deg, #ffffff 0%, #fbfbff 100%) !important;
+	box-shadow: 4px 0 20px rgba(30, 30, 60, 0.05);
+	overflow: visible;
+}
+.sidebar::before {
+	/* Lueur ambiante douce, façon halo du mockup - jamais assez marquée pour distraire. */
+	content: "";
+	position: absolute;
+	top: -10%;
+	left: -30%;
+	width: 160%;
+	height: 40%;
+	background: radial-gradient(circle, rgba(99, 102, 241, 0.08), transparent 65%);
+	pointer-events: none;
+	z-index: 0;
+}
+.sidebar > div:first-child {
+	/* Voile bleu #37afeb codé en dur dans sidebar.php - superflu, retiré plutôt que neutralisé
+	   à moitié (déjà remplacé par la lueur ci-dessus). */
+	display: none;
+}
+#sidebar-menu {
+	position: relative;
+}
+.sidebar-menu .menu-title span {
+	color: var(--ink-soft);
+	font-size: 0.72rem;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+.sidebar-menu li a {
+	transition: color 0.15s var(--ease), background-color 0.15s var(--ease);
+	border-radius: 0 24px 24px 0;
+	position: relative;
+	color: var(--ink-soft) !important;
+}
+.sidebar-menu li a:hover {
+	background-color: rgba(99, 102, 241, 0.07) !important;
+	color: var(--ink) !important;
+}
+/* Neutralise le fond plein + la teinte de marque injectés inline par includes/tpl/top.php
+   (couleur de l'agence) : le repère de page courante est le bead lumineux qui glisse (JS) +
+   l'icône remplie du dégradé, pas un lavis de couleur sur toute la largeur. */
+.sidebar-menu li.active > a {
+	background-color: rgba(99, 102, 241, 0.09) !important;
+	color: var(--ink) !important;
+	font-weight: 700;
+}
+.sidebar-menu > ul > li.submenu.active > a {
+	border-radius: 0;
+}
+/* Sous-menus dépliés : léger renfoncement pour se distinguer du niveau parent. */
+.sidebar-menu ul ul {
+	background: #f6f6fb;
+	border-radius: 12px;
+	margin: 2px 12px;
+	box-shadow: inset 0 1px 3px rgba(30, 30, 60, 0.06);
+}
+.sidebar-menu ul ul li a {
+	color: var(--ink-soft) !important;
+	border-radius: 8px !important;
+	font-size: 0.86rem;
+}
+.sidebar-menu ul ul li a:hover {
+	color: var(--ink) !important;
+}
+.sidebar-menu ul ul li.active > a {
+	background-color: rgba(99, 102, 241, 0.14) !important;
+	color: var(--brand-2, #6366f1) !important;
+}
+
+/* Icônes de la sidebar : badge "glass" clair, dégradé + halo lumineux à l'état actif - le détail
+   le plus proche du "bead" qui brille dans le mockup. */
+.sidebar-menu > ul > li > a > i {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	width: 34px;
+	height: 34px;
+	margin-right: 10px;
+	border-radius: 10px;
+	background: rgba(99, 102, 241, 0.08);
+	color: var(--brand-2, #6366f1);
+	font-size: 0.95rem;
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+	transition: background-color 0.2s var(--ease), color 0.2s var(--ease), box-shadow 0.3s var(--ease);
+}
+/* .sidebar-menu > ul > li > a est flex (style.css, thème d'origine) - sans flex-shrink:0
+   ci-dessus, cette icône (34px) rétrécissait pour laisser de la place aux libellés longs
+   ("Gestion des reclamations", "Assistant (tâches & suivis)"...), résultat : icônes de tailles
+   différentes d'une ligne à l'autre et texte qui ne démarre plus à la même position - c'était LE
+   bug de désalignement. Le texte, lui, doit pouvoir rétrécir/passer à la ligne à sa place
+   (min-width:0 sur un flex-item est nécessaire pour qu'il respecte l'espace restant plutôt que
+   de forcer sa largeur naturelle et déborder du panneau). */
+.sidebar-menu > ul > li > a > span:not(.menu-arrow) {
+	min-width: 0;
+	white-space: normal;
+	line-height: 1.25;
+}
+.sidebar-menu > ul > li.active > a > i,
+.sidebar-menu > ul > li > a:hover > i {
+	background: var(--brand-grad);
+	color: #fff;
+	box-shadow: 0 0 16px 2px rgba(99, 102, 241, 0.45);
+}
+.sidebar-menu > ul > li.active > a > i {
+	animation: sidebarIconBloom 2.6s ease-in-out infinite;
+}
+@keyframes sidebarIconBloom {
+	0%, 100% { box-shadow: 0 0 12px 1px rgba(99, 102, 241, 0.35); }
+	50% { box-shadow: 0 0 18px 4px rgba(99, 102, 241, 0.65); }
+}
+@media (prefers-reduced-motion: reduce) {
+	.sidebar-menu > ul > li.active > a > i {
+		animation: none;
+	}
+}
+
+/* Bead lumineux qui glisse verticalement jusqu'au lien actif/survolé (positionné en JS,
+   assets/js/modern-theme.js) - remplace l'ancienne barre d'accent statique. */
+.sidebar-bead {
+	position: absolute;
+	left: 0;
+	width: 4px;
+	border-radius: 0 6px 6px 0;
+	background: var(--brand-grad);
+	box-shadow: 0 0 10px 1px rgba(99, 102, 241, 0.55), 0 0 20px 5px rgba(99, 102, 241, 0.18);
+	pointer-events: none;
+	opacity: 0;
+	z-index: 2;
+}
+
+/* ---- Bandeau haut "verre liquide" : même palette qu'avant (blanc/indigo), mais translucide +
+   flouté façon glassmorphism plutôt qu'un aplat opaque. ---------------------------------------- */
+.header {
+	background: rgba(255, 255, 255, 0.68) !important;
+	backdrop-filter: blur(20px) saturate(180%);
+	-webkit-backdrop-filter: blur(20px) saturate(180%);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+	box-shadow: 0 8px 32px rgba(30, 30, 60, 0.07);
+}
+/* Zone du logo (même largeur que la sidebar, cf. includes/tpl/top.php) : verre assorti à la
+   sidebar. La sélection ":not(.logo-small)" est capitale - top.php a DEUX <a class="logo"> (le
+   grand, et ".logo-small" pour le mode réduit, caché par défaut via style.css) ; les cibler tous
+   les deux ici réactivait l'affichage du petit logo en plus du grand (2 logos visibles à la fois)
+   en gagnant la cascade sur la règle qui le cache. */
+.header .header-left {
+	background: rgba(255, 255, 255, 0.45);
+	backdrop-filter: blur(20px) saturate(180%);
+	-webkit-backdrop-filter: blur(20px) saturate(180%);
+	border-radius: 0 0 20px 0;
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+}
+/* "body:not(.mini-sidebar)" est nécessaire : sans lui, ce sélecteur a la même spécificité que
+   ".mini-sidebar .header .header-left .logo { display:none }" (style.css) mais arrive après lui
+   dans la cascade (modern-theme.css chargé en second) - il gagnait donc TOUJOURS, y compris
+   sidebar réduite, où le grand logo restait affiché EN PLUS du petit (.logo-small, prévu
+   uniquement pour ce mode) : 2 logos visibles à la fois au clic sur #toggle_btn.
+   Réservé au desktop (min-width:768px) : sur mobile, style.css a SA PROPRE règle
+   (".header .header-left .logo { display:none }" dans @media max-width:767.98px, sans classe
+   ".mini-sidebar" - le body ne porte cette classe que suite à un clic JS sur #toggle_btn, jamais
+   automatiquement sur petit écran) qui doit rester gagnante ; ce chip verre (display:inline-flex)
+   la faisait perdre exactement de la même façon (spécificité plus haute), 2 logos visibles au
+   chargement de n'importe quelle page sur mobile - régression découverte lors de l'audit
+   responsive du 2026-08-04. */
+@media (min-width: 768px) {
+	body:not(.mini-sidebar) .header .header-left .logo:not(.logo-small) {
+		background: rgba(255, 255, 255, 0.75);
+		box-shadow: var(--shadow-sm);
+		border-radius: 10px;
+		padding: 4px 10px;
+		display: inline-flex;
+		align-items: center;
+		line-height: normal;
+	}
+}
+/* Même chip "verre" pour le petit logo une fois la sidebar réduite. */
+.mini-sidebar .header .header-left .logo.logo-small {
+	background: rgba(255, 255, 255, 0.75);
+	box-shadow: var(--shadow-sm);
+	border-radius: 10px;
+	padding: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+/* Bascule de la sidebar, déplacée à côté du logo (dans .header-left) - même chip "verre"
+   circulaire que les icônes du bandeau, pour rester cohérent visuellement. */
+.header .header-left #toggle_btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 34px;
+	height: 34px;
+	border-radius: 50%;
+	background: rgba(99, 102, 241, 0.1);
+	color: var(--brand-2, #6366f1);
+	flex-shrink: 0;
+	transition: background-color 0.15s var(--ease), color 0.15s var(--ease);
+}
+.header .header-left #toggle_btn:hover {
+	background: var(--brand-grad);
+	color: #fff;
+}
+
+/* Recherche à gauche, juste après le logo - reprend le float d'origine du template
+   (.top-nav-search { float:left } dans style.css) plutôt qu'un centrage absolu : elle suit
+   naturellement .header-left quelle que soit sa largeur (240px déployée / 78px repliée), sans
+   toucher au reste de la mise en page en float du header. */
+.top-nav-search {
+	float: left;
+	margin: 0 !important;
+	margin-left: 12px !important;
+	z-index: 10;
+}
+/* Petit clin d'œil personnel : quand la personne connectée est Hiba (email/login), la barre de
+   recherche (qui contient déjà "Hey Hiba, ..." dans son placeholder) prend un habillage rose animé
+   plutôt que la teinte indigo par défaut - contour dégradé qui tourne en continu, léger effet de
+   respiration, et deux paillettes qui scintillent aux coins. Purement cosmétique, aucun changement
+   de comportement/fonctionnalité de la recherche elle-même. */
+.top-nav-search-hiba {
+	position: relative;
+}
+.top-nav-search-hiba form {
+	border-radius: 50px;
+	position: relative;
+	animation: hibaBreathe 2.4s ease-in-out infinite;
+	background: linear-gradient(#fff0f7, #fff0f7) padding-box,
+		conic-gradient(from var(--hiba-angle, 0deg), #ec4899, #f472b6, #d946ef, #f9a8d4, #ec4899) border-box;
+	border: 2px solid transparent;
+	animation: hibaBreathe 2.4s ease-in-out infinite, hibaRotateBorder 3.5s linear infinite;
+}
+.top-nav-search-hiba .form-control {
+	color: #9d174d;
+	background: transparent;
+}
+.top-nav-search-hiba .form-control::placeholder {
+	color: #db2777;
+	opacity: 0.9;
+	font-weight: 600;
+}
+.top-nav-search-hiba::before,
+.top-nav-search-hiba::after {
+	content: "✨";
+	position: absolute;
+	font-size: 1rem;
+	pointer-events: none;
+	animation: hibaSparkleTwinkle 1.8s ease-in-out infinite;
+	z-index: 5;
+}
+.top-nav-search-hiba::before {
+	top: -8px;
+	left: -6px;
+	animation-delay: 0s;
+}
+.top-nav-search-hiba::after {
+	bottom: -8px;
+	right: -6px;
+	animation-delay: 0.9s;
+}
+@keyframes hibaBreathe {
+	0%, 100% { box-shadow: 0 0 10px 1px rgba(236, 72, 153, 0.3); }
+	50% { box-shadow: 0 0 20px 5px rgba(236, 72, 153, 0.55); }
+}
+@keyframes hibaRotateBorder {
+	to { --hiba-angle: 360deg; }
+}
+@property --hiba-angle {
+	syntax: '<angle>';
+	initial-value: 0deg;
+	inherits: false;
+}
+@keyframes hibaSparkleTwinkle {
+	0%, 100% { opacity: 0.25; transform: scale(0.8) rotate(0deg); }
+	50% { opacity: 1; transform: scale(1.15) rotate(15deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+	.top-nav-search-hiba form {
+		animation: none;
+		box-shadow: 0 0 0 2px rgba(219, 39, 119, 0.55);
+	}
+	.top-nav-search-hiba::before,
+	.top-nav-search-hiba::after {
+		animation: none;
+		opacity: 0.8;
+	}
+}
+.top-nav-search form {
+	width: 36vw;
+	min-width: 320px;
+	max-width: 580px;
+	margin-top: 8px !important;
+}
+/* Teinte indigo (au lieu du quasi-blanc précédent) : sur un bandeau lui-même blanc/verre, un champ
+   blanc translucide se fondait dans le fond et devenait difficile à repérer d'un coup d'œil. */
+.top-nav-search .form-control {
+	background: rgba(99, 102, 241, 0.09);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	border: 1.5px solid rgba(99, 102, 241, 0.32);
+	border-radius: 999px;
+	height: 44px;
+	color: var(--ink);
+	box-shadow: 0 4px 18px rgba(99, 102, 241, 0.08);
+	transition: background-color 0.2s var(--ease), border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.top-nav-search .form-control::placeholder {
+	color: rgba(79, 70, 229, 0.6);
+}
+.top-nav-search .form-control:focus {
+	background: rgba(99, 102, 241, 0.15);
+	border-color: rgba(99, 102, 241, 0.55);
+	box-shadow: 0 6px 22px rgba(99, 102, 241, 0.22);
+}
+.top-nav-search .btn {
+	color: var(--brand-2, #6366f1);
+}
+@media (max-width: 991.98px) {
+	.top-nav-search {
+		display: none !important;
+	}
+}
+
+/* Icônes du bandeau haut (chat, Rappels(Urgent), ...) : même badge circulaire "glass" pour
+   toutes - les variantes de teinte (Rappels(Urgent) selon l'urgence) surchargent juste ensuite. */
+/* 44px partout (icônes, drapeaux, avatar) : même hauteur que le champ de recherche à côté, pour
+   que toute la rangée de droite du bandeau lise comme un seul alignement cohérent. */
+.user-menu > li > a > i {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	border-radius: 50%;
+	background: rgba(99, 102, 241, 0.08);
+	color: var(--brand-2);
+	font-size: 1.05rem;
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+	transition: background-color 0.2s var(--ease), color 0.2s var(--ease);
+}
+.user-menu > li > a:hover > i {
+	background: var(--brand-grad);
+	color: #fff;
+}
+/* Puces "drapeau" (agence, langue) - même chip circulaire "glass" que les icônes, taille lisible
+   pour l'emoji plutôt que la police par défaut du bouton. */
+/* box-sizing + padding/margin/border à zéro : le drapeau de l'agence (company-nav) porte aussi
+   .btn.btn-sm de Bootstrap (padding 0.25rem 0.5rem asymétrique + line-height 1.5), qui s'ajoutait
+   par-dessus les 44x44 et décalait l'emoji hors du centre du rond - le drapeau de langue (sans
+   .btn) n'avait pas ce souci, d'où l'un centré et l'autre pas. */
+/* Tout en !important : le drapeau agence porte aussi .btn.btn-sm.d-inline-block (Bootstrap) -
+   .d-inline-block force "display:inline-block !important" (utilitaire Bootstrap, toujours
+   important par conception) qui écrasait le "inline-flex" d'ici, et .btn/.btn-sm gagnaient le
+   border-radius (8px, "petit bouton") faute d'!important côté .flag-emoji-btn - résultat : plus de
+   centrage flex du tout, et un carré arrondi au lieu d'un rond. Le drapeau langue (sans ces classes
+   .btn) n'a jamais eu ce problème, d'où l'asymétrie visible. */
+.flag-emoji-btn {
+	box-sizing: border-box !important;
+	display: inline-flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	width: 44px !important;
+	height: 44px !important;
+	padding: 0 !important;
+	margin: 0 !important;
+	border: 0 !important;
+	border-radius: 50% !important;
+	background: rgba(99, 102, 241, 0.08);
+	font-size: 1.15rem;
+	line-height: 1 !important;
+	vertical-align: middle;
+}
+.flag-emoji-item {
+	display: inline-block;
+	margin-right: 0.35rem;
+}
+/* Avatar profil aligné sur les mêmes 44px que ses voisins (icônes, drapeaux, recherche). */
+.user-img img {
+	width: 44px !important;
+	height: 44px !important;
+}
+
+/* Sous-menu "Configuration" du profil : chaque module a son propre badge coloré (au lieu de la
+   simple glyphe violette nue et identique à toutes les autres) - plus facile à repérer d'un coup
+   d'œil, et cohérent avec le reste de l'app où chaque icône vit dans son badge. */
+.config-menu-item {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+}
+.config-menu-item i {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	min-width: 28px;
+	border-radius: 8px;
+	font-size: 0.78rem;
+	color: #fff !important;
+	margin-right: 0 !important;
+	transition: transform 0.15s var(--ease);
+}
+.config-menu-item:hover i {
+	transform: scale(1.1);
+}
+.config-menu-item-1 i { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+.config-menu-item-2 i { background: linear-gradient(135deg, #14b8a6, #0d9488); }
+.config-menu-item-3 i { background: linear-gradient(135deg, #0ea5e9, #0284c7); }
+.config-menu-item-4 i { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.config-menu-item-5 i { background: linear-gradient(135deg, #ec4899, #db2777); }
+.config-menu-item-6 i { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+
+/* ---- Bandeau haut : icône clignotante du bouton "Rappels(Urgent)" quand au moins une alerte
+   est urgente (danger), même esprit que .kpi-blink mais dédiée à cette icône. -------------- */
+@keyframes bellUrgentBlink {
+	0%, 100% { opacity: 1; transform: scale(1); }
+	50% { opacity: 0.4; transform: scale(1.15); }
+}
+.bell-urgent-blink {
+	display: inline-block;
+	animation: bellUrgentBlink 1.1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+	.bell-urgent-blink { animation: none; }
+}
+
+/* ---- Centre d'alertes ("Rappels(Urgent)") : panneau clair, cohérent avec le reste de l'app -
+   les alertes "danger" (en retard / sans justificatif...) ressortent en rouge (fond teinté +
+   liseré + puce), les "warning" restent neutres, pour une hiérarchie visuelle immédiate entre ce
+   qui est réellement urgent et ce qui est simplement à traiter. ------------------------------- */
+/* Verre dépoli plutôt qu'un blanc opaque : la modale flotte, floutée, au-dessus du fond assombri
+   par le backdrop Bootstrap - même esprit que le bandeau haut / la carte de login. Les lignes
+   d'alerte gardent leur propre fond (.alert-center-item, quasi-opaque) donc restent lisibles
+   par-dessus. */
+.alert-center-modal .modal-content {
+	background: rgba(255, 255, 255, 0.74);
+	backdrop-filter: blur(24px) saturate(180%);
+	-webkit-backdrop-filter: blur(24px) saturate(180%);
+	color: var(--ink);
+	border: 1px solid rgba(255, 255, 255, 0.6);
+	box-shadow: var(--shadow-lg);
+}
+.alert-center-modal .modal-header {
+	border-bottom: 1px solid var(--border-soft);
+}
+.alert-center-modal .modal-title {
+	color: var(--ink);
+	font-weight: 700;
+}
+.alert-center-modal .modal-body {
+	max-height: 70vh;
+	overflow-y: auto;
+	padding: 1.25rem 1.5rem;
+}
+.alert-center-vide {
+	text-align: center;
+	padding: 3rem 1rem;
+	color: var(--ink-soft);
+}
+.alert-center-vide i {
+	display: block;
+	font-size: 2.2rem;
+	color: #10b981;
+	margin-bottom: 0.6rem;
+}
+.alert-center-groupe {
+	margin-bottom: 1.4rem;
+}
+.alert-center-groupe:last-child {
+	margin-bottom: 0;
+}
+.alert-center-groupe-titre {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: 0.8rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--ink-soft);
+	margin: 0 0 0.6rem;
+	padding-bottom: 0.4rem;
+	border-bottom: 1px solid var(--border-soft);
+}
+.alert-center-groupe-titre i {
+	color: var(--brand-2, #6366f1);
+}
+.alert-center-groupe-count {
+	background: rgba(99, 102, 241, 0.12);
+	color: var(--brand-2, #6366f1);
+	font-size: 0.7rem;
+	font-weight: 700;
+	padding: 0.05rem 0.55rem;
+	border-radius: 999px;
+	margin-left: auto;
+}
+.alert-center-liste {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+}
+.alert-center-item {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.6rem 0.85rem;
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.55);
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+	border-left: 3px solid transparent;
+	color: var(--ink);
+	transition: background-color 0.15s var(--ease), transform 0.15s var(--ease), border-color 0.15s var(--ease);
+}
+.alert-center-item:hover {
+	background: rgba(99, 102, 241, 0.08);
+	transform: translateX(4px);
+	color: var(--ink);
+	text-decoration: none;
+}
+/* Alertes "danger" : traitement rouge appuyé - c'est celles-là qui doivent sauter aux yeux. */
+.alert-center-item-danger {
+	background: rgba(239, 68, 68, 0.06);
+	border-left-color: #ef4444;
+}
+.alert-center-item-danger:hover {
+	background: rgba(239, 68, 68, 0.12);
+}
+.alert-center-item-danger .alert-center-item-titre {
+	color: #b91c1c;
+}
+.alert-center-item-puce {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+.alert-center-item-danger .alert-center-item-puce {
+	background: #ef4444;
+	box-shadow: 0 0 6px 1px rgba(239, 68, 68, 0.5);
+}
+.alert-center-item-warning .alert-center-item-puce {
+	background: #f59e0b;
+}
+.alert-center-item-texte {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+.alert-center-item-titre {
+	font-size: 0.88rem;
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.alert-center-item-sous-titre {
+	font-size: 0.76rem;
+	color: var(--ink-soft);
+}
+.alert-center-item-fleche {
+	font-size: 0.7rem;
+	color: var(--ink-soft);
+	opacity: 0.5;
+	flex-shrink: 0;
+}
+
+/* ---- Recherche globale (bandeau haut) : panneau de résultats groupés par module, sous le champ
+   - assets/js/global-search.js. Ne dépend d'aucune structure existante : le panneau est créé en
+   JS et ajouté dans .top-nav-search (déjà positionné en relative par ce même script). --------- */
+/* Transition "morphing" : le panneau part de la même forme en pilule que le champ juste au-dessus
+   (border-radius 999px, aplati) puis se déplie vers la carte de résultats - impression que la
+   pilule de recherche se "transforme" en panneau plutôt qu'un simple fondu, écho du morphing de
+   GlassEffectContainer quand des éléments de verre apparaissent/disparaissent ensemble. */
+.global-search-panel {
+	display: block;
+	position: absolute;
+	top: calc(100% + 6px);
+	left: 0;
+	width: 100%;
+	max-height: 70vh;
+	overflow-y: auto;
+	background: #fff;
+	border: 1px solid var(--border-soft);
+	border-radius: 999px;
+	box-shadow: var(--shadow-lg);
+	padding: 0.6rem;
+	z-index: 1050;
+	transform-origin: top center;
+	opacity: 0;
+	transform: scaleY(0.4);
+	pointer-events: none;
+	transition: opacity 0.28s var(--ease), transform 0.32s var(--ease), border-radius 0.32s var(--ease);
+}
+.global-search-panel.show {
+	opacity: 1;
+	transform: scaleY(1);
+	border-radius: var(--radius-md, 16px);
+	pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+	.global-search-panel {
+		transition: opacity 0.15s var(--ease);
+		transform: none;
+	}
+	.global-search-panel.show {
+		transform: none;
+	}
+}
+.global-search-vide {
+	padding: 1rem 0.6rem;
+	text-align: center;
+	color: var(--ink-soft);
+	font-size: 0.85rem;
+}
+.global-search-groupe {
+	margin-bottom: 0.5rem;
+}
+.global-search-groupe:last-child {
+	margin-bottom: 0;
+}
+.global-search-groupe-titre {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	font-size: 0.7rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--ink-soft);
+	padding: 0.3rem 0.5rem;
+}
+.global-search-groupe-titre i {
+	color: var(--brand-2, #6366f1);
+	font-size: 0.75rem;
+}
+.global-search-item {
+	display: flex;
+	flex-direction: column;
+	padding: 0.45rem 0.5rem;
+	border-radius: 8px;
+	color: var(--ink);
+	transition: background-color 0.12s var(--ease);
+}
+.global-search-item:hover {
+	background: rgba(99, 102, 241, 0.08);
+	color: var(--ink);
+	text-decoration: none;
+}
+.global-search-item-titre {
+	font-size: 0.85rem;
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.global-search-item-sous {
+	font-size: 0.75rem;
+	color: var(--ink-soft);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+/* Recherche élargie "toutes agences" (fallback quand l'agence en cours ne trouve rien) : bouton
+   proposé sous le message "aucun résultat", puis note + badge d'agence par résultat une fois la
+   recherche élargie relancée. */
+.global-search-autres-agences {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.4rem;
+	width: calc(100% - 1rem);
+	margin: 0 0.5rem 0.4rem;
+	padding: 0.55rem 0.8rem;
+	border: 1px dashed var(--brand-2, #6366f1);
+	border-radius: 999px;
+	background: rgba(99, 102, 241, 0.06);
+	color: var(--brand-2, #6366f1);
+	font-size: 0.8rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background-color 0.15s var(--ease), transform 0.15s var(--ease);
+}
+.global-search-autres-agences:hover {
+	background: rgba(99, 102, 241, 0.14);
+	transform: translateY(-1px);
+}
+.global-search-toutes-agences-note {
+	display: flex;
+	align-items: center;
+	gap: 0.35rem;
+	padding: 0.35rem 0.6rem 0.5rem;
+	font-size: 0.7rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: var(--brand-2, #6366f1);
+	border-bottom: 1px solid var(--border-soft);
+	margin-bottom: 0.3rem;
+}
+.global-search-item-agence {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	font-size: 0.68rem;
+	font-weight: 600;
+	color: var(--brand-2, #6366f1);
+	margin-top: 0.15rem;
+}
+
+/* ---- Page de login : carte "verre liquide" sur un fond dégradé plus marqué (le glassmorphism ne
+   se voit que s'il y a quelque chose de coloré à flouter derrière la carte). Même palette que le
+   reste de l'app (indigo/teal/rose déjà utilisés sur les cartes KPI), juste plus saturée ici
+   puisque c'est tout le décor de la page, pas un accent discret. --------------------------- */
+/* Fond de la page de login : vidéo (images/config/backgorundlogin.mp4), avec l'image fixe
+   loginbackground.jpg comme poster/repli tant que la vidéo n'a pas chargé (ou si elle échoue).
+   Un voile sombre en dégradé (::before) assure que le texte/la carte de login restent lisibles
+   quelle que soit la scène affichée derrière eux. */
+.login-body {
+	position: relative;
+	background: url('../../images/config/loginbackground.jpg') center/cover no-repeat;
+	background-color: #0b1230;
+	overflow: hidden;
+}
+.login-body-video {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	z-index: 0;
+}
+.login-body::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(180deg, rgba(6, 10, 26, 0.35) 0%, rgba(11, 18, 48, 0.45) 45%, rgba(11, 18, 48, 0.65) 100%);
+	pointer-events: none;
+	z-index: 1;
+}
+.login-body .login-wrapper {
+	position: relative;
+	z-index: 2;
+}
+.login-wrapper .loginbox {
+	background: rgba(255, 255, 255, 0.72) !important;
+	backdrop-filter: blur(24px) saturate(180%);
+	-webkit-backdrop-filter: blur(24px) saturate(180%);
+	border: 1px solid rgba(255, 255, 255, 0.7);
+	box-shadow: 0 20px 70px rgba(0, 0, 0, 0.45);
+}
+.login-wrapper .loginbox .login-right .form-control {
+	background: rgba(255, 255, 255, 0.65);
+	border: 1px solid rgba(255, 255, 255, 0.8);
+}
+.login-wrapper .loginbox .login-right .form-control:focus {
+	background: #fff;
+}
+
+/* ---- Effet "verre liquide" réutilisable sur une page entière -------------------------------
+   Né sur le dashboard (com_dashboard), généralisé au fil des demandes à d'autres pages (Facturation
+   /devis/factures/contrats/paiements, chèques, relances, personnel RH, fiche client...) - il suffit
+   d'ajouter la classe .glass-page au <div class="page-wrapper"> de la vue pour en hériter, sans rien
+   modifier d'autre dans le HTML de la page. Les cartes KPI (.dash-widget-icon.bg-N, utilisées sur
+   plusieurs de ces pages) ont déjà leur propre dégradé coloré + flou plus haut (section "Cartes KPI
+   du dashboard") - couleurs volontairement conservées telles quelles, exclues ici via :not(:has(...))
+   pour ne pas leur superposer un second traitement. Les AUTRES cartes (tableaux, graphiques, fiches)
+   passent de blanc opaque à verre translucide, + un fond dégradé derrière pour qu'il y ait vraiment
+   quelque chose à flouter (comme la page de login). --------------------------------------------- */
+.glass-page {
+	position: relative;
+}
+.glass-page::before {
+	content: "";
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	background:
+		radial-gradient(circle at 10% 10%, rgba(99, 102, 241, 0.14), transparent 40%),
+		radial-gradient(circle at 90% 8%, rgba(20, 184, 166, 0.12), transparent 38%),
+		radial-gradient(circle at 50% 95%, rgba(236, 72, 153, 0.08), transparent 45%);
+	pointer-events: none;
+}
+.glass-page .card:not(:has(.dash-widget-icon)) {
+	background: rgba(255, 255, 255, 0.6);
+	backdrop-filter: blur(18px) saturate(180%);
+	-webkit-backdrop-filter: blur(18px) saturate(180%);
+	border: 1px solid rgba(255, 255, 255, 0.6);
+}
+/* Tuiles KPI : même mécanique de tilt 3D interactif que les cartes fournisseurs (assets/js/
+   modern-theme.js), en plus du hover-scale déjà existant sur l'icône. Ciblées par
+   :has(.dash-widget-icon) plutôt qu'un nom de ligne (".global-stats") propre au dashboard - les
+   autres pages avec .glass-page réutilisent le même badge KPI mais sous un autre nom de ligne
+   (ex: ".client-stats-row"), :has() les attrape toutes sans dépendre de ce nom. */
+.glass-page .card:has(.dash-widget-icon) {
+	transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
+	transform-style: preserve-3d;
+	will-change: transform;
+	cursor: default;
+}
+
+/* ---- Pagination DataTables : boutons "pilule" verre plutôt que la liste de liens plate/grise
+   par défaut du plugin - appliqué globalement (markup généré par DataTables identique quelle que
+   soit la classe de la table source, .datatable/.datatable-charges/...), donc chaque liste
+   paginée de l'app en bénéficie d'un coup, pas seulement les pages ".glass-page". ------------ */
+.dataTables_wrapper {
+	position: relative;
+}
+.dataTables_wrapper .dataTables_length select,
+.dataTables_wrapper .dataTables_filter input {
+	background: rgba(99, 102, 241, 0.06);
+	border: 1px solid rgba(99, 102, 241, 0.22);
+	border-radius: 8px;
+	padding: 0.25rem 0.5rem;
+}
+.dataTables_wrapper .dataTables_info {
+	color: var(--ink-soft);
+	font-size: 0.85rem;
+}
+.dataTables_wrapper .dataTables_paginate {
+	margin-top: 0.75rem;
+}
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+	display: inline-flex !important;
+	align-items: center;
+	justify-content: center;
+	min-width: 34px;
+	height: 34px;
+	margin: 0 3px !important;
+	padding: 0 0.6rem !important;
+	border: 1px solid transparent !important;
+	border-radius: 999px !important;
+	background: rgba(99, 102, 241, 0.06) !important;
+	color: var(--ink) !important;
+	font-weight: 600;
+	transition: background-color 0.15s var(--ease), color 0.15s var(--ease), transform 0.15s var(--ease);
+}
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+	background: rgba(99, 102, 241, 0.14) !important;
+	color: var(--brand-2, #6366f1) !important;
+	border-color: transparent !important;
+	transform: translateY(-1px);
+}
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+	background: var(--brand-grad) !important;
+	color: #fff !important;
+	box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+}
+.dataTables_wrapper .dataTables_paginate .paginate_button.disabled {
+	opacity: 0.4;
+	background: transparent !important;
+	color: var(--ink-soft) !important;
+	transform: none;
+	cursor: default;
+}
+
+/* ---- En-tête de page / breadcrumb ---------------------------------------------- */
+.page-header .breadcrumb {
+	font-size: 0.85rem;
+}
+
+/* ---- Scrollbar ------------------------------------------------------------------ */
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+::-webkit-scrollbar-thumb {
+	background: #c7cbe0;
+	border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+	background: #a5abcc;
+}
+
+/* ---- Support des animations GSAP (assets/js/modern-theme.js) ------------------ */
+/* "will-change" ici (même sans transform actif) crée en permanence un nouveau
+   contexte d'empilement CSS sur .page-wrapper, qui piège tout ce qu'il
+   contient — dont les modales Bootstrap, dont le z-index ne peut alors plus
+   jamais dépasser ".modal-backdrop" : clics bloqués sur tout formulaire dans
+   une modale. Le gain de perf de "will-change" ne vaut pas ce risque pour une
+   animation d'entrée d'une fraction de seconde ; GSAP gère déjà lui-même le
+   will-change temporaire pendant la durée du tween. */
+
+/* ==========================================================================
+   Mobile — vérifié (Playwright, 320 à 1024px, aucun débordement horizontal)
+   ========================================================================== */
+@media (max-width: 991.98px) {
+	/* Bug pré-existant (page de login, seul endroit utilisant .container) :
+	   ".login-wrapper" est en display:table-cell et ".loginbox" en display:flex
+	   avec un enfant ".login-right" qui garde son min-width flex par défaut
+	   ("auto") et déborde du viewport en dessous de 992px. Layout bloc simple
+	   + min-width:0, sans toucher au desktop ni au reste de l'app. */
+	.login-wrapper {
+		display: block !important;
+	}
+	.login-wrapper .container {
+		width: 100% !important;
+		max-width: 100% !important;
+		box-sizing: border-box;
+	}
+	.login-wrapper .loginbox {
+		width: 100% !important;
+		max-width: 100% !important;
+		box-sizing: border-box;
+	}
+	.login-wrapper .loginbox .login-right {
+		min-width: 0 !important;
+		box-sizing: border-box;
+	}
+}
+
+@media (max-width: 767.98px) {
+	.page-title {
+		font-size: 1.25rem;
+	}
+	.card-body {
+		padding: 1.1rem;
+	}
+	.card {
+		border-radius: var(--radius-md);
+	}
+	/* Zones tactiles confortables sans changer le markup */
+	.btn,
+	.dropdown-item,
+	.sidebar-menu li a {
+		min-height: 40px;
+	}
+	.table-responsive {
+		-webkit-overflow-scrolling: touch;
+	}
+	.modal-dialog {
+		margin: 0.75rem;
+	}
+	/* Audit responsive 2026-08-04 : la ligne "En MAD/Euro/Pound/Dollar/AED/Charges" du dashboard
+	   (.ca-box) déborde de son conteneur sur mobile (6 valeurs sur une seule ligne, chacune avec
+	   sa propre marge) - MAIS .das-chart-content (son parent) est déjà overflow-x:scroll, donc
+	   les valeurs tronquées à l'écran (Dollar/AED/Charges) restent réellement atteignables au
+	   doigt, ce n'est pas une perte de données. Seul vrai problème : rien ne signale que c'est
+	   swipeable - un dégradé de fondu au bord droit sert d'indice visuel, sans toucher à la
+	   mise en page du graphique lui-même (plus risqué à modifier ici). */
+	.das-chart-content {
+		position: relative;
+	}
+	.das-chart-content::after {
+		content: "";
+		position: absolute;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		width: 24px;
+		background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.9));
+		pointer-events: none;
+	}
+	/* Légendes ApexCharts (générique, tous les graphiques de l'app) : la légende horizontale par
+	   défaut de la librairie ne tient pas compte de la largeur du conteneur et pousse le graphique
+	   en dehors de sa carte sur mobile - elle doit pouvoir passer à la ligne comme le reste. */
+	.apexcharts-legend {
+		flex-wrap: wrap !important;
+	}
+	/* En-têtes de carte avec titre + recherche + barre d'outils sur une seule ligne
+	   (.card-header.d-flex, ex: "Liste des clients") : sans wrap, le groupe de boutons
+	   (Ajouter/Archivés/Filtrer/Exporter) dépassait le viewport de ~60px sur mobile - c'était la
+	   VRAIE source de débordement de la page (le tableau en dessous, lui, défile correctement dans
+	   son propre .table-responsive, ce n'est pas un bug). Sans effet sur desktop : le flex-wrap ne
+	   se déclenche que si le contenu ne tient déjà plus sur une ligne. */
+	.card-header.d-flex {
+		flex-wrap: wrap;
+		row-gap: 0.5rem;
+	}
+	.card-header.d-flex .client-live-search {
+		flex: 1 1 100%;
+		order: 3;
+		margin-left: 0 !important;
+		margin-right: 0 !important;
+	}
+}
+
+@media (max-width: 575.98px) {
+	.card-body {
+		padding: 0.9rem;
+	}
+	.page-header .breadcrumb {
+		display: none;
+	}
+}
+
+/* ---- Calendrier (FullCalendar) : dashboard + com_holiday ---------------------- */
+.fc-toolbar h2 {
+	font-size: 1.05rem;
+	font-weight: 700;
+	color: var(--ink);
+}
+.fc-button {
+	background: #fff;
+	background-image: none;
+	border: 1px solid rgba(30, 30, 60, 0.14);
+	color: var(--ink-soft);
+	box-shadow: none;
+	text-shadow: none;
+	border-radius: 8px !important;
+	text-transform: capitalize;
+}
+.fc-button.fc-state-active,
+.fc-button.fc-state-hover,
+.fc-button:hover {
+	background: var(--brand-grad);
+	background-image: none;
+	color: #fff;
+	border-color: transparent;
+}
+.fc-day-grid-event {
+	border: 0;
+	padding: 2px 6px;
+}
+.fc td.fc-today {
+	background: rgba(99, 102, 241, 0.07);
+}
+.fc-event, .fc-event-dot {
+	border: 0;
+}
+
+/* ---- Widget flottant "jours fériés" (collé à droite du dashboard) ------------- */
+/* Le conteneur ne fait que la taille de l'onglet : le panneau est positionné en
+   absolute par-dessus (indépendant du flux), sinon sa boîte (même masquée en
+   opacity:0) pousse la hauteur du conteneur et fausse le centrage vertical. */
+.holiday-widget {
+	position: fixed;
+	top: 45%;
+	right: 0;
+	transform: translateY(-50%);
+	z-index: 1060;
+	width: 50px;
+	height: 50px;
+}
+.holiday-widget-tab {
+	width: 50px;
+	height: 50px;
+	flex-shrink: 0;
+	border: 0;
+	border-radius: 14px 0 0 14px;
+	background: var(--brand-grad);
+	color: #fff;
+	font-size: 1.15rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: -6px 6px 18px rgba(79, 70, 229, 0.28);
+	cursor: pointer;
+	transition: filter 0.2s var(--ease);
+}
+.holiday-widget-tab:hover {
+	filter: brightness(1.08);
+}
+.holiday-widget-panel {
+	position: absolute;
+	top: 50%;
+	right: 50px;
+	transform: translateY(-50%) translateX(310px);
+	width: 300px;
+	max-height: 78vh;
+	overflow-y: auto;
+	background: #fff;
+	border-radius: 18px 0 0 18px;
+	box-shadow: -10px 10px 34px rgba(30, 30, 60, 0.18);
+	padding: 1.1rem;
+	opacity: 0;
+	pointer-events: none;
+	transition: transform 0.35s var(--ease), opacity 0.35s var(--ease);
+}
+.holiday-widget.open .holiday-widget-panel {
+	transform: translateY(-50%) translateX(0);
+	opacity: 1;
+	pointer-events: auto;
+}
+.holiday-widget-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	font-weight: 700;
+	color: var(--ink);
+	margin-bottom: 0.75rem;
+}
+.holiday-cal-nav {
+	border: 0;
+	background: rgba(99, 102, 241, 0.08);
+	color: var(--brand-2);
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	font-size: 0.7rem;
+}
+.holiday-cal-nav:hover {
+	background: var(--brand-grad);
+	color: #fff;
+}
+.holiday-widget-dow,
+.holiday-widget-days {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	text-align: center;
+}
+.holiday-widget-dow span {
+	font-size: 0.68rem;
+	font-weight: 700;
+	color: var(--ink-soft);
+	text-transform: uppercase;
+	padding-bottom: 0.4rem;
+}
+.holiday-cal-day {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	margin: 2px auto;
+	border-radius: 50%;
+	font-size: 0.8rem;
+	color: var(--ink);
+}
+.holiday-cal-day-today {
+	border: 2px solid var(--brand-2);
+	font-weight: 700;
+}
+.holiday-cal-day-holiday.holiday-cal-day-soon {
+	background: var(--brand-grad);
+	color: #fff;
+	font-weight: 700;
+}
+.holiday-cal-day-holiday.holiday-cal-day-ongoing {
+	background: rgba(16, 185, 129, 0.85);
+	color: #fff;
+	font-weight: 700;
+}
+.holiday-cal-day-holiday.holiday-cal-day-future {
+	background: rgba(99, 102, 241, 0.16);
+	color: var(--brand-3);
+	font-weight: 700;
+}
+.holiday-cal-day-holiday.holiday-cal-day-past {
+	background: rgba(148, 163, 184, 0.25);
+	color: var(--ink-soft);
+}
+.holiday-widget-scheduled {
+	margin-top: 0.9rem;
+	padding-top: 0.9rem;
+	border-top: 1px solid var(--border-soft);
+}
+.holiday-widget-scheduled-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 0.5rem;
+}
+.holiday-widget-scheduled-header h6 {
+	margin: 0;
+	font-weight: 700;
+	font-size: 0.85rem;
+}
+.holiday-widget-scheduled-header a {
+	font-size: 0.78rem;
+	font-weight: 600;
+	color: var(--brand-2);
+}
+.holiday-widget-item {
+	background: #f8f8fc;
+	border-radius: var(--radius-sm);
+	padding: 0.6rem 0.75rem;
+	margin-bottom: 0.5rem;
+}
+.holiday-widget-tag {
+	display: inline-block;
+	font-size: 0.65rem;
+	font-weight: 700;
+	padding: 0.15rem 0.55rem;
+	border-radius: 999px;
+	margin-bottom: 0.3rem;
+}
+.holiday-tag-soon { background: rgba(99, 102, 241, 0.15); color: var(--brand-3); }
+.holiday-tag-ongoing { background: rgba(16, 185, 129, 0.15); color: #0d9488; }
+.holiday-tag-future { background: rgba(99, 102, 241, 0.15); color: var(--brand-3); }
+.holiday-tag-past { background: rgba(148, 163, 184, 0.2); color: var(--ink-soft); }
+.holiday-widget-item-name {
+	font-weight: 600;
+	font-size: 0.85rem;
+	color: var(--ink);
+}
+.holiday-widget-item-date {
+	font-size: 0.75rem;
+	color: var(--ink-soft);
+}
+
+@media (max-width: 575.98px) {
+	.holiday-widget-panel {
+		width: 84vw;
+	}
+}
+
+/* Toast "un jour férié approche" : bulle rouge au-dessus de l'onglet, reste
+   affichée tant que l'utilisateur ne clique pas sur sa croix de fermeture
+   (pas de disparition automatique, pilotée uniquement par la classe .show). */
+.holiday-widget-toast {
+	position: fixed;
+	top: calc(45% - 90px);
+	right: 60px;
+	max-width: 270px;
+	background: linear-gradient(135deg, #ef4444, #b91c1c);
+	color: #fff;
+	font-weight: 600;
+	font-size: 0.85rem;
+	line-height: 1.4;
+	padding: 1rem 1.6rem 1rem 1rem;
+	border-radius: var(--radius-md);
+	box-shadow: 0 16px 34px rgba(185, 28, 28, 0.4);
+	z-index: 1070;
+	transform: translateX(20px) scale(0.95);
+	opacity: 0;
+	pointer-events: none;
+	transition: transform 0.3s var(--ease), opacity 0.3s var(--ease);
+}
+.holiday-widget-toast.show {
+	transform: translateX(0) scale(1);
+	opacity: 1;
+	pointer-events: auto;
+}
+.holiday-widget-toast::after {
+	content: "";
+	position: absolute;
+	bottom: -6px;
+	right: 20px;
+	width: 12px;
+	height: 12px;
+	background: #b91c1c;
+	transform: rotate(45deg);
+}
+.holiday-widget-toast-close {
+	position: absolute;
+	top: 4px;
+	right: 6px;
+	border: 0;
+	background: transparent;
+	color: rgba(255, 255, 255, 0.85);
+	font-size: 1rem;
+	line-height: 1;
+	cursor: pointer;
+	padding: 4px;
+}
+.holiday-widget-toast-close:hover {
+	color: #fff;
+}
+
+/* ---- Widget flottant "Assistant" (dashboard) — même patron que .holiday-widget ci-dessus
+   (onglet collé à droite, panneau qui se déploie au clic), décalé verticalement pour ne pas se
+   superposer à celui des jours fériés (45%), + un badge rouge quand des tâches sont en retard et
+   un mini-formulaire d'ajout rapide directement dans le panneau. ---------------------------- */
+.assistant-float-widget {
+	position: fixed;
+	top: calc(45% + 58px);
+	right: 0;
+	transform: translateY(-50%);
+	z-index: 1060;
+	width: 50px;
+	height: 50px;
+}
+.assistant-float-widget-tab {
+	position: relative;
+	width: 50px;
+	height: 50px;
+	flex-shrink: 0;
+	border: 0;
+	border-radius: 14px 0 0 14px;
+	background: linear-gradient(135deg, #22c55e, #15803d);
+	color: #fff;
+	font-size: 1.15rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: -6px 6px 18px rgba(21, 128, 61, 0.32);
+	cursor: pointer;
+	transition: filter 0.2s var(--ease);
+}
+.assistant-float-widget-tab:hover {
+	filter: brightness(1.08);
+}
+.assistant-float-widget-badge {
+	position: absolute;
+	top: -4px;
+	right: -4px;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 4px;
+	border-radius: 999px;
+	background: #ef4444;
+	color: #fff;
+	font-size: 0.68rem;
+	font-weight: 700;
+	line-height: 18px;
+	text-align: center;
+	box-shadow: 0 0 0 2px #fff;
+}
+.assistant-float-widget-panel {
+	position: absolute;
+	top: 50%;
+	right: 50px;
+	transform: translateY(-50%) translateX(310px);
+	width: 300px;
+	max-height: 78vh;
+	overflow-y: auto;
+	background: #fff;
+	border-radius: 18px 0 0 18px;
+	box-shadow: -10px 10px 34px rgba(30, 30, 60, 0.18);
+	padding: 1.1rem;
+	opacity: 0;
+	pointer-events: none;
+	transition: transform 0.35s var(--ease), opacity 0.35s var(--ease);
+}
+.assistant-float-widget.open .assistant-float-widget-panel {
+	transform: translateY(-50%) translateX(0);
+	opacity: 1;
+	pointer-events: auto;
+}
+.assistant-float-widget-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+	margin-bottom: 0.9rem;
+}
+.assistant-float-widget-item {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.5rem;
+	padding: 0.5rem 0.6rem;
+	border-radius: 10px;
+	background: #f8f8fc;
+	color: var(--ink);
+	transition: background-color 0.15s var(--ease);
+}
+.assistant-float-widget-item:hover {
+	background: rgba(99, 102, 241, 0.1);
+	color: var(--ink);
+	text-decoration: none;
+}
+.assistant-float-widget-panel .holiday-widget-scheduled-header a {
+	color: #16a34a;
+}
+.assistant-float-widget-item-dot {
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: #16a34a;
+	margin-top: 6px;
+	flex-shrink: 0;
+}
+.assistant-float-widget-item-late .assistant-float-widget-item-dot {
+	background: #ef4444;
+	box-shadow: 0 0 6px 1px rgba(239, 68, 68, 0.5);
+}
+.assistant-float-widget-item-body {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+.assistant-float-widget-item-title {
+	font-size: 0.86rem;
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.assistant-float-widget-item-date {
+	font-size: 0.74rem;
+	color: var(--ink-soft);
+}
+.assistant-float-widget-item-late .assistant-float-widget-item-date {
+	color: #b91c1c;
+}
+.assistant-float-widget-quickadd {
+	border-top: 1px solid var(--border-soft, rgba(30, 30, 60, 0.08));
+	padding-top: 0.8rem;
+}
+@media (max-width: 991.98px) {
+	.assistant-float-widget-panel {
+		width: 82vw;
+	}
+}
+
+/* ---- Statistiques globales (com_dashboard, task=globalStats) : refonte complète 2026-08-04 -
+   verre + KPI cliquables + tendance mensuelle + répartition/marge par agence, pensée pour aider à
+   décider (variation vs période précédente sur chaque KPI) plutôt qu'aligner des totaux figés. -- */
+.globalstats-filter-card .quick-filter-chips a {
+	display: inline-block;
+	padding: 0.4rem 0.9rem;
+	border-radius: 999px;
+	background: rgba(99, 102, 241, 0.06);
+	color: var(--ink-soft);
+	font-size: 0.82rem;
+	font-weight: 600;
+	margin-right: 0.4rem;
+	transition: background-color 0.15s var(--ease), color 0.15s var(--ease);
+}
+.globalstats-filter-card .quick-filter-chips a:hover {
+	background: rgba(99, 102, 241, 0.14);
+	color: var(--ink);
+	text-decoration: none;
+}
+.globalstats-filter-card .quick-filter-chips a.active {
+	background: var(--brand-grad);
+	color: #fff;
+}
+.globalstats-kpi-link {
+	display: block;
+	color: inherit;
+}
+.globalstats-kpi-link:hover {
+	color: inherit;
+	text-decoration: none;
+}
+.globalstats-kpi-card {
+	position: relative;
+	overflow: hidden;
+	color: #fff;
+	transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.globalstats-kpi-link:hover .globalstats-kpi-card {
+	transform: translateY(-4px);
+	box-shadow: 0 14px 32px rgba(30, 30, 60, 0.22);
+}
+.globalstats-kpi-card .dash-widget-icon {
+	background: rgba(255, 255, 255, 0.2);
+	color: #fff;
+}
+.globalstats-kpi-card .dash-title {
+	color: rgba(255, 255, 255, 0.85);
+}
+.globalstats-kpi-card .dash-counts p {
+	color: #fff;
+	font-weight: 700;
+	font-size: 1.35rem;
+	margin-bottom: 0;
+}
+.globalstats-devise {
+	font-size: 0.75rem;
+	font-weight: 500;
+	opacity: 0.8;
+}
+.globalstats-kpi-card.kpi-blue { background: linear-gradient(135deg, #6366f1, #4338ca); }
+.globalstats-kpi-card.kpi-green { background: linear-gradient(135deg, #22c55e, #15803d); }
+.globalstats-kpi-card.kpi-red { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+.globalstats-kpi-card.kpi-orange { background: linear-gradient(135deg, #f59e0b, #b45309); }
+.globalstats-kpi-card.kpi-purple { background: linear-gradient(135deg, #a855f7, #6d28d9); }
+.globalstats-trend {
+	position: absolute;
+	top: 1rem;
+	right: 1rem;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.25rem;
+	padding: 0.2rem 0.55rem;
+	border-radius: 999px;
+	font-size: 0.72rem;
+	font-weight: 700;
+	background: rgba(255, 255, 255, 0.2);
+}
+.globalstats-trend-up {
+	background: rgba(255, 255, 255, 0.28);
+}
+.globalstats-trend-down {
+	background: rgba(0, 0, 0, 0.18);
+}
+.globalstats-kpi-marge {
+	display: flex;
+	align-items: center;
+}
+.globalstats-marge-sub {
+	margin-top: 0.6rem;
+	padding-top: 0.6rem;
+	border-top: 1px solid rgba(255, 255, 255, 0.25);
+	font-size: 0.82rem;
+	color: rgba(255, 255, 255, 0.9);
+}
+.globalstats-chart-card {
+	min-height: 100%;
+}
+.globalstats-agence-legend {
+	margin-top: 0.5rem;
+}
+.globalstats-agence-legend-item {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.35rem 0;
+	font-size: 0.82rem;
+	border-bottom: 1px solid var(--border-soft, rgba(30, 30, 60, 0.06));
+}
+.globalstats-agence-legend-item:last-child {
+	border-bottom: none;
+}
+.globalstats-agence-dot {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+.globalstats-agence-nom {
+	flex: 1;
+	font-weight: 600;
+	color: var(--ink);
+}
+.globalstats-agence-valeur {
+	color: var(--ink-soft);
+}
+
+/* Top 10 services vendus / top 10 charges - liste classée avec mini-barre proportionnelle au
+   plus gros montant du lot (repère visuel immédiat, pas besoin d'un graphique séparé). */
+.globalstats-top-list {
+	list-style: none;
+	margin: 0;
+	padding: 0.4rem 0;
+	max-height: 420px;
+	overflow-y: auto;
+}
+.globalstats-top-item {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.85rem;
+	padding: 0.6rem 1.25rem;
+}
+.globalstats-top-item:hover {
+	background: var(--paper-sunken, #f6f6fb);
+}
+.globalstats-top-rank {
+	flex: 0 0 auto;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 0.72rem;
+	font-weight: 700;
+	background: rgba(34, 197, 94, 0.12);
+	color: #15803d;
+	margin-top: 0.15rem;
+}
+.globalstats-top-rank-charge {
+	background: rgba(239, 68, 68, 0.12);
+	color: #b91c1c;
+}
+.globalstats-top-body {
+	flex: 1;
+	min-width: 0;
+}
+.globalstats-top-row {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 0.6rem;
+}
+.globalstats-top-titre {
+	font-weight: 600;
+	color: var(--ink);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.globalstats-top-valeur {
+	flex: 0 0 auto;
+	font-weight: 700;
+	color: var(--ink);
+	font-variant-numeric: tabular-nums;
+}
+.globalstats-top-bar-track {
+	height: 5px;
+	border-radius: 4px;
+	background: var(--border-soft, rgba(30, 30, 60, 0.08));
+	margin-top: 0.35rem;
+	overflow: hidden;
+}
+.globalstats-top-bar {
+	height: 100%;
+	border-radius: 4px;
+	background: linear-gradient(90deg, #22c55e, #15803d);
+}
+.globalstats-top-bar-charge {
+	background: linear-gradient(90deg, #ef4444, #b91c1c);
+}
+.globalstats-top-sub {
+	display: inline-block;
+	margin-top: 0.25rem;
+	font-size: 0.76rem;
+	color: var(--ink-soft);
+}
+@media (max-width: 991.98px) {
+	.globalstats-kpi-row > div {
+		margin-bottom: 0.75rem;
+	}
+}
+
+/* ---- Fiche client : hero, coordonnées, onglets dynamiques --------------------- */
+.client-hero {
+	position: relative;
+	border-radius: var(--radius-lg);
+	overflow: hidden;
+	margin-bottom: 1.5rem;
+	background: #fff;
+	box-shadow: var(--shadow-sm);
+}
+.client-hero-cover {
+	height: 130px;
+}
+.client-hero-body {
+	display: flex;
+	align-items: flex-end;
+	flex-wrap: wrap;
+	gap: 1rem;
+	padding: 0 1.75rem 1.25rem;
+	margin-top: -55px;
+}
+.client-hero-avatar {
+	width: 110px;
+	height: 110px;
+	border-radius: 50%;
+	background: #fff;
+	padding: 4px;
+	box-shadow: var(--shadow-md);
+	flex-shrink: 0;
+}
+.client-hero-avatar .avatar-img {
+	width: 100%;
+	height: 100%;
+	border-radius: 50%;
+	object-fit: cover;
+}
+.client-hero-info {
+	flex: 1 1 260px;
+	padding-top: 0.5rem;
+}
+.client-hero-info h3 {
+	margin-bottom: 0.15rem;
+	font-weight: 800;
+}
+.client-hero-info .badge {
+	margin-right: 0.35rem;
+}
+.client-hero-actions {
+	padding-top: 0.5rem;
+	white-space: nowrap;
+}
+.client-hero-site-logo {
+	width: 42px;
+	height: 42px;
+	object-fit: contain;
+	border-radius: 8px;
+	background: #fff;
+	box-shadow: var(--shadow-sm);
+	padding: 4px;
+	align-self: flex-end;
+	margin-bottom: 6px;
+}
+
+/* Badge relance clignotant : attire l'attention sur les relances en cours,
+   sans effet permanent gênant (respecte prefers-reduced-motion). */
+@keyframes relance-pulse {
+	0%, 100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.55); }
+	50% { box-shadow: 0 0 0 6px rgba(220, 53, 69, 0); }
+}
+.relance-badge-pulse {
+	animation: relance-pulse 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+	.relance-badge-pulse {
+		animation: none;
+	}
+}
+
+.client-stats-row {
+	margin-bottom: 0.25rem;
+}
+
+/* Carte "Encaissé à ce jour" : la donnée financière la plus importante de la fiche mérite
+   mieux qu'une case de couleur parmi d'autres - elle raconte une évolution réelle (courbe
+   d'encaissement tracée en Canvas à partir des vrais paiements), pas juste un total statique. */
+.client-revenue-card {
+	display: flex;
+	align-items: stretch;
+	gap: 2rem;
+	padding: 1.75rem 2rem;
+	margin-bottom: 1.5rem;
+	border-radius: var(--radius-lg);
+	background: #fff;
+	border: 1px solid var(--border-soft);
+	box-shadow: var(--shadow-sm);
+}
+.client-revenue-info {
+	flex: 0 0 auto;
+	min-width: 200px;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+}
+.client-revenue-eyebrow {
+	font-size: 0.72rem;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--ink-soft);
+	margin-bottom: 0.4rem;
+}
+.client-revenue-figure {
+	font-size: 2.15rem;
+	font-weight: 800;
+	line-height: 1.1;
+	color: var(--ink);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+.client-revenue-since {
+	display: block;
+	font-size: 0.82rem;
+	color: var(--ink-soft);
+	margin-top: 0.35rem;
+}
+.client-revenue-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+	margin-top: 0.6rem;
+}
+.client-revenue-chip {
+	font-size: 0.78rem;
+	font-weight: 600;
+	color: var(--brand);
+	background: rgba(109, 40, 217, 0.08);
+	padding: 0.15rem 0.55rem;
+	border-radius: 100px;
+}
+.client-revenue-chart {
+	flex: 1 1 auto;
+	min-width: 0;
+	position: relative;
+}
+.client-revenue-chart canvas {
+	width: 100%;
+	height: 110px;
+	display: block;
+}
+.client-revenue-chart-axis {
+	display: flex;
+	justify-content: space-between;
+	font-size: 0.72rem;
+	color: var(--ink-soft);
+	margin-top: 0.35rem;
+	padding: 0 2px;
+}
+@media (max-width: 700px) {
+	.client-revenue-card {
+		flex-direction: column;
+		gap: 1.25rem;
+	}
+	.client-revenue-info {
+		min-width: 0;
+	}
+}
+
+.client-info-item {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.75rem;
+	padding: 0.6rem 0;
+}
+.client-info-item i {
+	width: 34px;
+	height: 34px;
+	flex-shrink: 0;
+	border-radius: 10px;
+	background: rgba(99, 102, 241, 0.08);
+	color: var(--brand-2);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.client-info-item span {
+	display: block;
+	font-size: 0.72rem;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--ink-soft);
+	font-weight: 700;
+}
+.client-info-item p {
+	margin: 0;
+	font-weight: 600;
+	color: var(--ink);
+	word-break: break-word;
+}
+
+/* Onglets "pilule" : fiche client (.client-tabs) ET barre d'onglets de la page
+   Facturation (.pill-tabs, Clients/Devis/Contrats/Factures/Paiements) — même
+   style partagé pour rester cohérent partout où l'app propose des onglets. */
+.client-tabs-header {
+	background: transparent;
+	padding-bottom: 0;
+}
+.client-tabs.nav-tabs,
+.pill-tabs.nav-tabs {
+	border-bottom: 0;
+	flex-wrap: wrap;
+}
+.client-tabs.nav-tabs .nav-link,
+.pill-tabs.nav-tabs .nav-link {
+	border: 0;
+	border-radius: 999px;
+	padding: 0.5rem 1.1rem;
+	margin: 0 0.35rem 0.5rem 0;
+	font-weight: 600;
+	color: var(--ink-soft);
+	background: rgba(30, 30, 60, 0.04);
+}
+.client-tabs.nav-tabs .nav-link .badge,
+.pill-tabs.nav-tabs .nav-link .badge {
+	background: rgba(30, 30, 60, 0.08);
+	color: var(--ink-soft);
+}
+.client-tabs.nav-tabs .nav-link.active,
+.pill-tabs.nav-tabs .nav-link.active {
+	background: var(--brand-grad);
+	color: #fff;
+}
+.client-tabs.nav-tabs .nav-link.active .badge,
+.pill-tabs.nav-tabs .nav-link.active .badge {
+	background: rgba(255, 255, 255, 0.25);
+	color: #fff;
+}
+.pill-tabs.nav-tabs {
+	padding: 1.25rem 1.5rem 0.75rem;
+}
+
+/* Les vues incluses (devis/factures/paiements/rappels/relances) rendent chacune
+   leur propre .card.card-table : à l'intérieur d'un onglet, on aplatit cette carte
+   imbriquée pour qu'elle se fonde dans le panneau au lieu de doubler le cadre, et
+   on masque son en-tête ("Liste des devis"...) déjà redondant avec le libellé de
+   l'onglet. */
+.client-tab-content > .tab-pane > .card {
+	box-shadow: none;
+	border: 0;
+	margin-bottom: 0;
+}
+.client-tab-content > .tab-pane > .card > .card-header {
+	display: none;
+}
+.client-tab-content > .tab-pane > .card > .card-body {
+	padding: 0;
+}
+
+/* Recherche instantanée de la liste clients (et, par extension, du personnel RH) */
+.client-live-search,
+.rh-live-search {
+	position: relative;
+	min-width: 220px;
+}
+.client-live-search i,
+.rh-live-search i {
+	position: absolute;
+	left: 12px;
+	top: 50%;
+	transform: translateY(-50%);
+	color: var(--ink-soft);
+	font-size: 0.8rem;
+}
+.client-live-search input,
+.rh-live-search input {
+	padding-left: 32px;
+	border-radius: 999px;
+	background: #f6f7fb;
+	border: 1px solid transparent;
+}
+.client-live-search input:focus {
+	background: #fff;
+}
+/* La recherche native de DataTables ("Search:") fait doublon avec la barre de
+   recherche personnalisée .client-live-search déjà présente dans l'en-tête —
+   masquée uniquement pour #clients-table (id ciblé, aucune autre liste du CRM
+   n'est affectée). */
+#clients-table_filter,
+#titulaire-table_filter,
+#stagiaire-table_filter,
+#test-table_filter {
+	display: none;
+}
+/* Panneau de filtre de l'onglet Factures (page Facturation) : id dédié distinct
+   du #filter_inputs générique (voir style.css), fermé par défaut comme les
+   autres panneaux de filtre — ouvert/fermé par #filter_search_facture. */
+#filter_inputs_facture {
+	display: none;
+}
+/* Tableau des contrats (page Facturation) : padding un peu plus resserré pour
+   que les 8 colonnes (dont Actions) tiennent dans la largeur de la carte sans
+   dépasser l'écran, sans supprimer aucune information. */
+#contracts-table td,
+#contracts-table th {
+	padding: 0.65rem 0.5rem;
+}
+
+/* ---- Réseaux sociaux client (com_client&task=socialAccounts) : une carte par plateforme,
+   mot de passe masqué par défaut (voir .money-sensitive plus haut pour le principe similaire côté
+   dashboard). ------------------------------------------------------------------------------ */
+.social-security-note {
+	margin-bottom: 1.5rem;
+}
+.social-account-card {
+	transition: transform 0.2s var(--ease);
+}
+.social-account-head {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	margin-bottom: 1.1rem;
+}
+.social-account-icon {
+	width: 40px;
+	height: 40px;
+	border-radius: 12px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #fff;
+	font-size: 1.05rem;
+	flex-shrink: 0;
+}
+.social-account-title {
+	margin: 0;
+	font-size: 1.02rem;
+	font-weight: 700;
+	color: var(--ink);
+}
+.social-account-fields {
+	list-style: none;
+	margin: 0 0 1rem;
+	padding: 0;
+}
+.social-account-fields li {
+	display: flex;
+	justify-content: space-between;
+	gap: 0.75rem;
+	padding: 0.4rem 0;
+	border-bottom: 1px solid var(--border-soft);
+	font-size: 0.88rem;
+}
+.social-account-fields li:last-child {
+	border-bottom: none;
+}
+.social-account-label {
+	color: var(--ink-soft);
+	flex-shrink: 0;
+}
+.social-account-value {
+	text-align: right;
+	color: var(--ink);
+	word-break: break-word;
+}
+.social-account-password {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	justify-content: flex-end;
+}
+.social-password-plain {
+	font-family: ui-monospace, "SF Mono", Consolas, monospace;
+	font-weight: 600;
+}
+.social-password-reveal-btn {
+	color: var(--ink-soft);
+}
+.social-password-reveal-btn:hover {
+	color: var(--accent-ink, var(--brand-2));
+}
+.social-account-empty {
+	font-size: 0.86rem;
+	margin-bottom: 0.9rem;
+}
+.social-account-actions {
+	display: flex;
+	gap: 0.5rem;
+}
+[data-theme="dark"] .social-account-fields li {
+	border-color: var(--border-soft);
+}
+.social-account-card-add-other {
+	border: 2px dashed var(--border-soft);
+	background: transparent;
+	box-shadow: none;
+	min-height: 180px;
+}
+.social-account-card-add-other .social-account-icon {
+	width: 40px;
+	height: 40px;
+	border-radius: 12px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #fff;
+}
+
+/* ---- Filtres rapides "pilule" (module Relances : Toutes/Non traitées/En
+   retard/Traitées) — filtre client (DataTables), aucun rechargement. -------- */
+.quick-filter-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	margin-bottom: 1.25rem;
+}
+.quick-filter-chips button {
+	border: 0;
+	border-radius: 999px;
+	padding: 0.45rem 1rem;
+	font-weight: 600;
+	font-size: 0.85rem;
+	color: var(--ink-soft);
+	background: rgba(30, 30, 60, 0.04);
+	cursor: pointer;
+	transition: background-color 0.15s var(--ease), color 0.15s var(--ease);
+}
+.quick-filter-chips button .badge {
+	background: rgba(30, 30, 60, 0.08);
+	color: var(--ink-soft);
+}
+.quick-filter-chips button:hover {
+	background: rgba(99, 102, 241, 0.1);
+}
+.quick-filter-chips button.active {
+	background: var(--brand-grad);
+	color: #fff;
+}
+.quick-filter-chips button.active .badge {
+	background: rgba(255, 255, 255, 0.25);
+	color: #fff;
+}
+
+/* ---- Panneau de filtres (générique : #filter_inputs / .filter-card, réutilisé
+   par toutes les listes — clients, devis, factures...) ------------------------ */
+.filter-card {
+	border: 0;
+	border-radius: var(--radius-md);
+	box-shadow: var(--shadow-sm);
+	background: linear-gradient(180deg, rgba(99, 102, 241, 0.045), rgba(99, 102, 241, 0) 60%), #fff;
+	border-top: 3px solid var(--brand-2);
+	margin-bottom: 1.5rem;
+}
+/* Quand ce panneau se trouve imbriqué dans un .card-table (ex. onglet Clients de
+   la page Facturation), "card-table .card-body { padding: 0; }" de style.css
+   écraserait sinon son padding — restauré ici via l'id, toujours présent. */
+#filter_inputs > .card-body {
+	padding: 1.5rem;
+}
+.filter-card .form-group label {
+	font-size: 0.72rem;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	color: var(--ink-soft);
+	font-weight: 700;
+	margin-bottom: 0.4rem;
+}
+.filter-card .form-group label i {
+	color: var(--brand-2);
+}
+
+/* ---- Bouton "Exporter" en dropdown regroupant les différents exports -------- */
+.export-dropdown .dropdown-menu {
+	min-width: 220px;
+	padding: 0.4rem;
+}
+.export-dropdown .dropdown-item {
+	border-radius: var(--radius-sm);
+	padding: 0.55rem 0.75rem;
+	font-weight: 600;
+	font-size: 0.88rem;
+}
+.export-dropdown .dropdown-item:hover {
+	background: rgba(99, 102, 241, 0.08);
+}
+
+/* ---- Tableau des listes : version modernisée (clients + réutilisable partout) - */
+.card-table .table-responsive.list-box {
+	border-radius: var(--radius-sm);
+	/* overflow:hidden coupait purement et simplement les colonnes qui dépassaient (ex: RH,
+	   12 colonnes) au lieu de permettre un défilement horizontal - overflow-x:auto restaure
+	   le scroll (comportement Bootstrap standard) tout en gardant les coins arrondis. */
+	overflow-x: auto;
+	overflow-y: hidden;
+}
+.card-table .table-avatar img.avatar-img {
+	box-shadow: 0 0 0 2px #fff, 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+.card-table .table-avatar a {
+	font-weight: 600;
+	color: var(--ink);
+}
+.card-table .table-avatar a:hover {
+	color: var(--brand-2);
+}
+.card-table table.dataTable {
+	border-collapse: separate;
+	border-spacing: 0;
+}
+.card-table .dropdown-action .action-icon {
+	width: 34px;
+	height: 34px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 999px;
+	color: var(--ink-soft);
+	transition: background-color 0.15s var(--ease), color 0.15s var(--ease);
+}
+.card-table .dropdown-action .action-icon:hover {
+	background: rgba(99, 102, 241, 0.1);
+	color: var(--brand-2);
+}
+
+/* ---- Formulaire client : titres de sections (add.php / edit.php / form.php) -- */
+.form-section-title {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: 0.78rem;
+	font-weight: 800;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--ink-soft);
+	margin: 0.5rem 0 1rem;
+	padding-bottom: 0.6rem;
+	border-bottom: 1px solid var(--border-soft);
+}
+.form-section-title:first-child {
+	margin-top: 0;
+}
+.form-section-title i {
+	width: 26px;
+	height: 26px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 8px;
+	background: rgba(99, 102, 241, 0.1);
+	color: var(--brand-2);
+	font-size: 0.85rem;
+}
+
+/* ---- Page ajout/modification client : avatar + carte -------------------------- */
+.client-form-card .card-header {
+	background: transparent;
+	border-bottom: 0;
+	padding-bottom: 0;
+}
+.profile-cover-avatar {
+	width: 120px;
+	height: 120px;
+	border-radius: 50%;
+	box-shadow: var(--shadow-md), 0 0 0 4px #fff;
+}
+.profile-cover-avatar .avatar-img {
+	border-radius: 50%;
+	object-fit: cover;
+	width: 100%;
+	height: 100%;
+}
+.profile-cover-avatar .avatar-edit {
+	background: var(--brand-grad);
+	color: #fff;
+	box-shadow: var(--shadow-sm);
+}
+
+.client-form-top {
+	display: flex;
+	align-items: center;
+	gap: 1.5rem;
+	margin-bottom: 1rem;
+}
+.client-form-avatar-wrap {
+	flex-shrink: 0;
+}
+.client-form-dropzone.ia-dropzone {
+	flex: 1 1 auto;
+	margin-bottom: 0;
+}
+
+/* Bouton "Parcourir mes fichiers" injecté en JS (assets/js/ia-dropzone.js) dans les 8 zones
+   .ia-dropzone de l'app : jusqu'ici, ouvrir le sélecteur de fichiers dépendait de cliquer
+   n'importe où dans la zone sans aucun indice visuel que c'était possible - un vrai bouton rend
+   l'action "insérer depuis l'ordinateur" explicite plutôt qu'implicite. */
+.ia-dropzone-browse-btn {
+	display: inline-flex;
+	align-items: center;
+	margin-top: 0.6rem;
+	padding: 0.4rem 1rem;
+	border: 1px solid rgba(99, 102, 241, 0.35);
+	border-radius: 999px;
+	background: rgba(99, 102, 241, 0.08);
+	color: var(--brand-2, #6366f1);
+	font-size: 0.82rem;
+	font-weight: 600;
+	transition: background-color 0.15s var(--ease), transform 0.15s var(--ease);
+}
+.ia-dropzone-browse-btn:hover {
+	background: var(--brand-grad);
+	color: #fff;
+	transform: translateY(-1px);
+}
+@media (max-width: 767.98px) {
+	.client-form-top {
+		flex-direction: column;
+	}
+}
+
+/* ---- Fiche employé RH : en-tête + barre d'onglets partagée (Profil/Fichiers/Absences/
+   Demandes/Bonus/Bulletins) - remplace les 6 en-têtes dupliqués indépendamment. ------- */
+.employee-hero {
+	position: relative;
+	border-radius: var(--radius-lg);
+	overflow: hidden;
+	margin-bottom: 1.5rem;
+	background: #fff;
+	box-shadow: var(--shadow-sm);
+}
+.employee-hero-cover {
+	height: 110px;
+	background: linear-gradient(135deg, var(--brand), var(--brand-3));
+}
+.employee-hero-body {
+	display: flex;
+	align-items: flex-end;
+	flex-wrap: wrap;
+	gap: 1rem;
+	padding: 0 1.75rem 1.25rem;
+	margin-top: -50px;
+}
+.employee-hero-avatar {
+	width: 100px;
+	height: 100px;
+	border-radius: 50%;
+	background: #fff;
+	padding: 4px;
+	box-shadow: var(--shadow-md);
+	flex-shrink: 0;
+}
+.employee-hero-avatar .avatar-img {
+	width: 100%;
+	height: 100%;
+	border-radius: 50%;
+	object-fit: cover;
+}
+.employee-hero-info {
+	flex: 1 1 260px;
+	padding-top: 0.5rem;
+}
+.employee-hero-info h3 {
+	margin-bottom: 0.15rem;
+	font-weight: 800;
+}
+.employee-hero-info .badge {
+	margin-right: 0.35rem;
+}
+.employee-hero-actions {
+	padding-top: 0.5rem;
+	white-space: nowrap;
+}
+.employee-hero-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem;
+	padding: 0.9rem 1.75rem 1.1rem;
+	border-top: 1px solid var(--border-soft);
+	margin-top: 0.25rem;
+}
+.employee-hero-tab {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.45rem 0.9rem;
+	border-radius: 100px;
+	font-size: 0.85rem;
+	font-weight: 600;
+	color: var(--ink-soft);
+	background: transparent;
+	transition: background 0.15s ease, color 0.15s ease;
+}
+.employee-hero-tab:hover {
+	background: rgba(109, 40, 217, 0.08);
+	color: var(--brand);
+	text-decoration: none;
+}
+.employee-hero-tab.active {
+	background: var(--brand);
+	color: #fff;
+}
+@media (max-width: 700px) {
+	.employee-hero-tabs {
+		flex-wrap: nowrap;
+		overflow-x: auto;
+	}
+}
+
+/* ---- Diagramme de planning des stagiaires par pôle (aide à la décision de recrutement) --
+   4 pôles fixes × 2 postes nominaux, barres positionnées en % sur une échelle temporelle,
+   créneaux vacants en pointillés, animation 3D pulsante pour les fins de stage proches. --- */
+.gantt-subtitle {
+	font-size: 0.82rem;
+}
+.gantt-wrapper {
+	position: relative;
+	padding-top: 30px;
+}
+.gantt-scale {
+	position: relative;
+	height: 22px;
+	margin-bottom: 6px;
+	border-bottom: 1px solid var(--border-soft);
+}
+.gantt-scale-mark {
+	position: absolute;
+	top: 0;
+	font-size: 0.72rem;
+	font-weight: 700;
+	color: var(--ink-soft);
+	letter-spacing: 0.02em;
+}
+.gantt-today-line {
+	position: absolute;
+	top: 30px;
+	bottom: 10px;
+	width: 2px;
+	background: var(--brand);
+	z-index: 3;
+	pointer-events: none;
+}
+.gantt-today-line span {
+	position: absolute;
+	top: -20px;
+	left: 50%;
+	transform: translateX(-50%);
+	font-size: 0.68rem;
+	font-weight: 700;
+	color: var(--brand);
+	white-space: nowrap;
+	background: #fff;
+	padding: 0 5px;
+	border-radius: 4px;
+}
+.gantt-department {
+	margin-bottom: 20px;
+}
+.gantt-department:last-child {
+	margin-bottom: 4px;
+}
+.gantt-department-label {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-weight: 700;
+	font-size: 0.92rem;
+	color: var(--ink);
+	margin-bottom: 8px;
+}
+.gantt-department-rows {
+	position: relative;
+}
+.gantt-row {
+	position: relative;
+	height: 40px;
+	margin-bottom: 5px;
+}
+.gantt-bar {
+	position: absolute;
+	top: 5px;
+	height: 30px;
+	border-radius: 8px;
+	display: flex;
+	align-items: center;
+	padding: 0 12px;
+	color: #fff;
+	font-size: 0.78rem;
+	font-weight: 600;
+	white-space: nowrap;
+	overflow: hidden;
+	box-shadow: var(--shadow-sm);
+	transition: box-shadow 0.2s ease;
+}
+.gantt-bar:hover {
+	box-shadow: var(--shadow-md);
+}
+.gantt-bar-label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.gantt-bar-blue { background: linear-gradient(135deg, var(--accent-blue), #0369a1); }
+.gantt-bar-brand { background: linear-gradient(135deg, var(--brand), var(--brand-3)); }
+.gantt-bar-pink { background: linear-gradient(135deg, var(--accent-pink), #be185d); }
+.gantt-bar-teal { background: linear-gradient(135deg, var(--accent-teal), #0f766e); }
+
+/* Fin de stage estimée (pas de date de fin saisie) : hachures fines en surimpression */
+.gantt-bar-estimated {
+	position: relative;
+}
+.gantt-bar-estimated::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.28) 0 6px, transparent 6px 12px);
+	pointer-events: none;
+}
+
+.gantt-bar-vacant {
+	background: rgba(109, 40, 217, 0.05);
+	border: 2px dashed rgba(109, 40, 217, 0.35);
+	color: var(--ink-soft);
+	justify-content: center;
+	box-shadow: none;
+}
+
+/* Fin de stage < 30 jours : pulsation avec un vrai relief 3D (perspective + rotateX),
+   pas un simple clignotement plat. Respecte prefers-reduced-motion. */
+.gantt-bar-ending {
+	transform-style: preserve-3d;
+	animation: gantt-pulse-3d 1.8s ease-in-out infinite;
+	z-index: 2;
+}
+@keyframes gantt-pulse-3d {
+	0%, 100% {
+		transform: perspective(500px) rotateX(0deg) scale(1);
+		box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+	}
+	50% {
+		transform: perspective(500px) rotateX(10deg) scale(1.05);
+		box-shadow: 0 12px 24px rgba(220, 38, 38, 0.55), 0 0 0 3px rgba(220, 38, 38, 0.28);
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.gantt-bar-ending {
+		animation: none;
+	}
+}
+
+.gantt-legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1.1rem;
+	margin-top: 16px;
+	font-size: 0.78rem;
+	color: var(--ink-soft);
+}
+.gantt-legend-swatch {
+	display: inline-block;
+	width: 14px;
+	height: 14px;
+	border-radius: 4px;
+	margin-right: 4px;
+	vertical-align: middle;
+}
+.gantt-legend-confirmed {
+	background: linear-gradient(135deg, var(--brand), var(--brand-3));
+}
+.gantt-legend-estimated {
+	background: linear-gradient(135deg, var(--brand), var(--brand-3));
+	background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.45) 0 4px, transparent 4px 8px);
+}
+.gantt-legend-ending {
+	background: #dc2626;
+	box-shadow: 0 0 6px rgba(220, 38, 38, 0.6);
+}
+.gantt-legend-vacant {
+	background: transparent;
+	border: 2px dashed rgba(109, 40, 217, 0.4);
+}
+@media (max-width: 700px) {
+	.gantt-bar-label {
+		font-size: 0.7rem;
+	}
+	.gantt-department-label {
+		font-size: 0.82rem;
+	}
+}
+
+/* ---- Jauge circulaire "Congé restant" sur la fiche employé -------------------------- */
+.leave-gauge-row {
+	display: flex;
+	align-items: center;
+	gap: 2.5rem;
+	flex-wrap: wrap;
+}
+.leave-gauge-canvas-wrap {
+	position: relative;
+	width: 150px;
+	height: 150px;
+	flex-shrink: 0;
+}
+.leave-gauge-center {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	pointer-events: none;
+}
+.leave-gauge-value {
+	font-size: 1.9rem;
+	font-weight: 800;
+	color: var(--ink);
+	line-height: 1;
+	font-variant-numeric: tabular-nums;
+}
+.leave-gauge-unit {
+	font-size: 0.72rem;
+	color: var(--ink-soft);
+	margin-top: 2px;
+}
+.leave-gauge-legend {
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+}
+.leave-gauge-legend-item {
+	font-size: 0.92rem;
+	color: var(--ink-soft);
+}
+.leave-gauge-legend-item b {
+	color: var(--ink);
+	margin-left: 4px;
+}
+.leave-dot {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	margin-right: 6px;
+	vertical-align: middle;
+}
+.leave-dot-total {
+	background: rgba(109, 40, 217, 0.18);
+}
+.leave-dot-consumed {
+	background: #f59e0b;
+}
+.leave-dot-remaining {
+	background: linear-gradient(135deg, #6d28d9, #4338ca);
+}
+
+/* ---- Évolution salariale (fiche employé) : deux barres 3D réelles (perspective + faces
+   translateZ, pas un simple skew 2D) posées sur un "sol" incliné en isométrie. ------------ */
+.salary-3d-scene {
+	perspective: 1000px;
+	display: flex;
+	justify-content: center;
+	padding: 2.75rem 1rem 2.5rem;
+	overflow: visible;
+}
+.salary-3d-floor {
+	display: flex;
+	align-items: flex-end;
+	gap: 4.5rem;
+}
+.salary-3d-bar-group {
+	transform-style: preserve-3d;
+	transform: rotateY(-28deg);
+}
+.salary-3d-bar {
+	position: relative;
+	width: 70px;
+	height: var(--bar-h, 60px);
+	transform-style: preserve-3d;
+}
+.salary-3d-face {
+	position: absolute;
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+.salary-3d-bar .salary-3d-front {
+	width: 70px;
+	height: 100%;
+	left: 0;
+	top: 0;
+	transform: translateZ(18px);
+}
+.salary-3d-bar .salary-3d-right {
+	width: 36px;
+	height: 100%;
+	left: 17px;
+	top: 0;
+	transform: rotateY(90deg) translateZ(35px);
+}
+.salary-3d-bar .salary-3d-top {
+	width: 70px;
+	height: 36px;
+	left: 0;
+	top: calc(50% - 18px);
+	transform: rotateX(90deg) translateZ(calc(var(--bar-h, 60px) / 2));
+}
+.salary-3d-bar-initial .salary-3d-front { background: #0ea5e9; }
+.salary-3d-bar-initial .salary-3d-right { background: #0a7aab; }
+.salary-3d-bar-initial .salary-3d-top   { background: #38bdf8; }
+.salary-3d-bar-actuel .salary-3d-front { background: #14b8a6; }
+.salary-3d-bar-actuel .salary-3d-right { background: #0d7d72; }
+.salary-3d-bar-actuel .salary-3d-top   { background: #2dd4c0; }
+
+.salary-3d-legend {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 1.5rem;
+	flex-wrap: wrap;
+	margin-top: -1rem;
+}
+.salary-3d-legend-item {
+	font-size: 0.92rem;
+	color: var(--ink-soft);
+}
+.salary-3d-legend-item b {
+	color: var(--ink);
+	margin-left: 4px;
+	font-variant-numeric: tabular-nums;
+}
+.salary-dot {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	margin-right: 6px;
+	vertical-align: middle;
+}
+.salary-dot-initial { background: #0ea5e9; }
+.salary-dot-actuel { background: #14b8a6; }
+.salary-evolution-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	padding: 0.3rem 0.75rem;
+	border-radius: 100px;
+	font-weight: 800;
+	font-size: 0.85rem;
+}
+.salary-evolution-badge.salary-up { background: rgba(16, 185, 129, 0.12); color: #047857; }
+.salary-evolution-badge.salary-down { background: rgba(220, 38, 38, 0.1); color: #b91c1c; }
+.salary-evolution-badge.salary-flat { background: rgba(107, 114, 128, 0.12); color: #374151; }
+
+@media (prefers-reduced-motion: reduce) {
+	.salary-3d-bar-group { animation: none !important; }
+}
+
+/* ---- Conformité du dossier employé (documents obligatoires) ------------------------- */
+.doc-compliance-card.doc-compliance-incomplete {
+	border-left: 4px solid #dc2626;
+}
+.doc-compliance-alert {
+	background: rgba(220, 38, 38, 0.08);
+	color: #b91c1c;
+	padding: 0.7rem 1rem;
+	border-radius: var(--radius-sm);
+	font-weight: 600;
+	margin-bottom: 1rem;
+}
+.doc-compliance-ok {
+	background: rgba(16, 185, 129, 0.08);
+	color: #047857;
+	padding: 0.7rem 1rem;
+	border-radius: var(--radius-sm);
+	font-weight: 600;
+	margin-bottom: 1rem;
+}
+.doc-checklist {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.6rem;
+}
+.doc-checklist-item {
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	padding: 0.4rem 0.8rem;
+	border-radius: 100px;
+	font-size: 0.85rem;
+	font-weight: 600;
+}
+.doc-checklist-ok {
+	background: rgba(16, 185, 129, 0.1);
+	color: #047857;
+}
+.doc-checklist-missing {
+	background: rgba(220, 38, 38, 0.08);
+	color: #b91c1c;
+}
+.doc-type-badge {
+	font-size: 0.68rem;
+	margin-left: 6px;
+	vertical-align: middle;
+}
+
+/* KPI "dossiers incomplets" clignotant (page Resources humaines) */
+.kpi-blink {
+	animation: kpi-blink-pulse 1.6s ease-in-out infinite;
+}
+@keyframes kpi-blink-pulse {
+	0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+	50% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+	.kpi-blink { animation: none; }
+}
+
+/* Lignes "dossier incomplet" (listing Personnel) : clignotement orange pour repérer d'un
+   coup d'œil les employés/stagiaires/périodes de test dont il manque un document obligatoire. */
+.rh-row-incomplete > td {
+	animation: rh-row-incomplete-blink 1.8s ease-in-out infinite;
+}
+@keyframes rh-row-incomplete-blink {
+	0%, 100% { box-shadow: inset 0 0 0 9999px rgba(245, 158, 11, 0.1); }
+	50% { box-shadow: inset 0 0 0 9999px rgba(245, 158, 11, 0.32); }
+}
+@media (prefers-reduced-motion: reduce) {
+	.rh-row-incomplete > td { animation: none; background: rgba(245, 158, 11, 0.16); }
+}
+
+/* Bandeau "bulletins de paie manquants" (page Bulletins de paie) : un mois manquant = une pastille
+   cliquable rouge qui pré-remplit le formulaire d'ajout au-dessus ; une fois le bulletin
+   effectivement ajouté pour ce mois, .payslip-missing-pill-done bascule la pastille au vert avant
+   de la faire disparaître (voir assets/js/payslip-missing-months.js). */
+.payslip-missing-pill {
+	display: inline-flex;
+	align-items: center;
+	margin: 0.2rem 0.35rem 0.2rem 0;
+	padding: 0.3rem 0.7rem;
+	border-radius: 100px;
+	background: rgba(220, 38, 38, 0.12);
+	color: #b91c1c;
+	font-weight: 600;
+	font-size: 0.85rem;
+	cursor: pointer;
+	transition: background-color 0.2s ease, color 0.2s ease, opacity 0.4s ease;
+}
+.payslip-missing-pill:hover {
+	background: rgba(220, 38, 38, 0.22);
+	color: #b91c1c;
+	text-decoration: none;
+}
+.payslip-missing-pill-done {
+	background: rgba(16, 185, 129, 0.16) !important;
+	color: #047857 !important;
+}
+
+/* Pastille "😴" sur la photo du client sans aucune activité (0 devis/facture/relance/paiement) :
+   discrète, posée sur le coin de l'avatar plutôt qu'une colonne dédiée du tableau. */
+/* Spécificité (0,1,4) de "table.table td h2 span" (assets/css/style.css) à battre : ce
+   sélecteur force display:block/margin-top sur tout <span> dans un nom de ligne de tableau. */
+table.table td h2.table-avatar span.avatar-with-status {
+	position: relative;
+	display: inline-block;
+	line-height: 0;
+	margin-top: 0;
+}
+table.table td h2.table-avatar span.avatar-sleep-badge {
+	position: absolute;
+	bottom: -6px;
+	right: -2px;
+	font-size: 1.19rem;
+	line-height: 1;
+	background: #fff;
+	border-radius: 50%;
+	box-shadow: 0 0 0 2px #fff;
+	margin-top: 0;
+	color: initial;
+}
+
+/* ---- Page TVA (com_accounting) : synergie entre l'estimation CRM temps réel et la
+   déclaration officielle saisie à la main pour le comptable. ------------------------- */
+.tva-estimation-card {
+	border-left: 4px solid var(--accent-amber, #f59e0b);
+}
+.tva-manquants-card {
+	border-left: 4px solid #dc3545;
+}
+.tva-section-separator {
+	display: flex;
+	align-items: center;
+	font-size: 0.8rem;
+	font-weight: 800;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--ink-soft);
+	margin: 0.5rem 0 1rem;
+	padding-bottom: 0.6rem;
+	border-bottom: 2px solid var(--border-soft, rgba(30,30,60,0.08));
+}
+.tva-ecart-callout {
+	border-radius: var(--radius-sm, 8px);
+	padding: 0.8rem 1.1rem;
+	font-size: 0.92rem;
+}
+.tva-ecart-callout.tva-ecart-ok {
+	background: rgba(16, 185, 129, 0.08);
+	color: #047857;
+}
+.tva-ecart-callout.tva-ecart-warn {
+	background: rgba(220, 38, 38, 0.08);
+	color: #b91c1c;
+}
+.tva-ecart-callout.tva-ecart-neutral {
+	background: rgba(107, 114, 128, 0.08);
+	color: #4b5563;
+}
+
+/* Popup "Ajouter la TVA d'un mois manquant" — remplace le confirm() natif du navigateur par
+   une modale dans le langage visuel de la page (icône ronde en dégradé, mêmes tons violets que
+   les cartes KPI .dash-widget-icon.bg-4 juste au-dessus). */
+.tva-confirm-modal .tva-confirm-icon {
+	width: 64px;
+	height: 64px;
+	margin: 0 auto;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1.6rem;
+	color: #fff;
+	background: linear-gradient(135deg, rgba(167, 139, 250, 0.95), rgba(139, 92, 246, 0.95));
+	box-shadow: 0 8px 20px rgba(139, 92, 246, 0.35);
+}
+.tva-confirm-modal .modal-title {
+	text-align: center;
+	width: 100%;
+	font-weight: 700;
+}
+
+/* Halo bref sur la carte "Ajouter une tva" quand on y est amené depuis l'alerte des mois
+   manquants, pour confirmer visuellement qu'on est au bon endroit après le défilement. */
+.tva-form-highlight {
+	animation: tva-form-highlight-pulse 1.8s ease-out;
+}
+@keyframes tva-form-highlight-pulse {
+	0% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.5); }
+	60% { box-shadow: 0 0 0 14px rgba(139, 92, 246, 0); }
+	100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+	.tva-form-highlight { animation: none; box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.3); }
+}
+
+.tva-year-toggle i {
+	transition: transform 0.2s ease;
+}
+.tva-year-toggle[aria-expanded="true"] i {
+	transform: rotate(180deg);
+}
+
+/* ---- Page Charges (com_charge) : refonte liste + formulaire, dropzone bulletin de paie. --- */
+.charge-section-title {
+	display: flex;
+	align-items: center;
+	font-size: 0.8rem;
+	font-weight: 800;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--ink-soft);
+	margin: 0.5rem 0 1rem;
+	padding-bottom: 0.6rem;
+	border-bottom: 2px solid var(--border-soft, rgba(30,30,60,0.08));
+}
+.charge-toggle-badge {
+	cursor: pointer;
+	border: 0;
+	transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.charge-toggle-badge:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 10px rgba(28, 26, 36, 0.12);
+}
+.charge-type-badge.fixe { background: rgba(16, 185, 129, 0.14); color: #0d9488; }
+.charge-type-badge.variable { background: rgba(245, 158, 11, 0.16); color: #92600a; }
+.charge-type-badge.hors_hw { background: rgba(107, 114, 128, 0.14); color: #4b5563; }
+.charge-total-counter {
+	font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+	.charge-toggle-badge { transition: none; }
+}
+
+/* Popup "Doublon détecté" (dropzone universelle Charges) — variante ambre/rouge de
+   .tva-confirm-icon (même gabarit rond en dégradé, ton "avertissement" plutôt que "confirmation"). */
+.charge-doublon-icon {
+	width: 64px;
+	height: 64px;
+	margin: 0 auto;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1.6rem;
+	color: #fff;
+	background: linear-gradient(135deg, rgba(251, 113, 133, 0.95), rgba(220, 38, 38, 0.95));
+	box-shadow: 0 8px 20px rgba(220, 38, 38, 0.35);
+}
+
+/* ---- Graphique "Répartition des charges par catégorie et évolution mensuelle" (ApexCharts). --- */
+.charge-chart-card {
+	border-left: 4px solid var(--accent, #7638ff);
+}
+.charge-chart-header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	margin-bottom: 1rem;
+}
+.charge-chart-legend {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem;
+	font-size: 0.85rem;
+	color: var(--ink-soft);
+}
+.charge-chart-legend-dot {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	margin-right: 0.4rem;
+	vertical-align: middle;
+}
+.charge-chart-delta {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	padding: 0.3rem 0.7rem;
+	border-radius: 100px;
+	font-size: 0.85rem;
+	font-weight: 700;
+}
+.charge-chart-delta.up { background: rgba(220, 38, 38, 0.1); color: #b91c1c; }
+.charge-chart-delta.down { background: rgba(16, 185, 129, 0.12); color: #0d9488; }
+.charge-chart-delta.flat { background: rgba(107, 114, 128, 0.12); color: #4b5563; }
+
+/* ---- Widget flottant "échéance TVA" (page TVA) — même patron que .holiday-widget du
+   tableau de bord (onglet collé à droite, panneau qui se déploie au clic), mais sans le
+   mini-calendrier, et avec un onglet/toast qui passe au rouge + icône alarme quand
+   l'échéance est proche ou dépassée. */
+.tva-echeance-widget {
+	position: fixed;
+	top: 62%;
+	right: 0;
+	transform: translateY(-50%);
+	z-index: 1060;
+	width: 50px;
+	height: 50px;
+}
+.tva-echeance-widget-tab {
+	position: relative;
+	width: 50px;
+	height: 50px;
+	flex-shrink: 0;
+	border: 0;
+	border-radius: 14px 0 0 14px;
+	background: var(--brand-grad);
+	color: #fff;
+	font-size: 1.15rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-shadow: -6px 6px 18px rgba(79, 70, 229, 0.28);
+	cursor: pointer;
+	transition: filter 0.2s var(--ease), background 0.2s var(--ease);
+}
+.tva-echeance-widget.urgent .tva-echeance-widget-tab {
+	background: linear-gradient(135deg, #ef4444, #b91c1c);
+	animation: tva-echeance-tab-blink 1.4s ease-in-out infinite;
+}
+@keyframes tva-echeance-tab-blink {
+	0%, 100% { box-shadow: -6px 6px 18px rgba(185, 28, 28, 0.4), 0 0 0 0 rgba(220, 38, 38, 0.5); }
+	50% { box-shadow: -6px 6px 18px rgba(185, 28, 28, 0.4), 0 0 0 10px rgba(220, 38, 38, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+	.tva-echeance-widget.urgent .tva-echeance-widget-tab { animation: none; }
+}
+.tva-echeance-widget-tab:hover {
+	filter: brightness(1.08);
+}
+.tva-echeance-widget-dot {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: #fde047;
+	box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+	animation: kpi-blink-pulse 1.6s ease-in-out infinite;
+}
+.tva-echeance-widget-panel {
+	position: absolute;
+	top: 50%;
+	right: 50px;
+	transform: translateY(-50%) translateX(310px);
+	width: 260px;
+	background: #fff;
+	border-radius: 18px 0 0 18px;
+	box-shadow: -10px 10px 34px rgba(30, 30, 60, 0.18);
+	padding: 1.1rem;
+	opacity: 0;
+	pointer-events: none;
+	transition: transform 0.35s var(--ease), opacity 0.35s var(--ease);
+}
+.tva-echeance-widget.open .tva-echeance-widget-panel {
+	transform: translateY(-50%) translateX(0);
+	opacity: 1;
+	pointer-events: auto;
+}
+.tva-echeance-widget-header {
+	font-weight: 700;
+	color: var(--ink);
+	margin-bottom: 0.75rem;
+}
+.tva-echeance-widget-date {
+	font-size: 1.4rem;
+	font-weight: 700;
+	color: var(--ink);
+}
+.tva-echeance-alarm-icon {
+	color: #dc2626;
+	margin-right: 0.4rem;
+}
+.tva-echeance-widget-sub {
+	font-size: 0.8rem;
+	color: var(--ink-soft);
+	margin-bottom: 0.6rem;
+}
+.tva-echeance-widget-statut {
+	display: inline-block;
+	font-size: 0.8rem;
+	font-weight: 600;
+	padding: 0.35rem 0.7rem;
+	border-radius: 999px;
+}
+.tva-echeance-widget-statut.urgent { background: rgba(220, 38, 38, 0.12); color: #b91c1c; }
+.tva-echeance-widget-statut.warning { background: rgba(245, 158, 11, 0.16); color: #b45309; }
+.tva-echeance-widget-statut.ok { background: rgba(16, 185, 129, 0.12); color: #0d9488; }
+
+@media (max-width: 575.98px) {
+	.tva-echeance-widget-panel {
+		width: 78vw;
+	}
+}
+
+/* Toast "échéance TVA imminente" : bulle rouge avec icône alarme au-dessus de l'onglet,
+   reste affichée tant que l'utilisateur ne clique pas sur sa croix de fermeture. */
+.tva-echeance-widget-toast {
+	position: fixed;
+	top: calc(62% - 100px);
+	right: 60px;
+	max-width: 270px;
+	display: flex;
+	align-items: flex-start;
+	gap: 0.6rem;
+	background: linear-gradient(135deg, #ef4444, #b91c1c);
+	color: #fff;
+	font-weight: 600;
+	font-size: 0.85rem;
+	line-height: 1.4;
+	padding: 1rem 1.6rem 1rem 1rem;
+	border-radius: var(--radius-md);
+	box-shadow: 0 16px 34px rgba(185, 28, 28, 0.4);
+	z-index: 1070;
+	transform: translateX(20px) scale(0.95);
+	opacity: 0;
+	pointer-events: none;
+	transition: transform 0.3s var(--ease), opacity 0.3s var(--ease);
+}
+.tva-echeance-widget-toast.show {
+	transform: translateX(0) scale(1);
+	opacity: 1;
+	pointer-events: auto;
+}
+.tva-echeance-widget-toast-icon {
+	font-size: 1.3rem;
+	flex-shrink: 0;
+	margin-top: 0.1rem;
+	animation: kpi-blink-pulse 1.6s ease-in-out infinite;
+}
+.tva-echeance-widget-toast::after {
+	content: "";
+	position: absolute;
+	bottom: -6px;
+	right: 20px;
+	width: 12px;
+	height: 12px;
+	background: #b91c1c;
+	transform: rotate(45deg);
+}
+.tva-echeance-widget-toast-close {
+	position: absolute;
+	top: 4px;
+	right: 6px;
+	border: 0;
+	background: transparent;
+	color: rgba(255, 255, 255, 0.85);
+	font-size: 1rem;
+	line-height: 1;
+	cursor: pointer;
+	padding: 4px;
+}
+.tva-echeance-widget-toast-close:hover {
+	color: #fff;
+}
+
+
+/* ---- BANK STATEMENT (com_rapprochement) : checklist "Comptes bancaires" redesignée --------- */
+.rapprochement-comptes-grille {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.6rem;
+}
+.rapprochement-compte-carte {
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+	padding: 0.55rem 0.9rem 0.55rem 0.55rem;
+	border-radius: 999px;
+	background: #f8f8fc;
+	border: 1px solid var(--border-soft, rgba(30, 30, 60, 0.08));
+	transition: transform 0.2s var(--ease, ease), box-shadow 0.2s var(--ease, ease);
+}
+.rapprochement-compte-carte:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 8px 18px rgba(30, 30, 60, 0.1);
+}
+.rapprochement-compte-icone {
+	width: 26px;
+	height: 26px;
+	flex-shrink: 0;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 0.7rem;
+	color: #fff;
+}
+.rapprochement-compte-carte.ok .rapprochement-compte-icone {
+	background: linear-gradient(135deg, #34d399, #0d9488);
+}
+.rapprochement-compte-carte.manquant .rapprochement-compte-icone {
+	background: linear-gradient(135deg, #f87171, #b91c1c);
+}
+.rapprochement-compte-nom {
+	font-size: 0.82rem;
+	font-weight: 600;
+	color: var(--ink);
+	white-space: nowrap;
+}
+.rapprochement-compte-carte.manquant .rapprochement-compte-nom {
+	color: #b91c1c;
+}
+.rapprochement-compte-carte.ok .rapprochement-compte-nom {
+	color: #0d9488;
+}
+
+/* Liste des déclarations TVA candidates dans la modale de confirmation - même esprit qu'un
+   groupe de radios, mais présenté comme des cartes cliquables pour rester lisible. */
+.rapprochement-tva-candidat {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	padding: 0.6rem 0.8rem;
+	border-radius: var(--radius-sm, 10px);
+	border: 1.5px solid var(--border-soft, rgba(30, 30, 60, 0.08));
+	margin-bottom: 0.5rem;
+	cursor: pointer;
+	transition: border-color 0.2s var(--ease, ease), background 0.2s var(--ease, ease);
+}
+.rapprochement-tva-candidat:hover {
+	background: #f8f8fc;
+}
+.rapprochement-tva-candidat.detecte {
+	border-color: var(--brand-2, #6366f1);
+	background: rgba(99, 102, 241, 0.06);
+}
+.rapprochement-tva-candidat input[type="radio"] {
+	margin: 0;
+	flex-shrink: 0;
+}
+.rapprochement-tva-candidat-periode {
+	font-weight: 600;
+	font-size: 0.85rem;
+	flex-grow: 1;
+}
+.rapprochement-tva-candidat-montant {
+	font-size: 0.85rem;
+	color: var(--ink-soft);
+}
+.rapprochement-tva-candidat-tag {
+	font-size: 0.68rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	color: #b45309;
+	background: rgba(245, 158, 11, 0.16);
+	padding: 0.15rem 0.5rem;
+	border-radius: 999px;
+}
+
+/* Liste des lots (un import = une carte résumé, remplace l'ancien tableau à plat) - le plus
+   récent est déplié par défaut, cliquer l'en-tête bascule le détail des lignes. */
+.rapprochement-lot-carte {
+	overflow: hidden;
+}
+.rapprochement-lot-header {
+	cursor: pointer;
+	background: #fff;
+}
+.rapprochement-lot-header:hover {
+	background: #f8f8fc;
+}
+.rapprochement-lot-titre {
+	display: flex;
+	align-items: baseline;
+	gap: 0.6rem;
+	flex-wrap: wrap;
+}
+.rapprochement-lot-periode {
+	font-size: 0.85rem;
+	font-weight: 600;
+	color: var(--brand-2, #6366f1);
+}
+.rapprochement-lot-dates {
+	font-size: 0.78rem;
+	color: var(--ink-soft);
+}
+.rapprochement-lot-toggle i {
+	transition: transform 0.2s ease;
+	color: var(--ink-soft);
+}
+.rapprochement-lot-toggle[aria-expanded="true"] i {
+	transform: rotate(180deg);
+}
+
+/* Le badge de statut d'une ligne à traiter est lui-même cliquable (déclenche la même action que
+   le bouton principal de la ligne) - retour visuel clair au survol pour que ce soit perceptible. */
+.rapprochement-statut-clickable {
+	cursor: pointer;
+	transition: transform 0.15s var(--ease, ease), box-shadow 0.15s var(--ease, ease);
+}
+.rapprochement-statut-clickable:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 10px rgba(30, 30, 60, 0.14);
+	text-decoration: underline;
+}
+
+/* Bloc agrégat "Commissions bancaires" dans l'aperçu avant validation - HT/TVA recalculés en
+   direct côté JS quand le taux est modifié (jamais imposé silencieusement). */
+.rapprochement-commissions-bloc {
+	background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(13, 148, 136, 0.06));
+	border: 1px solid var(--border-soft, rgba(30, 30, 60, 0.08));
+	border-radius: var(--radius-sm, 10px);
+	padding: 1rem 1.1rem;
+}
+.rapprochement-commissions-bloc h5 {
+	font-size: 0.95rem;
+	font-weight: 700;
+	margin-bottom: 0.25rem;
+}
+
+/* Résumé chiffré dans les fenêtres "Supprimer cet import" / "Pousser au dossier comptable" - une
+   liste claire de ce qui va réellement se passer, jamais un paragraphe vague. */
+.rapprochement-suppression-resume {
+	background: #f8f8fc;
+	border: 1px solid var(--border-soft, rgba(30, 30, 60, 0.08));
+	border-radius: var(--radius-sm, 10px);
+	padding: 0.85rem 1.1rem;
+}
+.rapprochement-suppression-resume ul {
+	padding-left: 1.1rem;
+	font-size: 0.83rem;
+	color: var(--ink-soft);
+}
+.rapprochement-suppression-resume li + li {
+	margin-top: 0.35rem;
+}
+
+/* Sélecteur "charge simple / bulletin de paie / fournisseur" dans la fenêtre de justificatif
+   manuel - même esprit de carte cliquable que .rapprochement-tva-candidat, en groupe horizontal. */
+.justificatif-mode-switch {
+	display: flex;
+	gap: 0.5rem;
+}
+.justificatif-mode-item {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.4rem;
+	padding: 0.55rem 0.4rem;
+	border-radius: var(--radius-sm, 10px);
+	border: 1.5px solid var(--border-soft, rgba(30, 30, 60, 0.08));
+	font-size: 0.8rem;
+	font-weight: 600;
+	cursor: pointer;
+	text-align: center;
+	transition: border-color 0.2s var(--ease, ease), background 0.2s var(--ease, ease);
+	margin-bottom: 0;
+}
+.justificatif-mode-item:hover {
+	background: #f8f8fc;
+}
+.justificatif-mode-item input[type="radio"] {
+	display: none;
+}
+.justificatif-mode-item.active,
+.justificatif-mode-item:has(input:checked) {
+	border-color: var(--brand-2, #6366f1);
+	background: rgba(99, 102, 241, 0.08);
+	color: var(--brand-2, #6366f1);
+}
+
+/* ---- Page Fournisseurs : barre recherche + puces catégorie -------------------------------- */
+.fournisseur-toolbar .card-body {
+	padding: 1.1rem 1.25rem;
+}
+.fournisseur-toolbar-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	flex-wrap: wrap;
+	margin-bottom: 0.9rem;
+}
+.fournisseur-recherche {
+	position: relative;
+	flex: 1 1 320px;
+	max-width: 480px;
+}
+.fournisseur-recherche i {
+	position: absolute;
+	left: 0.9rem;
+	top: 50%;
+	transform: translateY(-50%);
+	color: var(--ink-soft);
+	font-size: 0.85rem;
+}
+.fournisseur-recherche input {
+	width: 100%;
+	border: 1px solid var(--border-soft);
+	border-radius: 999px;
+	padding: 0.55rem 1rem 0.55rem 2.3rem;
+	font-size: 0.88rem;
+	background: #f8f8fc;
+	transition: border-color 0.2s var(--ease), background 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.fournisseur-recherche input:focus {
+	outline: none;
+	border-color: var(--brand-2, #6366f1);
+	background: #fff;
+	box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+.fournisseur-compteur-resultats {
+	font-size: 0.82rem;
+	color: var(--ink-soft);
+	white-space: nowrap;
+}
+.fournisseur-compteur-resultats span {
+	font-weight: 700;
+	color: var(--ink);
+}
+.fournisseur-vue-switch {
+	display: flex;
+	gap: 0.25rem;
+	background: #f4f5fa;
+	border: 1px solid var(--border-soft);
+	border-radius: 10px;
+	padding: 0.2rem;
+}
+.fournisseur-vue-btn {
+	width: 30px;
+	height: 26px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: none;
+	background: transparent;
+	border-radius: 7px;
+	color: var(--ink-soft);
+	font-size: 0.8rem;
+	transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+.fournisseur-vue-btn.active {
+	background: #fff;
+	color: var(--brand-2, #6366f1);
+	box-shadow: var(--shadow-sm);
+}
+.fournisseur-vue-btn:hover:not(.active) {
+	color: var(--ink);
+}
+.fournisseur-pills {
+	display: flex;
+	flex-wrap: nowrap;
+	overflow-x: auto;
+	gap: 0.5rem;
+	padding-bottom: 0.2rem;
+	scrollbar-width: thin;
+}
+.fournisseur-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4rem;
+	white-space: nowrap;
+	border: 1px solid var(--border-soft);
+	background: #fff;
+	color: var(--ink-soft);
+	font-size: 0.8rem;
+	font-weight: 600;
+	padding: 0.4rem 0.85rem;
+	border-radius: 999px;
+	cursor: pointer;
+	transition: transform 0.15s var(--ease), box-shadow 0.15s var(--ease), color 0.15s var(--ease), border-color 0.15s var(--ease), background 0.15s var(--ease);
+}
+.fournisseur-pill i {
+	font-size: 0.75rem;
+	opacity: 0.8;
+}
+.fournisseur-pill:hover {
+	transform: translateY(-1px);
+	box-shadow: var(--shadow-sm);
+	color: var(--brand-2, #6366f1);
+}
+.fournisseur-pill.active {
+	background: var(--brand-grad);
+	border-color: transparent;
+	color: #fff;
+	box-shadow: 0 6px 16px rgba(99, 102, 241, 0.28);
+}
+.fournisseur-pill-count {
+	background: rgba(30, 30, 60, 0.08);
+	color: inherit;
+	font-size: 0.7rem;
+	font-weight: 700;
+	padding: 0.05rem 0.45rem;
+	border-radius: 999px;
+}
+.fournisseur-pill.active .fournisseur-pill-count {
+	background: rgba(255, 255, 255, 0.25);
+}
+
+/* ---- Grille de cartes fournisseurs, regroupée par catégorie (remplace l'ancien tableau plat +
+   hero décoratif) - une section par catégorie plutôt qu'un tas indifférencié de 100 cartes. ---- */
+.fournisseur-grid {
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+}
+.fournisseur-groupe-titre {
+	display: flex;
+	align-items: center;
+	gap: 0.55rem;
+	font-size: 0.92rem;
+	font-weight: 700;
+	color: var(--ink);
+	margin: 0 0 0.75rem;
+	padding-bottom: 0.5rem;
+	border-bottom: 1px solid var(--border-soft);
+}
+.fournisseur-groupe-titre i {
+	color: var(--brand-2, #6366f1);
+	font-size: 0.85rem;
+}
+.fournisseur-groupe-count {
+	background: rgba(99, 102, 241, 0.1);
+	color: var(--brand-2, #6366f1);
+	font-size: 0.72rem;
+	font-weight: 700;
+	padding: 0.1rem 0.55rem;
+	border-radius: 999px;
+	margin-left: 0.15rem;
+}
+.fournisseur-groupe-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+	gap: 1rem;
+}
+.fournisseur-card {
+	perspective: 900px;
+}
+.fournisseur-card-tilt {
+	position: relative;
+	height: 100%;
+	background: #fff;
+	border: 1px solid var(--border-soft);
+	border-radius: var(--radius-md, 16px);
+	box-shadow: var(--shadow-sm);
+	padding: 1.1rem 1.15rem;
+	transition: transform 0.35s var(--ease), box-shadow 0.35s var(--ease);
+	transform-style: preserve-3d;
+	will-change: transform;
+}
+.fournisseur-card:hover .fournisseur-card-tilt {
+	box-shadow: var(--shadow-lg);
+}
+.fournisseur-card.is-inactive .fournisseur-card-tilt {
+	opacity: 0.55;
+	filter: grayscale(0.4);
+}
+.fournisseur-card-top {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	margin-bottom: 0.7rem;
+}
+.fournisseur-card-avatar {
+	width: 52px;
+	height: 52px;
+	border-radius: 16px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	color: #fff;
+	font-weight: 700;
+	font-size: 1rem;
+	box-shadow: 0 8px 18px rgba(30, 30, 60, 0.16);
+	transform: translateZ(18px);
+}
+.fournisseur-card-avatar img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+.fournisseur-card-switch {
+	position: relative;
+	width: 38px;
+	height: 22px;
+	border-radius: 999px;
+	border: none;
+	background: #e2e4ee;
+	cursor: pointer;
+	padding: 0;
+	transition: background 0.25s var(--ease);
+	flex-shrink: 0;
+}
+.fournisseur-card-switch[data-state="oui"] {
+	background: var(--brand-grad);
+}
+.fournisseur-card-switch-thumb {
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	background: #fff;
+	box-shadow: 0 2px 5px rgba(30, 30, 60, 0.3);
+	transition: transform 0.25s var(--ease);
+}
+.fournisseur-card-switch[data-state="oui"] .fournisseur-card-switch-thumb {
+	transform: translateX(16px);
+}
+.fournisseur-card-nom {
+	font-size: 0.98rem;
+	font-weight: 700;
+	color: var(--ink);
+	margin: 0 0 0.1rem;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.fournisseur-card-sousnom {
+	font-size: 0.78rem;
+	color: var(--ink-soft);
+	margin-bottom: 0.6rem;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.fournisseur-card-badges {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.4rem;
+	margin-bottom: 0.75rem;
+}
+.fournisseur-card-badge-categorie {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	background: rgba(99, 102, 241, 0.1);
+	color: var(--brand-2, #6366f1);
+	font-size: 0.72rem;
+	font-weight: 700;
+	padding: 0.2rem 0.6rem;
+	border-radius: 999px;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.fournisseur-card-badge-valide {
+	display: inline-flex;
+	align-items: center;
+	color: #059669;
+	background: rgba(16, 185, 129, 0.12);
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	justify-content: center;
+	font-size: 0.72rem;
+}
+.fournisseur-card-contacts {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	margin-bottom: 0.85rem;
+	min-height: 1.6rem;
+}
+.fournisseur-card-contact {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: 0.8rem;
+	color: var(--ink-soft);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	transition: color 0.15s var(--ease);
+}
+.fournisseur-card-contact i {
+	width: 14px;
+	text-align: center;
+	color: var(--brand-2, #6366f1);
+	opacity: 0.8;
+	flex-shrink: 0;
+}
+.fournisseur-card-contact:hover {
+	color: var(--brand-2, #6366f1);
+}
+.fournisseur-card-contact-vide {
+	font-style: italic;
+	opacity: 0.6;
+}
+.fournisseur-card-footer {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.4rem;
+	padding-top: 0.7rem;
+	border-top: 1px dashed var(--border-soft);
+}
+.fournisseur-card-action {
+	width: 32px;
+	height: 32px;
+	border-radius: 10px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--ink-soft);
+	background: #f4f5fa;
+	font-size: 0.82rem;
+	transition: transform 0.15s var(--ease), color 0.15s var(--ease), background 0.15s var(--ease);
+}
+.fournisseur-card-action:hover {
+	transform: translateY(-2px);
+	color: var(--brand-2, #6366f1);
+	background: rgba(99, 102, 241, 0.1);
+}
+.fournisseur-card-action-danger:hover {
+	color: #dc2626;
+	background: rgba(220, 38, 38, 0.1);
+}
+
+/* ---- Vue liste : mêmes cartes, réarrangées en ligne compacte plutôt qu'en tuile - un seul
+   changement de mise en page CSS, aucun gabarit HTML séparé à maintenir. ------------------- */
+.fournisseur-vue-liste .fournisseur-groupe-grid {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+.fournisseur-vue-liste .fournisseur-card-tilt {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	padding: 0.6rem 1rem;
+	transform: none !important;
+}
+.fournisseur-vue-liste .fournisseur-card-top {
+	flex-direction: column;
+	gap: 0.4rem;
+	margin-bottom: 0;
+	flex-shrink: 0;
+}
+.fournisseur-vue-liste .fournisseur-card-avatar {
+	width: 40px;
+	height: 40px;
+	border-radius: 12px;
+	font-size: 0.82rem;
+	transform: none;
+}
+.fournisseur-vue-liste .fournisseur-card-info {
+	flex: 1;
+	display: grid;
+	grid-template-columns: minmax(140px, 240px) minmax(140px, 220px) 1fr;
+	align-items: center;
+	gap: 1rem;
+	min-width: 0;
+}
+.fournisseur-vue-liste .fournisseur-card-identite {
+	min-width: 0;
+}
+.fournisseur-vue-liste .fournisseur-card-badges {
+	margin-bottom: 0;
+}
+.fournisseur-vue-liste .fournisseur-card-contacts {
+	flex-direction: row;
+	gap: 1.25rem;
+	margin-bottom: 0;
+	min-height: 0;
+}
+.fournisseur-vue-liste .fournisseur-card-footer {
+	flex-shrink: 0;
+	padding-top: 0;
+	border-top: none;
+}
+@media (max-width: 991.98px) {
+	.fournisseur-vue-liste .fournisseur-card-info {
+		grid-template-columns: 1fr;
+		gap: 0.3rem;
+	}
+	.fournisseur-vue-liste .fournisseur-card-contacts {
+		flex-direction: column;
+		gap: 0.3rem;
+	}
+	.fournisseur-vue-liste .fournisseur-card-tilt {
+		flex-wrap: wrap;
+	}
+}
+
+.fournisseur-grid-vide {
+	text-align: center;
+	color: var(--ink-soft);
+	padding: 3rem 1rem;
+	font-size: 0.9rem;
+}
+.fournisseur-grid-vide i {
+	display: block;
+	font-size: 1.8rem;
+	opacity: 0.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fournisseur-card-tilt {
+		transition: none;
+	}
+}
+
+/* ---- BANK STATEMENT (com_rapprochement) : la zone de lignes d'un lot volumineux ne pousse plus
+   toute la page vers le bas - elle défile elle-même au-delà d'une hauteur confortable, avec l'en-
+   tête de colonnes qui reste visible pendant le défilement. ---------------------------------- */
+.rapprochement-lot-table-wrap {
+	max-height: 60vh;
+	overflow-y: auto;
+}
+.rapprochement-lot-table-wrap table thead th {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	background: #fff;
+	box-shadow: 0 1px 0 var(--border-soft, rgba(30, 30, 60, 0.08));
+}
+
+/* ---- Ligne de tableau "sélectionnée" depuis le Centre d'alertes (?highlight=ID, assets/js/
+   row-highlight.js) : un pulse d'entrée attire l'œil, puis la ligne RESTE visuellement
+   sélectionnée (fond teinté + liseré) tant qu'on ne quitte pas la page - ce n'est pas un simple
+   flash qui disparaît, c'est censé rester "la ligne sur laquelle j'ai cliqué". La couleur statique
+   (background-color sur la classe elle-même, pas seulement dans le keyframe) est ce sur quoi
+   l'animation retombe une fois ses 3 itérations terminées. !important : survit au zébrage
+   (table-stripped) et au survol (table-hover), qui sinon reprendraient la main sur le fond. -- */
+@keyframes rowHighlightPulse {
+	0%, 100% { background-color: rgba(99, 102, 241, 0.16); }
+	50% { background-color: rgba(99, 102, 241, 0.32); }
+}
+.row-highlight-pulse {
+	background-color: rgba(99, 102, 241, 0.16) !important;
+	animation: rowHighlightPulse 0.65s ease-in-out 3;
+	box-shadow: inset 3px 0 0 0 var(--brand-2, #6366f1);
+}
+@media (prefers-reduced-motion: reduce) {
+	.row-highlight-pulse {
+		animation: none;
+	}
+}
+
+/* ==========================================================================
+   "Liquid Glass" — approximation CSS/JS de la famille d'API SwiftUI
+   .glassEffect() / .backgroundExtensionEffect() / .buttonStyle(.glass) /
+   GlassEffectContainer (WWDC 2025). Pas de portage direct possible (ce sont
+   des primitives de rendu natif), donc chaque principe est traduit par son
+   équivalent web le plus proche - voir le commentaire au-dessus de chaque
+   règle. Appliqué au bandeau haut, à la sidebar, aux cartes de toutes les pages ".glass-page"
+   (dashboard, Facturation, chèques, relances, personnel RH, fiche client...), aux modales et au
+   panneau de recherche - assets/js/modern-theme.js gère le suivi du curseur en JS (var --mx/--my).
+   ========================================================================== */
+
+/* .glassEffect() : reflet spéculaire qui suit le curseur, comme un vrai reflet
+   de lumière sur une surface de verre plutôt qu'un dégradé statique figé. Le
+   ::after est indépendant du contenu (isolation, pas de clip) pour ne jamais
+   rogner les menus déroulants qui débordent de leur déclencheur. Liste de
+   sélecteurs partagée avec assets/js/modern-theme.js (GLASS_SHINE_SELECTOR) -
+   modifier les deux ensemble. */
+.header-left,
+.glass-page .card,
+.alert-center-modal .modal-content,
+.global-search-panel,
+.login-wrapper .loginbox,
+.sidebar-menu li a {
+	position: relative;
+	isolation: isolate;
+}
+.header-left::after,
+.glass-page .card::after,
+.alert-center-modal .modal-content::after,
+.global-search-panel::after,
+.login-wrapper .loginbox::after,
+.sidebar-menu li a::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: radial-gradient(circle 220px at var(--mx, 50%) var(--my, 20%), rgba(255, 255, 255, 0.55), transparent 62%);
+	opacity: 0;
+	transition: opacity 0.4s var(--ease, ease);
+	pointer-events: none;
+	mix-blend-mode: overlay;
+	z-index: 1;
+	border-radius: inherit;
+}
+.header-left:hover::after,
+.glass-page .card:hover::after,
+.alert-center-modal .modal-content:hover::after,
+.global-search-panel:hover::after,
+.login-wrapper .loginbox:hover::after,
+.sidebar-menu li a:hover::after {
+	opacity: 1;
+}
+/* Halo plus discret pour la sidebar (250px de large max, contre 44-60px pour un lien) : le rayon
+   par défaut (220px) déborderait très largement du lien et éclairerait toute la colonne. */
+.sidebar-menu li a::after {
+	background: radial-gradient(circle 90px at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, 0.65), transparent 70%);
+}
+@media (prefers-reduced-motion: reduce) {
+	.header-left::after,
+	.glass-page .card::after,
+	.alert-center-modal .modal-content::after,
+	.global-search-panel::after,
+	.login-wrapper .loginbox::after,
+	.sidebar-menu li a::after {
+		display: none;
+	}
+}
+
+/* .backgroundExtensionEffect() : le flou du bandeau haut ne s'arrête pas net à
+   son bord inférieur - il se prolonge sur ~28px avec un fondu, pour que le
+   contenu qui défile dessous transitionne en douceur plutôt que de disparaître
+   sous une ligne dure. */
+.header::after {
+	content: "";
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 100%;
+	height: 28px;
+	backdrop-filter: blur(14px) saturate(160%);
+	-webkit-backdrop-filter: blur(14px) saturate(160%);
+	-webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.45), transparent);
+	mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.45), transparent);
+	pointer-events: none;
+}
+
+/* .backgroundExtensionEffect() : même idée que le bandeau haut, appliquée à la sidebar - le flou
+   ne s'arrête pas net à la bordure droite du panneau, il se prolonge sur ~24px dans le contenu
+   juste à côté, avec un fondu. .sidebar est déjà position:fixed (style.css), sert de référence. */
+.sidebar::after {
+	content: "";
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 100%;
+	width: 24px;
+	backdrop-filter: blur(10px) saturate(160%);
+	-webkit-backdrop-filter: blur(10px) saturate(160%);
+	-webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.35), transparent);
+	mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.35), transparent);
+	pointer-events: none;
+	z-index: 1;
+}
+
+/* GlassEffectContainer : plusieurs boutons de verre proches partagent UNE
+   même surface (au lieu de N cercles isolés) - le groupe "notifications"
+   (chat + Rappels(Urgent)) du bandeau haut en est l'exemple ici : un seul
+   pilule de verre contient les deux icônes, chacune gardant son propre halo
+   au survol. Structure ajoutée dans includes/tpl/notification.php. */
+.glass-icon-group {
+	display: flex !important;
+	align-items: center;
+	gap: 2px;
+	background: rgba(99, 102, 241, 0.06);
+	border-radius: 999px;
+	padding: 3px;
+	backdrop-filter: blur(10px);
+	-webkit-backdrop-filter: blur(10px);
+}
+.glass-icon-group > a.nav-link {
+	padding: 0 6px !important;
+	height: auto !important;
+}
+.glass-icon-group > a.nav-link > i {
+	background: transparent !important;
+	box-shadow: none !important;
+}
+.glass-icon-group > a.nav-link:hover > i {
+	background: rgba(255, 255, 255, 0.5) !important;
+	color: var(--brand-2, #6366f1) !important;
+}
+.glass-icon-group.bell-urgent-li,
+.glass-icon-group.bell-urgent-li-danger {
+	background: transparent;
+}
+
+/* .buttonStyle(.glass) : réponse "pression" façon verre - un éclat bref plutôt
+   qu'un simple assombrissement plat, sur les boutons pleins de marque. .top-nav-search .btn est
+   déjà en position:absolute (style.css, pour chevaucher le champ) - ne pas lui imposer relative
+   ici, ça le ferait retomber dans le flux normal et casser le chevauchement avec l'input. */
+.btn-primary {
+	position: relative;
+	overflow: hidden;
+}
+.top-nav-search .btn {
+	overflow: hidden;
+}
+.btn-primary::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: radial-gradient(circle 60px at var(--mx, 50%) var(--my, 50%), rgba(255, 255, 255, 0.45), transparent 70%);
+	opacity: 0;
+	transition: opacity 0.25s ease;
+	pointer-events: none;
+}
+.btn-primary:hover::after {
+	opacity: 1;
+}
+
+/* ==========================================================================
+   Thème sombre — activé en posant data-theme="dark" sur <html> (bascule dans
+   le header, assets/js/theme-toggle.js ; état lu tôt dans includes/tpl/top.php
+   pour éviter un flash clair). Portée : l'admin connecté (top.php) uniquement
+   - la page de login garde son propre décor (photo + carte verre), pas de
+   bascule là-bas. Stratégie : variables de surface ajoutées à :root (valeurs
+   claires par défaut), redéfinies sous [data-theme="dark"], puis appliquées
+   aux classes Bootstrap/template à plus fort trafic (carte, tableau, champ,
+   menu déroulant, modale, sidebar, en-tête) plutôt que de réécrire chaque vue
+   - ces classes couvrent l'essentiel de la surface visible de chaque page.
+   Non couvert (accepté comme limite) : le détail interne des graphiques
+   ApexCharts (texte/axes dessinés en SVG avec des couleurs fixées par leur
+   propre config JS, pas par ce CSS) et les styles inline ponctuels laissés
+   par le template d'origine. ========================================== */
+:root {
+	--paper: #f7f8f9;
+	--paper-raised: #ffffff;
+	--paper-sunken: #f6f6fb;
+	--input-bg: #ffffff;
+}
+
+[data-theme="dark"] {
+	--paper: #14141c;
+	--paper-raised: #1c1c28;
+	--paper-sunken: #23232f;
+	--input-bg: #1c1c28;
+	--ink: #e4e4ec;
+	--ink-soft: #a3a3b8;
+	--border-soft: rgba(228, 228, 236, 0.10);
+	--shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.25);
+	--shadow-md: 0 10px 26px rgba(0, 0, 0, 0.32);
+	--shadow-lg: 0 20px 44px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] html,
+[data-theme="dark"] body,
+[data-theme="dark"] .main-wrapper,
+[data-theme="dark"] .page-wrapper {
+	background-color: var(--paper);
+	color: var(--ink);
+}
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] h4,
+[data-theme="dark"] h5,
+[data-theme="dark"] h6,
+[data-theme="dark"] .page-title,
+[data-theme="dark"] .card-title {
+	color: var(--ink);
+}
+[data-theme="dark"] .text-muted,
+[data-theme="dark"] .page-header .breadcrumb,
+[data-theme="dark"] .breadcrumb-item {
+	color: var(--ink-soft) !important;
+}
+
+/* Cartes, socle de la quasi-totalité du contenu de l'app. !important nécessaire : les pages
+   ".glass-page" (dashboard, globalStats, fiche client...) posent déjà un fond carte en
+   rgba(255,255,255,0.6) via ".glass-page .card:not(:has(.dash-widget-icon))" (specificité 0,3,0,
+   supérieure à "[data-theme=dark] .card" seul) - sans !important ce blanc translucide resterait
+   au-dessus du fond sombre. */
+[data-theme="dark"] .card {
+	background-color: var(--paper-raised) !important;
+	color: var(--ink);
+	box-shadow: var(--shadow-sm);
+}
+[data-theme="dark"] .card-header,
+[data-theme="dark"] .card-footer {
+	background-color: var(--paper-raised) !important;
+	border-color: var(--border-soft);
+}
+[data-theme="dark"] .globalstats-filter-card,
+[data-theme="dark"] .globalstats-chart-card {
+	background-color: var(--paper-raised) !important;
+}
+
+/* Tableaux */
+[data-theme="dark"] .table {
+	color: var(--ink);
+}
+[data-theme="dark"] .table-striped > tbody > tr:nth-of-type(2n+1) {
+	background-color: var(--paper-sunken);
+}
+[data-theme="dark"] .table > thead > tr > th,
+[data-theme="dark"] .table > tbody > tr > td,
+[data-theme="dark"] .table > tbody > tr > th,
+[data-theme="dark"] table.table td h2 a {
+	border-color: var(--border-soft);
+	color: var(--ink);
+}
+[data-theme="dark"] .thead-light,
+[data-theme="dark"] .table thead th,
+[data-theme="dark"] .table > thead {
+	background-color: var(--paper-sunken) !important;
+	color: var(--ink) !important;
+	border-color: var(--border-soft) !important;
+}
+[data-theme="dark"] table.dataTable thead .sorting,
+[data-theme="dark"] table.dataTable thead .sorting_asc,
+[data-theme="dark"] table.dataTable thead .sorting_desc {
+	color: var(--ink) !important;
+}
+[data-theme="dark"] .dataTables_wrapper .dataTables_info,
+[data-theme="dark"] .dataTables_wrapper .dataTables_length,
+[data-theme="dark"] .dataTables_wrapper .dataTables_filter,
+[data-theme="dark"] .dataTables_wrapper .dataTables_paginate {
+	color: var(--ink-soft);
+}
+[data-theme="dark"] .pagination .page-link {
+	background-color: var(--paper-raised);
+	border-color: var(--border-soft);
+	color: var(--ink);
+}
+
+/* Champs de formulaire */
+[data-theme="dark"] .form-control,
+[data-theme="dark"] .select2-container--default .select2-selection--single,
+[data-theme="dark"] .select2-container--default .select2-selection--multiple,
+[data-theme="dark"] textarea {
+	background-color: var(--input-bg);
+	border-color: var(--border-soft);
+	color: var(--ink);
+}
+[data-theme="dark"] .form-control:focus {
+	background-color: var(--input-bg);
+	color: var(--ink);
+}
+[data-theme="dark"] .select2-dropdown,
+[data-theme="dark"] .select2-results__option,
+[data-theme="dark"] .select2-container--default .select2-selection--single .select2-selection__rendered {
+	background-color: var(--paper-raised);
+	color: var(--ink);
+}
+[data-theme="dark"] .input-group-text {
+	background-color: var(--paper-sunken);
+	border-color: var(--border-soft);
+	color: var(--ink-soft);
+}
+
+/* Menus déroulants et modales */
+[data-theme="dark"] .dropdown-menu,
+[data-theme="dark"] .modal-content {
+	background-color: var(--paper-raised);
+	color: var(--ink);
+	border-color: var(--border-soft);
+}
+[data-theme="dark"] .dropdown-item {
+	color: var(--ink);
+}
+[data-theme="dark"] .dropdown-item:hover,
+[data-theme="dark"] .dropdown-item:focus {
+	background-color: var(--paper-sunken);
+	color: var(--ink);
+}
+[data-theme="dark"] .modal-header,
+[data-theme="dark"] .modal-footer {
+	border-color: var(--border-soft);
+}
+
+/* En-tête + sidebar (surfaces "verre" déjà translucides sur fond clair - on assombrit la
+   teinte plutôt que de retirer le glassmorphism) */
+[data-theme="dark"] .header,
+[data-theme="dark"] .header-left {
+	background: rgba(20, 20, 28, 0.72) !important;
+	border-color: var(--border-soft);
+}
+[data-theme="dark"] .header .form-control,
+[data-theme="dark"] .top-nav-search input {
+	background: rgba(255, 255, 255, 0.06);
+	color: var(--ink);
+}
+[data-theme="dark"] .header .form-control::placeholder {
+	color: var(--ink-soft);
+}
+/* "HAMID KENNOU" (nom de l'utilisateur) et les autres libellés du bandeau d'icônes - color:#333
+   codé en dur dans style.css, quasi invisible sur le fond sombre du header. */
+[data-theme="dark"] .user-menu.nav > li > a {
+	color: var(--ink) !important;
+}
+[data-theme="dark"] .company-nav .btn,
+[data-theme="dark"] .company-nav span {
+	color: var(--ink);
+}
+[data-theme="dark"] .sidebar {
+	background: linear-gradient(180deg, #17171f 0%, #14141c 100%) !important;
+	box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+}
+[data-theme="dark"] .sidebar-menu ul ul {
+	background: var(--paper-sunken);
+	box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+[data-theme="dark"] .user-menu .dropdown-menu {
+	background-color: var(--paper-raised);
+}
+
+/* Fiche client : bandeau blanc dur-codé (pas une variable) sous la photo de couverture. */
+[data-theme="dark"] .client-hero {
+	background: var(--paper-raised) !important;
+}
+[data-theme="dark"] .client-hero-avatar {
+	background: var(--paper-sunken) !important;
+}
+
+/* Boutons clairs (btn-white/btn-light), utilisés partout comme bouton secondaire */
+[data-theme="dark"] .btn-white,
+[data-theme="dark"] .btn-light {
+	background-color: var(--paper-raised);
+	border-color: var(--border-soft);
+	color: var(--ink);
+}
+
+/* Graphiques ApexCharts : la librairie peint elle-même un rect de fond (#fff/#fefefe, attribut SVG
+   "fill", posé en JS à l'initialisation - assets/plugins/apexchart/*, jamais reconfiguré page par
+   page) et du texte gris foncé illisible sur fond sombre. Un "fill" CSS l'emporte toujours sur
+   l'attribut de présentation SVG, donc pas besoin de toucher au JS de chaque graphique. */
+[data-theme="dark"] .apexcharts-canvas > svg > rect:first-of-type {
+	fill: transparent !important;
+}
+[data-theme="dark"] .apexcharts-text,
+[data-theme="dark"] .apexcharts-legend-text,
+[data-theme="dark"] .apexcharts-yaxis-label,
+[data-theme="dark"] .apexcharts-xaxis-label,
+[data-theme="dark"] .apexcharts-datalabel,
+[data-theme="dark"] .apexcharts-datalabel-label,
+[data-theme="dark"] .apexcharts-datalabel-value {
+	fill: var(--ink-soft) !important;
+}
+[data-theme="dark"] .apexcharts-gridline {
+	stroke: var(--border-soft) !important;
+}
+[data-theme="dark"] .apexcharts-tooltip {
+	background: var(--paper-raised) !important;
+	color: var(--ink) !important;
+	border-color: var(--border-soft) !important;
+}
+[data-theme="dark"] .apexcharts-tooltip-title {
+	background: var(--paper-sunken) !important;
+	border-color: var(--border-soft) !important;
+}
+[data-theme="dark"] .apexcharts-menu {
+	background: var(--paper-raised) !important;
+	border-color: var(--border-soft) !important;
+	color: var(--ink) !important;
+}
+
+/* Barre de défilement (Chrome/Edge/Safari) - petit détail mais très visible sur un thème sombre */
+[data-theme="dark"] ::-webkit-scrollbar-track {
+	background: var(--paper);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+	background: var(--paper-sunken);
+	border-radius: 8px;
+}
+
+/* ==========================================================================
+   Mode confidentialité — .privacy-mode sur <html> (bascule dans le header,
+   assets/js/theme-toggle.js). Floute tout élément marqué .money-sensitive
+   (ajouté aux montants CA/dettes/recettes/etc. dans les vues concernées) au
+   lieu de les masquer complètement : la mise en page ne bouge pas, seule la
+   lisibilité du chiffre change - utile pour un partage d'écran rapide sans
+   perdre le contexte visuel de la page. ================================= */
+.privacy-mode .money-sensitive {
+	filter: blur(6px) !important;
+	user-select: none;
+	transition: filter 0.15s ease;
+}
+.privacy-mode .money-sensitive:hover {
+	filter: blur(2px) !important;
+}

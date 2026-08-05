@@ -108,6 +108,7 @@ function buildFileResourceHumaine($data, $files = [], $id = null)
    
     $fileresourcehumaine->setResourcehumaine(resourcehumaine::find($data["id_resourcehumaine"]));
     $fileresourcehumaine->setTitle($data["title"]);
-    
+    $fileresourcehumaine->setDocumentType(isset($data["document_type"]) && $data["document_type"] != '' ? $data["document_type"] : null);
+
     return $fileresourcehumaine;
 }

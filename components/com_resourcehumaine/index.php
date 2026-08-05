@@ -50,7 +50,7 @@ switch ($task)
         }
         break;
     case 'show':
-        if ($_SESSION['user']->hasDroit('view', 'com_realisation')) {
+        if ($_SESSION['user']->hasDroit('view', 'com_resourcehumaine')) {
             if (isset($_GET['id']) && !empty($_GET['id'])) {
                 $id = intval($_GET['id']);
                 $resourcehumaine = resourcehumaine::find($id);
@@ -61,7 +61,7 @@ switch ($task)
         }
         break;
     case 'file':
-        if ($_SESSION['user']->hasDroit('add', 'com_realisation')) {
+        if ($_SESSION['user']->hasDroit('add', 'com_resourcehumaine')) {
             if (isset($_GET['id']) && !empty($_GET['id'])) {
                 $action1 = "components/com_resourcehumaine/controleurs/router.php?task=addFileResourceHumaine";
                 $action2 = "components/com_resourcehumaine/controleurs/router.php?task=editFileResourceHumaine";
@@ -78,7 +78,7 @@ switch ($task)
         }
         break;
     case 'absence':
-        if ($_SESSION['user']->hasDroit('add', 'com_realisation')) {
+        if ($_SESSION['user']->hasDroit('add', 'com_resourcehumaine')) {
             if (isset($_GET['id']) && !empty($_GET['id'])) {
                 $action1 = "components/com_resourcehumaine/controleurs/router.php?task=addAbsenceResourceHumaine";
                 $action2 = "components/com_resourcehumaine/controleurs/router.php?task=editAbsenceResourceHumaine";
@@ -86,6 +86,8 @@ switch ($task)
                 $id = intval($_GET['id']);
                 $resourcehumaine = resourcehumaine::find($id);
                 $absences = absence::findAllByResourcehumaine($resourcehumaine->getId());
+                $filesAbsence = fileresourcehumaine::findAllByResourcehumaine($resourcehumaine->getId());
+                $documentsManquantsAbsence = fileresourcehumaine::documentsManquants($resourcehumaine->getStatus(), $filesAbsence);
                 if(isset($_GET['id_absence']) && !empty($_GET['id_absence'])){
                     $id_absence = intval($_GET['id_absence']);
                     $absence = absence::find($id_absence);
@@ -95,7 +97,7 @@ switch ($task)
         }
         break;
     case 'bonus':
-        if ($_SESSION['user']->hasDroit('add', 'com_realisation')) {
+        if ($_SESSION['user']->hasDroit('add', 'com_resourcehumaine')) {
             if (isset($_GET['id']) && !empty($_GET['id'])) {
                 $action1 = "components/com_resourcehumaine/controleurs/router.php?task=addBonusResourceHumaine";
                 $action2 = "components/com_resourcehumaine/controleurs/router.php?task=editBonusResourceHumaine";
@@ -112,13 +114,13 @@ switch ($task)
         }
         break;
     case 'pointage':
-        if ($_SESSION['user']->hasDroit('add', 'com_realisation')) {
+        if ($_SESSION['user']->hasDroit('add', 'com_resourcehumaine')) {
                 $action1 = "components/com_resourcehumaine/controleurs/router.php?task=importPointage";
                 include_once("components/com_resourcehumaine/views/pointage/list.php");
         }
         break;
     case 'payslip':
-        if ($_SESSION['user']->hasDroit('add', 'com_realisation')) {
+        if ($_SESSION['user']->hasDroit('add', 'com_resourcehumaine')) {
             if (isset($_GET['id']) && !empty($_GET['id'])) {
                 $action1 = "components/com_resourcehumaine/controleurs/router.php?task=addPayslip";
                 $action2 = "components/com_resourcehumaine/controleurs/router.php?task=editPayslip";
@@ -126,16 +128,33 @@ switch ($task)
                 $id = intval($_GET['id']);
                 $resourcehumaine = resourcehumaine::find($id);
                 $payslips = payslip::findAllByResourcehumaine($resourcehumaine->getId());
-                if(isset($_GET['id_file']) && !empty($_GET['id_file'])){
-                    $id_file = intval($_GET['id_file']);
-                    $file = payslip::find($id_file);
+                // Le bandeau "bulletins manquants" ne concerne que les employés actifs - pas de
+                // relance à faire sur un dossier déjà clos (employé parti).
+                $moisManquants = $resourcehumaine->isActive() ? payslip::missingMonths($resourcehumaine) : array();
+                // Le lien "Modifier" de payslips.php envoie id_payslip (pas id_file) et le
+                // formulaire attend $payslip (pas $file) - variable/paramètre jamais alignés
+                // jusqu'ici, ce qui faisait silencieusement rouvrir le formulaire d'AJOUT au lieu
+                // de charger le bulletin existant.
+                if(isset($_GET['id_payslip']) && !empty($_GET['id_payslip'])){
+                    $id_payslip = intval($_GET['id_payslip']);
+                    $payslip = payslip::find($id_payslip);
                 }
                 include_once("components/com_resourcehumaine/views/payslip/list.php");
             }
         }
         break;
+    case 'joboffer':
+        if ($_SESSION['user']->hasDroit('add', 'com_resourcehumaine')) {
+            if (isset($_GET['id']) && !empty($_GET['id'])) {
+                $id = intval($_GET['id']);
+                $resourcehumaine = resourcehumaine::find($id);
+                $jobOffers = joboffer::findAllByResourcehumaine($resourcehumaine->getId());
+                include_once("components/com_resourcehumaine/views/joboffer/list.php");
+            }
+        }
+        break;
     case 'request':
-        if ($_SESSION['user']->hasDroit('add', 'com_realisation')) {
+        if ($_SESSION['user']->hasDroit('add', 'com_resourcehumaine')) {
             if (isset($_GET['id']) && !empty($_GET['id'])) {
                 $id = intval($_GET['id']);
                 $resourcehumaine = resourcehumaine::find($id);
@@ -146,6 +165,11 @@ switch ($task)
         break;
     default :
         if ($_SESSION['user']->hasDroit('view', 'com_resourcehumaine')) {
+            // Pas de vrai cron sur cet environnement : le rappel bimestriel des documents
+            // manquants se vérifie ici, à chaque chargement de la page principale RH (même
+            // principe "lazy" que le rappel 90 jours des réseaux sociaux) - idempotent grâce à
+            // last_document_reminder, ne renvoie jamais un email à chaque visite.
+            verifierRappelsDocumentsManquantsRH();
             $resources_humaines_titulaire = resourcehumaine::findAllByStatus("Titulaire");
             $resources_humaines_stagaire = resourcehumaine::findAllByStatus("Stagaire");
             $resources_humaines_periode_de_test = resourcehumaine::findAllByStatus("Periode de test");

@@ -193,6 +193,8 @@ function buildAgence($data, $id = null)
     $agence->setNumeroIncrementFacture($data['numero_increment_facture']);
     $agence->setNumeroIncrementDevis($data['numero_increment_devis']);
     $agence->setTva($data['tva']);
+    $agence->setTvaSeuilAlerte(isset($data['tva_seuil_alerte']) && $data['tva_seuil_alerte'] !== '' ? $data['tva_seuil_alerte'] : null);
+    $agence->setTvaPeriodicite(isset($data['tva_periodicite']) ? $data['tva_periodicite'] : 'mensuel');
     $agence->setWebsite($data['website']);
     $agence->setColor($data['color']);
     $agence->setIf($data['if']);

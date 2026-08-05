@@ -176,7 +176,7 @@ class langue{
 	public static function find($id){
         global $db;
 		$langue = new langue();
-        $SQLselect = "SELECT * FROM " . static::$table . " WHERE id = $id";
+        $SQLselect = "SELECT * FROM " . static::$table . " WHERE id = " . intval($id);
         $result = $db->query($SQLselect);
         if ($db->num_rows($result) == 1) {
             $data = $db->fetch_assoc($result);

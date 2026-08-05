@@ -72,6 +72,15 @@
 	
 		<div class="col-md-4">
 			<div class="form-group">
+				<label>Date fin</label>
+				<div class="cal-icon">
+					<input type="text" class="form-control datetimepicker" name="date_fin" value="<?php if (isset($contract)) echo normaldate($contract->getDateFin()); ?>">
+				</div>
+			</div>
+		</div>
+
+		<div class="col-md-4">
+			<div class="form-group">
 				<label>Tribunal <span class="text-danger"> * </span></label>
 				<input type="text" class="form-control" name="tribunal" value="<?php if (isset($contract)) echo $contract->getTribunal();?>" required>
 			</div>

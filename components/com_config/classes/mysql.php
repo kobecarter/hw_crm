@@ -55,7 +55,7 @@ class mysql extends dbfactory {
         if ($this->query){
             $arrayResult = array();
             while ($row = mysqli_fetch_assoc ($this->query))
-                $arrayResult[] = $row;
+                $arrayResult[] = self::repererEtCorrigerMojibake($row);
 
             return $arrayResult;
         }
@@ -71,7 +71,7 @@ class mysql extends dbfactory {
         if (isset($query)) {
             $this->query = $query;
         }
-        return  $this->query->fetch_assoc();
+        return self::repererEtCorrigerMojibake($this->query->fetch_assoc());
     }
 
     // r�cupere les r�sultats dans un tableau normal
@@ -79,7 +79,7 @@ class mysql extends dbfactory {
         if (isset ($query)) {
             $this->query = $query;
         }
-        return mysqli_fetch_row ($this->query);
+        return self::repererEtCorrigerMojibake(mysqli_fetch_row ($this->query));
     }
 
     // r�cupere les r�sultats dans un tableau associatif et/ou normal
@@ -87,8 +87,36 @@ class mysql extends dbfactory {
         if (isset ($query)) {
             $this->query = $query;
         }
-		return  $this->query->fetch_array();
+		return self::repererEtCorrigerMojibake($this->query->fetch_array());
         //return mysql_fetch_array ($this->query);
+    }
+
+    // Une majorité des tables de cette base sont déclarées en charset "latin1" (héritage
+    // historique) alors que la connexion mysqli négocie "utf8mb4" par défaut (aucun set_charset()
+    // explicite n'est appelé) - MySQL "convertit" alors les octets déjà-UTF8 de ces colonnes
+    // comme s'ils étaient du latin1, produisant du texte doublement encodé ("ComptabilitÃ©" au
+    // lieu de "Comptabilité", "GÃ©rant" au lieu de "Gérant", etc.) sur TOUT le texte accentué
+    // provenant de ces tables. Plutôt qu'une migration de charset risquée sur 58 tables en prod,
+    // on répare le texte à la volée ici (seul point de passage commun à toute lecture) : l'inverse
+    // du mojibake (UTF-8 -> ISO-8859-1) restaure les bons octets - et ne produit du texte UTF-8
+    // valide QUE si la chaîne était effectivement doublement encodée, ce qui sert aussi de
+    // détection : les quelques tables déjà correctement en utf8mb4 (ex: crm_releve_ligne) ne sont
+    // jamais altérées, car leur texte, lui, n'est pas doublement encodé.
+    private static function repererEtCorrigerMojibake($ligne)
+    {
+        if (!is_array($ligne)) {
+            return $ligne;
+        }
+        foreach ($ligne as $cle => $valeur) {
+            if (!is_string($valeur) || $valeur === '') {
+                continue;
+            }
+            $repare = @mb_convert_encoding($valeur, 'ISO-8859-1', 'UTF-8');
+            if ($repare !== false && $repare !== $valeur && mb_check_encoding($repare, 'UTF-8') && mb_check_encoding($valeur, 'UTF-8')) {
+                $ligne[$cle] = $repare;
+            }
+        }
+        return $ligne;
     }
 
     // r�cupere le nombre d'enregistrement

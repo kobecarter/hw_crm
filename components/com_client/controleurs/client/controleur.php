@@ -13,6 +13,12 @@ if (isset($task) && !empty($task)) {
         case "enableClient":
             enableClient($_POST);
             break;
+        case "archiveClient":
+            archiveClient($_POST);
+            break;
+        case "retablirClient":
+            retablirClient($_POST);
+            break;
         case "filterClient":
             filterClient($_POST);
             break;
@@ -58,19 +64,30 @@ function getClientSelect()
 	    <option value="" selected disabled>Sélectionner</option>
 		<?php foreach ($clients as $client) : ?>
 			<?php $sl = $lastId == $client->getId() ? "selected" : ""; ?>
-			<option value="<?php echo $client->getId() ?>" <?php echo $sl; ?>><?php echo $client->getNom() . ' ' . $client->getPrenom() . ' - ' . $client->getRaisonSocial(); ?></option>
+			<option value="<?php echo $client->getId() ?>" data-agence="<?php echo $client->getAgence()->getId(); ?>" <?php echo $sl; ?>><?php echo $client->getNom() . ' ' . $client->getPrenom() . ' - ' . $client->getRaisonSocial(); ?></option>
 		<?php endforeach; ?>
 	</select>
-	<script>$(".chosen-select").select2();</script>
+	<script>
+		$(".chosen-select").select2();
+		$(document).trigger("clientSelectRefreshed");
+	</script>
     <?php
 }
 
 function addClient($data)
 {
-    $indices = array("nom", "fonction");
+    $indices = array("nom", "fonction", "agence");
     if (fieldCheck($data, $indices)) {
         if (buildClient($data)->add() == 1) {
-            echo "1";
+            $newId = client::getLastId();
+            if (isset($data['presentation_file']) && !empty($data['presentation_file'])) {
+                $presentation = new presentationFile();
+                $presentation->setIdClient($newId);
+                $presentation->setFichier($data['presentation_file']);
+                $presentation->setExtractedJson(isset($data['presentation_extracted']) ? $data['presentation_extracted'] : '');
+                $presentation->add();
+            }
+            echo "1|" . $newId;
         } else {
             echo "2";
         }
@@ -97,8 +114,14 @@ function deleteClient($data)
 {
     $indices = array("id");
     if (fieldCheck($data, $indices)) {
-        $client = new client();
-        $client->setId($data['id']);
+        // find($id, $agence) plutôt que new client()+setId() : cette dernière forme ne vérifie
+        // JAMAIS que le client appartient bien à l'agence de l'utilisateur connecté - n'importe
+        // quel id valide, même d'une autre agence, se faisait supprimer (IDOR sur suppression).
+        $client = client::find($data['id'], $_SESSION['agence']);
+        if ($client->getId() == 0) {
+            echo "2";
+            return;
+        }
         if ($client->delete() == 1) {
             echo "1";
         } else {
@@ -125,6 +148,38 @@ function enableClient($data)
     }
 }
 
+function archiveClient($data)
+{
+    $indices = array("id");
+    if (fieldCheck($data, $indices)) {
+        $client = client::find($data['id'], $_SESSION['agence']);
+        $client->setArchived(1);
+        if ($client->edit() == 1) {
+            echo "1";
+        } else {
+            echo "2";
+        }
+    } else {
+        echo "0";
+    }
+}
+
+function retablirClient($data)
+{
+    $indices = array("id");
+    if (fieldCheck($data, $indices)) {
+        $client = client::find($data['id'], $_SESSION['agence']);
+        $client->setArchived(0);
+        if ($client->edit() == 1) {
+            echo "1";
+        } else {
+            echo "2";
+        }
+    } else {
+        echo "0";
+    }
+}
+
 function buildClient($data, $id = null)
 {
     $client = new client();
@@ -134,17 +189,35 @@ function buildClient($data, $id = null)
         $photo = uploadFiles('photo', '../../../images/clients/',  array('jpg', 'jpeg', 'gif', 'png', 'JPG', 'JPEG', 'GIF', 'PNG'));
     }
 
+    $siteWebPrecedent = null;
     if ($id) {
         $client = client::find($id, $_SESSION['agence']);
+        $siteWebPrecedent = $client->getSiteWeb();
         $client->setUserEdited($_SESSION['user']);
         $client->setAgence(agence::find($data['agence'], $_SESSION['langue']));
     } else {
         $client->setUserAdded($_SESSION['user']);
-        $client->setAgence(agence::find($_SESSION['agence'], $_SESSION['langue']));
+        $agenceId = isset($data['agence']) && !empty($data['agence']) ? $data['agence'] : $_SESSION['agence'];
+        $client->setAgence(agence::find($agenceId, $_SESSION['langue']));
     }
 
+    $nouveauSiteWeb = isset($data['site_web']) ? trim($data['site_web']) : '';
+    $client->setSiteWeb($nouveauSiteWeb);
+
+    // Priorité de la photo affichée : un fichier uploadé dans cette même soumission l'emporte
+    // toujours (dernière action de l'utilisateur = photo manuelle) ; sinon, si le site internet
+    // vient d'être ajouté/modifié, on génère son logo pour remplacer la photo. On retente aussi
+    // la génération si le site est déjà renseigné mais qu'aucune photo n'a jamais été obtenue
+    // (échec réseau ponctuel lors d'un essai précédent) : sans ce filet, un client resterait
+    // bloqué sans logo pour toujours, la détection de changement ne se déclenchant qu'une fois.
+    // Si un logo est déjà en place, on ne touche à rien.
     if (isset($photo[0])) {
         $client->setPhoto($photo[0]);
+    } elseif ($nouveauSiteWeb != '' && ($nouveauSiteWeb !== $siteWebPrecedent || $client->getPhoto() == '')) {
+        $logo = client::generateLogoPhoto($nouveauSiteWeb);
+        if ($logo) {
+            $client->setPhoto($logo);
+        }
     }
 
     $client->setActive(isset($data['active']) ? 1 : 0);
@@ -178,11 +251,12 @@ function buildClient($data, $id = null)
 
 function filterClient($data)
 {
-    $indices = array("year");
+    $indices = array("from", "to");
     if (fieldCheck($data, $indices)) {
-        $year = intval($data['year']);
+        $from = dateBD($data['from']);
+        $to = dateBD($data['to']);
 
-        $clients = client::filterClient($year, $_SESSION['agence']);
+        $clients = client::filterClient(false, $_SESSION['agence'], $from, $to);
 ?>
         <table class="table table-stripped table-center table-hover datatable-client">
             <thead class="thead-light">
@@ -299,6 +373,11 @@ function exportClient($data)
     header('Pragma: public');
 
     $writer = new XLSXWriter();
+    $xlsxTempDir = __DIR__ . '/../../../../images/tmp';
+    if (!is_dir($xlsxTempDir)) {
+        @mkdir($xlsxTempDir, 0775, true);
+    }
+    $writer->setTempDir($xlsxTempDir);
 
     $header_format = array(
         'font-style' => 'bold',
@@ -388,8 +467,9 @@ function exportClient($data)
 
 function exportClientWithFilter ($data)
 {
-        $year = isset($data['year']) && !empty($data['year']) ? $data['year'] : false;
-        $clients = client::filterClient($year, $_SESSION['agence']);
+        $from = isset($data['from']) && !empty($data['from']) ? dateBD($data['from']) : false;
+        $to = isset($data['to']) && !empty($data['to']) ? dateBD($data['to']) : false;
+        $clients = client::filterClient(false, $_SESSION['agence'], $from, $to);
 
 		// Create new Spreadsheet object
 		$spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
@@ -487,6 +567,11 @@ function exportEmail()
     header('Pragma: public');
 
     $writer = new XLSXWriter();
+    $xlsxTempDir = __DIR__ . '/../../../../images/tmp';
+    if (!is_dir($xlsxTempDir)) {
+        @mkdir($xlsxTempDir, 0775, true);
+    }
+    $writer->setTempDir($xlsxTempDir);
     $writer->setAuthor('Hello World');
     $cpt = 0;
     foreach ($rows as $row) {

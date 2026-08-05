@@ -14,6 +14,8 @@ class charge
     private $description;
     private $total;
 	private $devise;
+	private $tva_taux;
+	private $tva_deductible;
     private $paid;
 	private $facture;
 	private $refunded;
@@ -72,6 +74,21 @@ class charge
 	public function getDevise()
     {
         return $this->devise;
+    }
+
+	public function getTvaTaux()
+    {
+        return $this->tva_taux;
+    }
+
+	public function getTvaDeductible()
+    {
+        return $this->tva_deductible;
+    }
+
+	public function isTvaDeductible()
+    {
+        return $this->tva_deductible == 1;
     }
 
     public function getPaid()
@@ -179,6 +196,16 @@ class charge
         $this->devise = $devise;
     }
 
+	public function setTvaTaux($tva_taux)
+    {
+        $this->tva_taux = $tva_taux;
+    }
+
+	public function setTvaDeductible($tva_deductible)
+    {
+        $this->tva_deductible = $tva_deductible;
+    }
+
     public function setPaid($paid)
     {
         $this->paid = $paid;
@@ -227,15 +254,17 @@ class charge
     public function add()
     {
         global $db;
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence,paid_by,id_user,type, titre, description, total, devise, paid, facture, refunded, date_charge, date_payment, mode_payment, photo, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence,paid_by,id_user,type, titre, description, total, devise, tva_taux, tva_deductible, paid, facture, refunded, date_charge, date_payment, mode_payment, photo, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->agence->getId(), "int"),
             GetSQLValueString($this->paid_by->getId(), "int"),
-            GetSQLValueString($this->user->getId(), "int"),    
+            GetSQLValueString($this->user->getId(), "int"),
             GetSQLValueString($this->type, "text"),
-			GetSQLValueString($this->titre, "text"),				 
+			GetSQLValueString($this->titre, "text"),
             GetSQLValueString($this->description, "text"),
             GetSQLValueString($this->total, "double"),
-			GetSQLValueString($this->devise, "text"),				 
+			GetSQLValueString($this->devise, "text"),
+			GetSQLValueString($this->tva_taux, "double"),
+			GetSQLValueString($this->tva_deductible, "int"),
 			GetSQLValueString($this->paid, "int"),
 			GetSQLValueString($this->facture, "int"),
 			GetSQLValueString($this->refunded, "int"),
@@ -256,7 +285,7 @@ class charge
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET id_agence = %s, paid_by = %s, id_user = %s, type = %s, titre = %s, description = %s, total = %s, devise = %s, paid = %s, facture = %s, refunded = %s, date_charge = %s, date_payment = %s, mode_payment = %s, photo = %s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET id_agence = %s, paid_by = %s, id_user = %s, type = %s, titre = %s, description = %s, total = %s, devise = %s, tva_taux = %s, tva_deductible = %s, paid = %s, facture = %s, refunded = %s, date_charge = %s, date_payment = %s, mode_payment = %s, photo = %s, last_edit = %s WHERE id = %s",
             GetSQLValueString($this->agence->getId(), "int"),
             GetSQLValueString($this->paid_by->getId(), "int"),
             GetSQLValueString($this->user->getId(), "int"),
@@ -264,7 +293,9 @@ class charge
             GetSQLValueString($this->titre, "text"),
             GetSQLValueString($this->description, "text"),
             GetSQLValueString($this->total, "double"),
-			GetSQLValueString($this->devise, "text"),				 
+			GetSQLValueString($this->devise, "text"),
+			GetSQLValueString($this->tva_taux, "double"),
+			GetSQLValueString($this->tva_deductible, "int"),
 			GetSQLValueString($this->paid, "int"),
 			GetSQLValueString($this->facture, "int"),
 			GetSQLValueString($this->refunded, "int"),
@@ -318,14 +349,7 @@ class charge
         $SQLselect = sprintf("SELECT A.id as ID, A.*, B.* FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id where B.id = %s",
             GetSQLValueString($agence, "int")
         );
-        
-        if ($from) {
-            $SQLselect .= " AND A.date_charge >= '$from'";
-        }
-        if ($to) {
-            $SQLselect .= " AND A.date_charge <= '$to'";
-        }
-		
+
         if($ordre){
             $SQLselect .= " ORDER BY A.date_charge DESC";
         }
@@ -333,6 +357,20 @@ class charge
         foreach ($result as $data) {
             $charge = static::build($data);
             array_push($items, $charge);
+        }
+        return $items;
+    }
+
+    // Recherche globale (bandeau de recherche du bandeau haut) : titre de charge uniquement -
+    // utilisé par com_search, jamais par le listing standard des charges.
+    public static function search($terme, $agence = false)
+    {
+        global $db;
+        $items = array();
+        $like = GetSQLValueString('%' . $terme . '%', 'text');
+        $SQLselect = "SELECT id AS ID, " . static::$table . ".* FROM " . static::$table . " WHERE 1=1" . ($agence ? " AND id_agence = " . intval($agence) : "") . " AND titre LIKE $like ORDER BY id DESC LIMIT 8";
+        foreach ($db->queryS($SQLselect) as $data) {
+            array_push($items, static::build($data));
         }
         return $items;
     }
@@ -348,6 +386,8 @@ class charge
         $charge->setDescription($data['description']);
         $charge->setTotal($data['total']);
 		$charge->setDevise($data['devise']);
+		$charge->setTvaTaux(isset($data['tva_taux']) ? $data['tva_taux'] : null);
+		$charge->setTvaDeductible(isset($data['tva_deductible']) ? $data['tva_deductible'] : null);
         $charge->setPaid($data['paid']);
 		$charge->setFacture($data['facture']);
 		$charge->setRefunded($data['refunded']);
@@ -382,11 +422,11 @@ class charge
         $SQLcount = "SELECT SUM(A.total) as c FROM " . static::$table . " A inner join " . static::$tableAgence . " B on A.id_agence = B.id WHERE B.id = $agence AND A.paid = 1";
 
         if ($year) {
-            $SQLcount .= " AND YEAR(A.date_payment) = $year";
+            $SQLcount .= " AND YEAR(A.date_payment) = " . intval($year);
         }
 
         if ($month) {
-            $SQLcount .= " AND MONTH(A.date_payment) = $month";
+            $SQLcount .= " AND MONTH(A.date_payment) = " . intval($month);
         }
         $result = $db->query($SQLcount);
         if ($db->num_rows($result) == 1) {
@@ -422,5 +462,137 @@ class charge
             return intval($data["c"]);
         }
         return 0;
+    }
+
+    // Montant de TVA récupérable sur les charges payées et marquées déductibles pour la
+    // période : chaque charge peut avoir un taux différent (7/10/20), donc pas sommable en
+    // un seul SUM SQL — on additionne "total - total/(1+taux/100)" ligne par ligne en PHP.
+    public static function montantTvaDeductible($from, $to, $agence = 1, $devise = 'DH')
+    {
+        global $db;
+        $SQLselect = "SELECT A.total, A.tva_taux FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id
+            WHERE B.id = " . GetSQLValueString($agence, "int") . " AND A.paid = 1 AND A.tva_deductible = 1 AND A.devise = " . GetSQLValueString($devise, "text") . "
+            AND A.tva_taux IS NOT NULL AND A.tva_taux > 0";
+        if ($_SESSION['user']->isSuperUser() == false) {
+            $SQLselect .= " AND A.id_user = " . intval($_SESSION['user']->getId());
+        }
+        if ($from) {
+            $SQLselect .= " AND A.date_payment >= " . GetSQLValueString($from, "date");
+        }
+        if ($to) {
+            $SQLselect .= " AND A.date_payment <= " . GetSQLValueString($to, "date");
+        }
+        $result = $db->queryS($SQLselect);
+        $montant = 0;
+        foreach ($result as $row) {
+            $taux = (float) $row['tva_taux'];
+            $total = (float) $row['total'];
+            $montant += $total - ($total / (1 + $taux / 100));
+        }
+        return $montant;
+    }
+
+    // Détail ligne par ligne des charges prises en compte dans la TVA déductible (mêmes
+    // critères exacts que montantTvaDeductible() ci-dessus), pour l'export comptable Excel.
+    public static function detailTvaDeductible($from, $to, $agence = 1, $devise = 'DH')
+    {
+        global $db;
+        $SQLselect = "SELECT A.id AS ID, A.titre, A.type, A.date_charge, A.date_payment, A.mode_payment, A.total, A.tva_taux, A.photo FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id
+            WHERE B.id = " . GetSQLValueString($agence, "int") . " AND A.paid = 1 AND A.tva_deductible = 1 AND A.devise = " . GetSQLValueString($devise, "text") . "
+            AND A.tva_taux IS NOT NULL AND A.tva_taux > 0";
+        if ($_SESSION['user']->isSuperUser() == false) {
+            $SQLselect .= " AND A.id_user = " . intval($_SESSION['user']->getId());
+        }
+        if ($from) {
+            $SQLselect .= " AND A.date_payment >= " . GetSQLValueString($from, "date");
+        }
+        if ($to) {
+            $SQLselect .= " AND A.date_payment <= " . GetSQLValueString($to, "date");
+        }
+        $SQLselect .= " ORDER BY A.date_payment ASC";
+
+        $result = $db->queryS($SQLselect);
+        $lignes = array();
+        foreach ($result as $row) {
+            $taux = (float) $row['tva_taux'];
+            $total = (float) $row['total'];
+            $montantHT = $total / (1 + $taux / 100);
+            $lignes[] = array(
+                'id' => $row['ID'],
+                'photo' => $row['photo'],
+                'titre' => $row['titre'],
+                'type' => $row['type'],
+                'date_charge' => $row['date_charge'],
+                'date_paiement' => $row['date_payment'],
+                'mode_paiement' => $row['mode_payment'],
+                'taux_tva' => $taux,
+                'montant_ttc' => $total,
+                'montant_ht' => $montantHT,
+                'montant_tva' => $total - $montantHT,
+            );
+        }
+        return $lignes;
+    }
+
+    // Toutes les charges de la période, indépendamment de leur déductibilité TVA (contrairement
+    // à detailTvaDeductible() ci-dessus) — pour l'export comptable "Tous les achats ajoutés",
+    // vue d'ensemble/traçabilité complète pour le comptable. Filtre sur date_charge, comme
+    // facture::findAll() filtre sur date_facture côté ventes.
+    public static function findAllByDate($from = false, $to = false, $agence = 1)
+    {
+        global $db;
+        $SQLselect = "SELECT A.id, A.titre, A.type, A.date_charge, A.date_payment, A.devise, A.total, A.paid, A.tva_taux, A.tva_deductible
+            FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id
+            WHERE B.id = " . GetSQLValueString($agence, "int");
+        if ($_SESSION['user']->isSuperUser() == false) {
+            $SQLselect .= " AND A.id_user = " . intval($_SESSION['user']->getId());
+        }
+        if ($from) {
+            $SQLselect .= " AND A.date_charge >= " . GetSQLValueString($from, "date");
+        }
+        if ($to) {
+            $SQLselect .= " AND A.date_charge <= " . GetSQLValueString($to, "date");
+        }
+        $SQLselect .= " ORDER BY A.date_charge ASC";
+
+        return $db->queryS($SQLselect);
+    }
+
+    // Top N charges (regroupées par titre - une même charge récurrente, ex. "Hébergement
+    // serveur", revient sur plusieurs mois) sur une période, toutes devises converties en
+    // DH-équivalent. Mêmes filtres (paid = 1, date_payment) que getCharge()/total() ci-dessus,
+    // pour que ce classement explique bien le chiffre "Charges" affiché à côté sur la page.
+    public static function topCharges($from = false, $to = false, $agence = 1, $limit = 10)
+    {
+        global $db;
+        $devises = array('DH', '€', '£', '$', 'AED');
+        $totaux = array();
+        foreach ($devises as $devise) {
+            $taux = tauxConversionDH($devise);
+            $SQLselect = "SELECT A.titre, A.type, SUM(A.total) as total
+                FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id
+                WHERE B.id = " . GetSQLValueString($agence, "int") . "
+                AND A.paid = 1
+                AND A.devise = " . GetSQLValueString($devise, "text");
+            if ($from) {
+                $SQLselect .= " AND A.date_payment >= " . GetSQLValueString($from, "date");
+            }
+            if ($to) {
+                $SQLselect .= " AND A.date_payment <= " . GetSQLValueString($to, "date");
+            }
+            $SQLselect .= " GROUP BY A.titre";
+            $result = $db->queryS($SQLselect);
+            foreach ($result as $row) {
+                $cle = mb_strtolower(trim($row['titre']));
+                if (!isset($totaux[$cle])) {
+                    $totaux[$cle] = array('titre' => $row['titre'], 'type' => $row['type'], 'total' => 0);
+                }
+                $totaux[$cle]['total'] += floatval($row['total']) * $taux;
+            }
+        }
+        uasort($totaux, function ($a, $b) {
+            return $b['total'] <=> $a['total'];
+        });
+        return array_slice(array_values($totaux), 0, $limit);
     }
 }

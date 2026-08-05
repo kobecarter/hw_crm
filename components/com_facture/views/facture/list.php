@@ -34,6 +34,16 @@
 			</div>
 		</div>
 
+		<div class="card">
+			<div class="nav nav-tabs pill-tabs" role="tablist">
+				<a class="nav-link" href="index.php?option=com_facture&task=client" role="tab">Clients <span class="badge badge-pill ml-1"><?php echo sizeof($clients); ?></span></a>
+				<a class="nav-link" href="index.php?option=com_facture&task=devis" role="tab">Devis <span class="badge badge-pill ml-1"><?php echo sizeof($deviss); ?></span></a>
+				<a class="nav-link" href="index.php?option=com_facture&task=contract" role="tab">Contrats <span class="badge badge-pill ml-1"><?php echo sizeof($contracts); ?></span></a>
+				<a class="nav-link active" href="index.php?option=com_facture&task=facture" role="tab">Factures <span class="badge badge-pill ml-1"><?php echo sizeof($allFactures); ?></span></a>
+				<a class="nav-link" href="index.php?option=com_facture&task=paiement" role="tab">Paiements <span class="badge badge-pill ml-1"><?php echo sizeof($payments); ?></span></a>
+			</div>
+		</div>
+
 		<!-- Search Filter -->
 		<div id="filter_inputs" class="card filter-card">
 			<div class="card-body pb-0">

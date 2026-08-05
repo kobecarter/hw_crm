@@ -64,8 +64,13 @@ function deleteBilan($data)
     $indices = array("id");
     if (fieldCheck($data, $indices))
     {
-        $bilan = new bilan();
-        $bilan->setId($data['id']);
+        // find($id, $agence) plutôt que new+setId() : sans ça, un id valide d'une autre agence se
+        // faisait supprimer sans aucune vérification d'appartenance (IDOR).
+        $bilan = bilan::find($data['id'], $_SESSION['agence']);
+        if ($bilan->getId() == 0) {
+            echo "2";
+            return;
+        }
         if ($bilan->delete() == 1) {
             echo "1";
         } else {

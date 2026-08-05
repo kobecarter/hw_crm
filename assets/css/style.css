@@ -4449,3 +4449,75 @@ div.table-responsive > div.dataTables_wrapper > div.row:first-child{
 		display: none;
 	}
 }
+
+.ia-dropzone {
+	border: 2px dashed #ccc;
+	border-radius: 8px;
+	padding: 20px;
+	text-align: center;
+	cursor: pointer;
+	background-color: #fafafa;
+	transition: all 0.2s ease-in-out;
+	margin-bottom: 15px;
+}
+.ia-dropzone:hover,
+.ia-dropzone.ia-dropzone-active {
+	border-color: #2c7be5;
+	background-color: #eef4fd;
+}
+.ia-dropzone.ia-dropzone-loading {
+	opacity: 0.6;
+	pointer-events: none;
+}
+.ia-dropzone .ia-dropzone-text {
+	color: #6c757d;
+	font-size: 14px;
+}
+.ia-dropzone .ia-dropzone-text i.fa-file-pdf {
+	font-size: 22px;
+	color: #d9534f;
+	display: block;
+	margin-bottom: 8px;
+}
+
+/* zones de résultat de l'assistant IA (description proposée, pages détectées) :
+   ces blocs sont insérés à l'intérieur de lignes de tableau étroites (devis/facture),
+   ils ont donc besoin de leur propre largeur/scroll pour rester lisibles */
+.ask-ai-item-chat-row td,
+.ia-review-ai-row td {
+	background-color: #fafbfc;
+	padding: 15px !important;
+}
+.ask-ai-item-result,
+.ia-review-ai-result {
+	max-width: 100%;
+	overflow-x: auto;
+}
+.ask-ai-item-result table,
+.ia-review-ai-result table {
+	width: 100%;
+	min-width: 500px;
+	table-layout: auto;
+	background-color: #fff;
+	margin-top: 8px;
+}
+.ask-ai-item-result table td,
+.ia-review-ai-result table td {
+	vertical-align: middle;
+	white-space: normal;
+	word-break: break-word;
+}
+.ask-ai-item-result table input[type="text"],
+.ia-review-ai-result table input[type="text"] {
+	min-width: 160px;
+}
+
+/* les fenêtres de validation IA (client, service, révision devis/facture) peuvent devenir
+   plus hautes que l'écran une fois remplies : le corps doit défiler à l'intérieur de la
+   fenêtre plutôt que de dépasser hors de l'écran */
+#dialog-ia-review .modal-body,
+.client-modal .modal-body,
+.service-modal .modal-body {
+	max-height: 70vh;
+	overflow-y: auto;
+}

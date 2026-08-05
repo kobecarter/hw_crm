@@ -225,7 +225,7 @@ class realisation
         $SQLcount = "SELECT count(id) as c FROM " . static::$table;
 
         if ($year) {
-            $SQLcount .= " WHERE YEAR(date_add) = $year";
+            $SQLcount .= " WHERE YEAR(date_add) = " . intval($year);
         }
 
         $result = $db->query($SQLcount);
