@@ -48,8 +48,6 @@ switch ($task)
                     $kpiCategoriesRepresentees[$s->getCategorie()->getId()] = true;
                 }
             }
-            $kpiCaDevis = service::caGenereeDevis(12);
-
             include_once("components/com_service/views/service/list.php");
         }
         break;

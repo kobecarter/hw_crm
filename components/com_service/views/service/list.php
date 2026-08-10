@@ -25,8 +25,8 @@
 		</div>
 
 		<!-- KPIs -->
-		<div class="row">
-			<div class="col-xl-3 col-sm-6 col-12 d-flex">
+		<div class="row mb-4">
+			<div class="col-xl-4 col-sm-6 col-12 d-flex">
 				<div class="card flex-fill mb-0">
 					<div class="card-body">
 						<div class="dash-widget-header">
@@ -39,7 +39,7 @@
 					</div>
 				</div>
 			</div>
-			<div class="col-xl-3 col-sm-6 col-12 d-flex">
+			<div class="col-xl-4 col-sm-6 col-12 d-flex">
 				<div class="card flex-fill mb-0">
 					<div class="card-body">
 						<div class="dash-widget-header">
@@ -52,7 +52,7 @@
 					</div>
 				</div>
 			</div>
-			<div class="col-xl-3 col-sm-6 col-12 d-flex">
+			<div class="col-xl-4 col-sm-6 col-12 d-flex">
 				<div class="card flex-fill mb-0">
 					<div class="card-body">
 						<div class="dash-widget-header">
@@ -60,19 +60,6 @@
 							<div class="dash-count">
 								<div class="dash-title">Catégories représentées</div>
 								<div class="dash-counts"><p><?= count($kpiCategoriesRepresentees) ?> / <?= count($categoriesService) ?></p></div>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-			<div class="col-xl-3 col-sm-6 col-12 d-flex">
-				<div class="card flex-fill mb-0">
-					<div class="card-body">
-						<div class="dash-widget-header">
-							<span class="dash-widget-icon bg-9"><i class="fa fa-file-invoice-dollar"></i></span>
-							<div class="dash-count">
-								<div class="dash-title">CA en devis (12 derniers mois)</div>
-								<div class="dash-counts"><p><?= number_format($kpiCaDevis, 0, ',', ' ') ?> MAD</p></div>
 							</div>
 						</div>
 					</div>

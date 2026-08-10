@@ -452,6 +452,7 @@ class payment
 <table>
 <tr><td style="font-size:8pt;">N° ' . $typePayment . '</td></tr>
 <tr><td style="border-top:#e3d3aa solid 0.5pt;"><strong style="font-size: 12pt;">' . $payment->getFacture()->getNumero() .'-'.$indexPayment. '</strong></td></tr>
+<tr><td>' . ($payment->getRegImg() != '' ? '<strong style="color:#2e7d32;">' . mb_strtoupper($traduction['PAYE'][$payment->getFacture()->getLangue()]) . '</strong>' : '<strong style="color:#c62828;">' . mb_strtoupper($traduction['NON_PAYE'][$payment->getFacture()->getLangue()]) . '</strong>') . '</td></tr>
 </table>
 </td>
 </tr></table>

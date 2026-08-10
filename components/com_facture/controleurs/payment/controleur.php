@@ -400,7 +400,7 @@ function paymentForm($data)
                             <?php else: ?>
                                 <a href="<?php echo $photoLink;?>"data-fancybox><img id="avatarImg" class="avatar-img" src="<?php echo $photoLink; ?>" alt="Profile Image"></a>
 							<?php endif; ?>
-                            <input type="file" name="photo[]" id="edit_img" <?php if(!isset($payment) || (isset($payment) && $payment->getRegImg() == '')) echo 'required'; ?>>
+                            <input type="file" name="photo[]" id="edit_img">
 							
                             <span class="avatar-edit" style="bottom:0;color:green;">
 								<i data-feather="edit-2" class="fa fa-upload shadow-soft"></i>
