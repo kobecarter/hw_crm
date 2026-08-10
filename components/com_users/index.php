@@ -26,6 +26,16 @@ switch ($task)
             }
         }
         break;
+    case 'myProfile' :
+        // Auto-édition : accessible à tout utilisateur connecté (pas de hasDroit('edit','com_users'),
+        // droit réservé aux admins qui gèrent tout le monde) mais limitée à SON PROPRE compte -
+        // aucun paramètre id ici, volontairement, pour qu'on ne puisse jamais viser un autre id.
+        $user = $_SESSION['user'];
+        $action = "components/com_users/controleurs/router.php?task=editMyProfile";
+        $submitName = "editMyProfile";
+        $submitValue = "Enregistrer";
+        include_once("components/com_users/views/user/myProfile.php");
+        break;
     case 'editPass' :
         if ($_SESSION['user']->hasDroit('editPass', 'com_users')) {
             if (isset($_GET['id']) && !empty($_GET['id'])) {

@@ -16,6 +16,7 @@ class user {
     private $pass;
     private $actif;
     private $su;
+    private $taux_commission = 0;
     private $langue;
 	private $date_add;
 	private $last_edit;
@@ -120,6 +121,10 @@ class user {
         return $this->last_edit;
     }
 
+	public function getTauxCommission(){
+        return $this->taux_commission;
+    }
+
     public function isConnected(){
         return $this->connected;
     }
@@ -193,6 +198,10 @@ class user {
 	public function setLastEdit($last_edit){
         $this->last_edit = $last_edit;
     }
+
+	public function setTauxCommission($taux_commission){
+        $this->taux_commission = $taux_commission;
+    }
 	
 	
 	
@@ -214,7 +223,7 @@ class user {
 	public function add()
     {
         global $db;
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (login, password, prenom, nom, email, tel, adresse, langue, photo, su, id_profil, actif, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (login, password, prenom, nom, email, tel, adresse, langue, photo, su, id_profil, actif, taux_commission, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->login, "text"),
             GetSQLValueString($this->pass, "text"),
             GetSQLValueString($this->prenom, "text"),
@@ -227,7 +236,8 @@ class user {
             GetSQLValueString($this->su, "int"),
 			GetSQLValueString($this->profil->getId(), "int"),
             GetSQLValueString($this->actif, "int"),
-            GetSQLValueString($this->date_add, "date"),				 
+            GetSQLValueString($this->taux_commission, "double"),
+            GetSQLValueString($this->date_add, "date"),
             GetSQLValueString($this->last_edit, "date")
         );
 		if (!$db->query($SQLinsert)) {
@@ -240,7 +250,7 @@ class user {
 	public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  login = %s, password = %s, prenom = %s, nom = %s, email = %s, tel = %s, adresse = %s, langue = %s, photo = %s, su = %s, id_profil = %s, actif = %s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  login = %s, password = %s, prenom = %s, nom = %s, email = %s, tel = %s, adresse = %s, langue = %s, photo = %s, su = %s, id_profil = %s, actif = %s, taux_commission = %s, last_edit = %s WHERE id = %s",
             GetSQLValueString($this->login, "text"),
             GetSQLValueString($this->pass, "text"),
 			GetSQLValueString($this->prenom, "text"),
@@ -249,10 +259,11 @@ class user {
 			GetSQLValueString($this->tel, "text"),
 			GetSQLValueString($this->adresse, "text"),
 			GetSQLValueString($this->langue, "text"),
-			GetSQLValueString($this->photo, "text"),				 
+			GetSQLValueString($this->photo, "text"),
 			GetSQLValueString($this->su, "int"),
 			GetSQLValueString($this->profil->getId(), "int"),
 			GetSQLValueString($this->actif, "text"),
+            GetSQLValueString($this->taux_commission, "double"),
             GetSQLValueString($this->last_edit, "date"),
             GetSQLValueString($this->id, "int")
         );
@@ -440,6 +451,7 @@ class user {
 		$user->setSU($data['su']);
 		$user->setProfil(profil::find($data['id_profil']));
 		$user->setActif($data['actif']);
+		$user->setTauxCommission(isset($data['taux_commission']) ? $data['taux_commission'] : 0);
 		$user->setDateAdd($data['date_add']);
 		$user->setLastEdit($data['last_edit']);
         return $user;

@@ -28,6 +28,12 @@
     			</select>
     		</div>
     	</div>
+		<div class="row form-group">
+			<label for="taux_commission" class="col-sm-3 col-form-label input-label">Taux de commission (%) <span class="text-muted">(profil Commercial)</span></label>
+			<div class="col-sm-9">
+				<input type="number" step="0.01" min="0" max="100" class="form-control" name="taux_commission" placeholder="0.00" value="<?php if(isset($user)) echo $user->getTauxCommission(); ?>">
+			</div>
+		</div>
 	<?php endif;?>
 	<div class="row form-group">
 		<label for="nom" class="col-sm-3 col-form-label input-label">Nom</label>

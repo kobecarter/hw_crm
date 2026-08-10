@@ -19,6 +19,13 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
                 include_once ("user/controleur.php");
             }
             break;
+        case 'editMyProfile' :
+            // Auto-édition : pas de hasDroit('edit','com_users') ici, volontairement - ce droit est
+            // réservé aux admins qui gèrent tout le monde. Tout utilisateur connecté peut modifier
+            // SON PROPRE compte ; editMyProfile() vérifie déjà en interne que l'id soumis correspond
+            // bien à $_SESSION['user']->getId() avant toute écriture.
+            include_once ("user/controleur.php");
+            break;
         case 'editPassword' :
             if ($_SESSION['user']->hasDroit('editPass', 'com_users')) {
                 include_once ("user/controleur.php");

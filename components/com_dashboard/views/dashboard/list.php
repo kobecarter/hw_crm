@@ -54,7 +54,7 @@
 						</div>
 					</div>
 				<?php endif; ?>
-				<div class="<?= $_SESSION['user']->isSuperUser() != false ? 'col-xl-3' : 'col-xl-4' ?> col-sm-6 col-12">
+				<div class="<?= ($_SESSION['user']->isSuperUser() != false || $isCommercial) ? 'col-xl-3' : 'col-xl-4' ?> col-sm-6 col-12">
 					<div class="card">
 						<div class="card-body">
 							<div class="dash-widget-header">
@@ -81,7 +81,7 @@
 						</div>
 					</div>
 				</div>
-				<div class="<?= $_SESSION['user']->isSuperUser() != false ? 'col-xl-3' : 'col-xl-4' ?> col-sm-6 col-12">
+				<div class="<?= ($_SESSION['user']->isSuperUser() != false || $isCommercial) ? 'col-xl-3' : 'col-xl-4' ?> col-sm-6 col-12">
 					<div class="card">
 						<div class="card-body">
 							<div class="dash-widget-header">
@@ -110,6 +110,7 @@
 						</div>
 					</div>
 				</div>
+				<?php if (!$isCommercial) : ?>
 				<div class="<?= $_SESSION['user']->isSuperUser() != false ? 'col-xl-3' : 'col-xl-4' ?> col-sm-6 col-12">
 					<div class="card">
 						<div class="card-body">
@@ -137,6 +138,58 @@
 						</div>
 					</div>
 				</div>
+				<?php else : ?>
+				<div class="col-xl-3 col-sm-6 col-12">
+					<div class="card">
+						<div class="card-body">
+							<div class="dash-widget-header">
+								<span class="dash-widget-icon bg-5" data-toggle="tooltip" title="Total encaissé sur vos factures (tous statuts d'archivage exclus) sur l'année sélectionnée, converti en Dh.">
+									<i class="fas fa-money-bill-wave"></i>
+								</span>
+								<div class="dash-count">
+									<div class="dash-title" data-toggle="tooltip" title="Total encaissé sur vos factures, converti en Dh.">Chiffre d'affaire</div>
+									<div class="dash-counts money-sensitive">
+										<p><?php echo number_format($commercialStats['total_dh'], 2, ',', ' '); ?> Dh</p>
+									</div>
+								</div>
+							</div>
+							<div class="progress progress-sm mt-3">
+								<div class="progress-bar bg-5" role="progressbar" style="width: 65%" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
+							</div>
+							<p class="text-muted mt-3 mb-0 money-sensitive">
+								<span class="text-success mr-1"><i class="fas fa-money-bill-alt mr-1"></i><?php echo number_format($commercialStats['par_devise']['DH'], 2, ',', ' '); ?> Dh</span><br>
+								<span class="text-success mr-1"><i class="fas fa-money-bill-alt mr-1"></i><?php echo number_format($commercialStats['par_devise']['€'], 2, ',', ' '); ?> €</span><br>
+								<span class="text-success mr-1"><i class="fas fa-money-bill-alt mr-1"></i><?php echo number_format($commercialStats['par_devise']['£'], 2, ',', ' '); ?> £</span><br>
+								<span class="text-success mr-1"><i class="fas fa-money-bill-alt mr-1"></i><?php echo number_format($commercialStats['par_devise']['$'], 2, ',', ' '); ?> $</span><br>
+								<span class="text-success mr-1"><i class="fas fa-money-bill-alt mr-1"></i><?php echo number_format($commercialStats['par_devise']['AED'], 2, ',', ' '); ?> AED</span>
+							</p>
+						</div>
+					</div>
+				</div>
+				<div class="col-xl-3 col-sm-6 col-12">
+					<div class="card">
+						<div class="card-body">
+							<div class="dash-widget-header">
+								<span class="dash-widget-icon bg-9" data-toggle="tooltip" title="Votre commission : taux de commission x chiffre d'affaire encaissé de l'année sélectionnée.">
+									<i class="fas fa-percentage"></i>
+								</span>
+								<div class="dash-count">
+									<div class="dash-title" data-toggle="tooltip" title="Taux de commission x chiffre d'affaire encaissé.">Commission</div>
+									<div class="dash-counts money-sensitive">
+										<p><?php echo number_format($commercialStats['commission_dh'], 2, ',', ' '); ?> Dh</p>
+									</div>
+								</div>
+							</div>
+							<div class="progress progress-sm mt-3">
+								<div class="progress-bar bg-9" role="progressbar" style="width: 65%" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
+							</div>
+							<p class="text-muted mt-3 mb-0">
+								Taux : <?php echo number_format($commercialStats['taux_commission'], 2, ',', ' '); ?> %
+							</p>
+						</div>
+					</div>
+				</div>
+				<?php endif; ?>
 			</div>
 			<?php if ($_SESSION['user']->isSuperUser() != false) : ?>
 				<div class="row">
