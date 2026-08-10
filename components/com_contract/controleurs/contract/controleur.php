@@ -1173,6 +1173,7 @@ function buildContract($data, $id = null)
     $contract->setGarantie($data['garantie']);
     $contract->setVille($data['ville']);
     $contract->setDate(dateBD($data['date']));
+    $contract->setDateFin(isset($data['date_fin']) ? dateBD($data['date_fin']) : null);
     $contract->setTribunal($data['tribunal']);
     $contract->setNombreDePaiement($data['nombre_de_paiement']);
 	$contract->setTexte($data['texte']);

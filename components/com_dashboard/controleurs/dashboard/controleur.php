@@ -135,7 +135,7 @@
                             </span>
                             <div class="dash-count">
                                 <div class="dash-title">Créances</div>
-                                <div class="dash-counts">
+                                <div class="dash-counts money-sensitive">
                                     <p><?php echo number_format($creances, 2, ',', ' '); ?></p>
                                 </div>
                             </div>
@@ -143,7 +143,7 @@
                         <div class="progress progress-sm mt-3">
                             <div class="progress-bar bg-5" role="progressbar" style="width: 75%" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
-                        <p class="text-muted mt-3 mb-0">
+                        <p class="text-muted mt-3 mb-0 money-sensitive">
                             <span class="text-danger mr-1"><i class="fas fa-arrow-down mr-1"></i><?php echo number_format($creancesYear, 2, ',', ' '); ?> Dh</span> année <?php echo $year; ?><br>
                             <span class="text-danger mr-1"><i class="fas fa-arrow-down mr-1"></i><?php echo number_format($creancesYearEuro, 2, ',', ' '); ?> €</span> année <?php echo $year; ?><br>
                             <span class="text-danger mr-1"><i class="fas fa-arrow-down mr-1"></i><?php echo number_format($creancesYearPound, 2, ',', ' '); ?> £</span> année <?php echo $year; ?><br>
@@ -162,7 +162,7 @@
                             </a>
                             <div class="dash-count">
                                 <div class="dash-title">Clients</div>
-                                <div class="dash-counts">
+                                <div class="dash-counts money-sensitive">
                                     <p><?php echo number_format($clientNumber, 0, '', ','); ?></p>
                                 </div>
                             </div>
@@ -187,7 +187,7 @@
                             </a>
                             <div class="dash-count">
                                 <div class="dash-title">Factures</div>
-                                <div class="dash-counts">
+                                <div class="dash-counts money-sensitive">
                                     <p><?php echo number_format($factureNumber, 0, '', ','); ?></p>
                                 </div>
                             </div>
@@ -195,7 +195,7 @@
                         <div class="progress progress-sm mt-3">
                             <div class="progress-bar bg-7" role="progressbar" style="width: 85%" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
-                        <p class="text-muted mt-3 mb-0">
+                        <p class="text-muted mt-3 mb-0 money-sensitive">
                             <span class="text-success mr-1"><i class="fas fa-money-bill-alt mr-1"></i><?php echo number_format($factureTotal, 2, ',', ' '); ?> Dh</span> année <?php echo $year; ?><br>
                             <span class="text-success mr-1"><i class="fas fa-money-bill-alt mr-1"></i><?php echo number_format($factureTotalEur, 2, ',', ' '); ?> €</span> année <?php echo $year; ?><br>
                             <span class="text-success mr-1"><i class="fas fa-money-bill-alt mr-1"></i><?php echo number_format($factureTotalPound, 2, ',', ' '); ?> £</span> année <?php echo $year; ?><br>
@@ -214,7 +214,7 @@
                             </a>
                             <div class="dash-count">
                                 <div class="dash-title">Devis</div>
-                                <div class="dash-counts">
+                                <div class="dash-counts money-sensitive">
                                     <p><?php echo number_format($devisNumber, 0, '', ','); ?></p>
                                 </div>
                             </div>

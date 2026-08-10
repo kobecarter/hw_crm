@@ -374,6 +374,50 @@ class devis
         return $devis;
     }
     
+    // Lookup utilisée par le webhook Slack (aucune session utilisateur active) :
+    // détermine d'abord l'agence réelle du devis en base, puis initialise
+    // $_SESSION['agence'] avant d'appeler find(), car build() résout le client
+    // via client::find($id, $_SESSION['agence']) qui exige une correspondance exacte.
+    public static function findByNumero($numero)
+    {
+        global $db;
+        $devis = new devis();
+        $SQLselect = sprintf(
+            "SELECT A.id as ID, B.id_agence FROM " . static::$table . " A INNER JOIN " . static::$table5 . " B ON B.id = A.id_client WHERE A.numero = %s",
+            GetSQLValueString($numero, "text")
+        );
+        $result = $db->query($SQLselect);
+        if ($db->num_rows($result) == 1) {
+            $row = $db->fetch_assoc($result);
+            $_SESSION['agence'] = $row['id_agence'];
+            if (!isset($_SESSION['langue']) || empty($_SESSION['langue'])) {
+                $_SESSION['langue'] = $row['id_agence'] == 2 ? 'en' : 'fr';
+            }
+            // client::find() déréférence $_SESSION['user']->isSuperUser() sans garde :
+            // il faut un "utilisateur système" en session avant d'appeler find() ci-dessous.
+            if (!isset($_SESSION['user']) || !($_SESSION['user'] instanceof user)) {
+                $_SESSION['user'] = user::find(defined('SLACK_BOT_ACTING_USER_ID') ? SLACK_BOT_ACTING_USER_ID : 5);
+            }
+            $devis = static::find($row['ID']);
+        }
+        return $devis;
+    }
+
+    // Convertit une description CKEditor (HTML) en texte lisible sur Trello : les <li>/<br>/<p>
+    // deviennent des retours à la ligne (les balises sont sinon simplement concaténées bout à bout).
+    public static function descriptionToPlainText($html)
+    {
+        if ($html === null || $html === '') {
+            return '';
+        }
+        $text = preg_replace('/<br\s*\/?>/i', "\n", $html);
+        $text = preg_replace('/<li[^>]*>/i', "- ", $text);
+        $text = preg_replace('/<\/(li|p|div|h1|h2|h3|h4|h5|h6|tr)>/i', "\n", $text);
+        $text = strip_tags($text);
+        $text = html_entity_decode($text, ENT_QUOTES, 'UTF-8');
+        return $text;
+    }
+
     public static function findLastQuote($agence = 1)
         {
             global $db;
@@ -402,7 +446,7 @@ class devis
         $SQLselect = "SELECT A.id as ID,A.* FROM " . static::$table . " A INNER JOIN " . static::$table5 . " B ON B.id = A.id_client INNER JOIN " . static::$table4 . " C ON C.id =B.id_agence where C.id = $agence";
 
         if ($statu) {
-            $SQLselect .= " AND A.statu = $statu";
+            $SQLselect .= " AND A.statu = " . intval($statu);
         }
         if($_SESSION['user']->isSuperUser() == false){
             $SQLselect .= " AND (A.id_user_added = ".$_SESSION['user']->getId()." )";
@@ -420,16 +464,32 @@ class devis
         }
         return $items;
     }
+
+    // Recherche globale (bandeau de recherche du bandeau haut) : numéro de devis uniquement -
+    // utilisé par com_search, jamais par le listing standard des devis.
+    public static function search($terme, $agence = false)
+    {
+        global $db;
+        $items = array();
+        $like = GetSQLValueString('%' . $terme . '%', 'text');
+        $SQLselect = "SELECT A.id as ID, A.* FROM " . static::$table . " A INNER JOIN " . static::$table5 . " B ON B.id = A.id_client INNER JOIN " . static::$table4 . " C ON C.id = B.id_agence"
+            . " WHERE 1=1" . ($agence ? " AND C.id = " . intval($agence) : "") . " AND A.numero LIKE $like ORDER BY A.id DESC LIMIT 8";
+        foreach ($db->queryS($SQLselect) as $data) {
+            array_push($items, static::build($data));
+        }
+        return $items;
+    }
+
     public static function ofClient($clientID = 0, $statu = false, $ordre = false, $limit = false)
     {
         global $db;
         $items = array();
         $SQLselect = "SELECT * FROM " . static::$table . " WHERE 1 = 1";
         if ($clientID) {
-            $SQLselect .= " AND id_client = $clientID";
+            $SQLselect .= " AND id_client = " . intval($clientID);
         }
         if ($statu) {
-            $SQLselect .= " AND statu = $statu";
+            $SQLselect .= " AND statu = " . intval($statu);
         }
         if ($ordre) {
             $SQLselect .= " ORDER BY date_devis DESC";
@@ -526,7 +586,7 @@ class devis
         $devis->setUserEdited(isset($data['id_user_edited']) ? user::find($data['id_user_edited']) : new user());
         $devis->setBank(isset($data['id_bank']) ? bank::find($data['id_bank']) : new bank());
         $devis->setNumero($data['numero']);
-        $devis->setClient(isset($data['id_client']) ? client::find($data['id_client'],$_SESSION['agence']) : new client());
+        $devis->setClient(isset($data['id_client']) ? client::findAny($data['id_client']) : new client());
         $devis->setDateDevis($data['date_devis']);
         $devis->setTotal($data['total']);
         $devis->setStatu($data['statu']);
@@ -562,10 +622,10 @@ class devis
             if ($statu == 2)
                 $SQLcount .= " AND A.statu = 0";
             else
-                $SQLcount .= " AND A.statu = $statu";
+                $SQLcount .= " AND A.statu = " . intval($statu);
         }
         if ($year) {
-            $SQLcount .= " AND YEAR(date_devis) = $year";
+            $SQLcount .= " AND YEAR(date_devis) = " . intval($year);
         }
         $result = $db->query($SQLcount);
         if ($db->num_rows($result) == 1) {
@@ -1044,10 +1104,10 @@ function sendViaMailDevis($file_name = ""){
             $items = array();
             $SQLselect = "SELECT A.id as ID,A.*,B.* FROM " . static::$table . " A INNER JOIN " . static::$table5 . " B ON B.id = A.id_client INNER JOIN " . static::$table4 . " C ON C.id =B.id_agence";
             if ($clientID) {
-                $SQLselect .= " AND A.id_client = $clientID";
+                $SQLselect .= " AND A.id_client = " . intval($clientID);
             }
             if ($statu) {
-                $SQLselect .= " AND A.statu = $statu";
+                $SQLselect .= " AND A.statu = " . intval($statu);
             }
             if ($ordre) {
                 $SQLselect .= " ORDER BY A.date_devis DESC";

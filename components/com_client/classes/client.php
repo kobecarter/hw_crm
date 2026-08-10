@@ -10,9 +10,13 @@ class client
     private $id;
     private $agence;
     private $source;
+    private $site_web;
+    private $ia_recap;
+    private $ia_recap_date;
     private $user_added;
     private $user_edited;
     private $active;
+    private $archived;
     private $titre;
 	private $prenom;
     private $nom;
@@ -55,7 +59,22 @@ class client
     {
         return $this->source;
     }
-    
+
+    public function getSiteWeb()
+    {
+        return $this->site_web;
+    }
+
+    public function getIaRecap()
+    {
+        return $this->ia_recap;
+    }
+
+    public function getIaRecapDate()
+    {
+        return $this->ia_recap_date;
+    }
+
     public function getUserAdded()
     {
         return $this->user_added;
@@ -74,6 +93,16 @@ class client
     public function getActive()
     {
         return $this->active;
+    }
+
+    public function isArchived()
+    {
+        return $this->archived ? 1 : 0;
+    }
+
+    public function getArchived()
+    {
+        return $this->archived;
     }
 
     public function getTitre()
@@ -200,7 +229,22 @@ class client
     {
         $this->source = $source;
     }
-    
+
+    public function setSiteWeb($site_web)
+    {
+        $this->site_web = $site_web;
+    }
+
+    public function setIaRecap($ia_recap)
+    {
+        $this->ia_recap = $ia_recap;
+    }
+
+    public function setIaRecapDate($ia_recap_date)
+    {
+        $this->ia_recap_date = $ia_recap_date;
+    }
+
     public function setUserAdded($user_added)
     {
         $this->user_added = $user_added;
@@ -214,6 +258,11 @@ class client
     public function setActive($active)
     {
         $this->active = $active;
+    }
+
+    public function setArchived($archived)
+    {
+        $this->archived = $archived;
     }
 
     public function setTitre($titre)
@@ -329,11 +378,13 @@ class client
     public function add()
     {
         global $db;
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence,id_user_added, active, source, titre, prenom, nom, raison_social, fonction, ice, rc, tel, tel2, tel3, email, password, cp, adresse, adresse2, ville, region, pays, photo, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence,id_user_added, active, archived, source, site_web, titre, prenom, nom, raison_social, fonction, ice, rc, tel, tel2, tel3, email, password, cp, adresse, adresse2, ville, region, pays, photo, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->agence->getId(), "int"),
             GetSQLValueString($this->user_added->getId(), "int"),
             GetSQLValueString($this->active, "int"),
+            GetSQLValueString($this->archived, "int"),
             GetSQLValueString($this->source, "text"),
+            GetSQLValueString($this->site_web, "text"),
             GetSQLValueString($this->titre, "text"),
 			GetSQLValueString($this->prenom, "text"),
             GetSQLValueString($this->nom, "text"),
@@ -366,11 +417,13 @@ class client
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  id_agence = %s, id_user_edited = %s,  active = %s, source = %s, titre = %s, prenom = %s, nom = %s, raison_social = %s, fonction = %s, ice = %s, rc = %s, tel = %s, tel2 = %s, tel3 = %s, email = %s, password = %s, cp = %s, adresse = %s, adresse2 = %s, ville = %s, region = %s, pays =%s, photo =%s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  id_agence = %s, id_user_edited = %s,  active = %s, archived = %s, source = %s, site_web = %s, titre = %s, prenom = %s, nom = %s, raison_social = %s, fonction = %s, ice = %s, rc = %s, tel = %s, tel2 = %s, tel3 = %s, email = %s, password = %s, cp = %s, adresse = %s, adresse2 = %s, ville = %s, region = %s, pays =%s, photo =%s, last_edit = %s WHERE id = %s",
             GetSQLValueString($this->agence->getId(), "int"),
             GetSQLValueString($this->user_edited->getId(), "int"),
             GetSQLValueString($this->active, "int"),
+            GetSQLValueString($this->archived, "int"),
             GetSQLValueString($this->source, "text"),
+            GetSQLValueString($this->site_web, "text"),
             GetSQLValueString($this->titre, "text"),
 			GetSQLValueString($this->prenom, "text"),				 
             GetSQLValueString($this->nom, "text"),
@@ -450,6 +503,34 @@ class client
         }
         return $client;
     }
+
+    // Chargement sans filtre d'agence ni dépendance à $_SESSION['user']. Deux usages légitimes :
+    // 1) accès temporaire "Réseaux sociaux" via jeton+code (components/com_client/classes/
+    //    clientsocialtoken.php et clientsocial.php) - ce parcours n'a jamais de session CRM
+    //    classique, donc find() ci-dessus ferait une erreur fatale (isSuperUser() sur null).
+    // 2) résolution du client à l'intérieur de devis::build()/facture::build() : le devis/la
+    //    facture est déjà chargé(e) par son propre id (leur find() ne filtre déjà plus par agence,
+    //    voir le commentaire dans devis::find()), donc filtrer le client par $_SESSION['agence']
+    //    à ce stade n'ajoute aucune sécurité réelle - ça ne fait que renvoyer un client vide (sans
+    //    email/téléphone/nom) dès que l'agence sélectionnée dans l'UI diffère de celle du client,
+    //    ce qui cassait silencieusement l'envoi d'email et l'affichage sur la fiche devis/facture.
+    // Ne PAS utiliser ailleurs dans l'app en dehors de ces deux cas - find() reste la référence
+    // pour tout listing/recherche qui doit rester filtré par agence.
+    public static function findAny($id)
+    {
+        global $db;
+        $client = new client();
+        $SQLselect = sprintf(
+            "SELECT A.id as ID, A.* FROM " . static::$table . " A WHERE A.id = %s",
+            GetSQLValueString($id, "int")
+        );
+        $result = $db->query($SQLselect);
+        if ($db->num_rows($result) == 1) {
+            $data = $db->fetch_assoc($result);
+            $client = static::build($data);
+        }
+        return $client;
+    }
     
     public static function findById($id)
     {
@@ -484,7 +565,7 @@ class client
         return $client;
     }
 
-    public static function findAll($active = false, $year = false,$agence = 1)
+    public static function findAll($active = false, $year = false,$agence = 1, $archived = false)
     {
         global $db;
         $items = array();
@@ -493,6 +574,11 @@ class client
         );
         if($active){
             $SQLselect .= " AND A.active = 1";
+        }
+        if ($archived) {
+            $SQLselect .= " AND A.archived = 1";
+        } else {
+            $SQLselect .= " AND (A.archived = 0 OR A.archived IS NULL)";
         }
         if($_SESSION['user']->isSuperUser() == false){
             $SQLselect .= " AND (A.id_user_added = ".$_SESSION['user']->getId()." )";
@@ -504,6 +590,55 @@ class client
             array_push($items, $client);
         }
         return $items;
+    }
+
+    // Recherche globale (bandeau de recherche du bandeau haut) : nom, prénom, raison sociale,
+    // email, téléphone, ICE ou RC - utilisé par com_search, jamais par le listing standard des
+    // clients. Inclure ICE/RC/tel2/tel3 permet à une saisie purement numérique de retomber
+    // naturellement sur le bon client sans logique de détection de format séparée.
+    // $agence = false : pas de filtre d'agence du tout (recherche globale "autres agences" du
+    // bandeau haut, com_search/controleurs/search/controleur.php - déclenchée seulement après un
+    // premier essai sans résultat dans l'agence en cours, jamais par défaut).
+    public static function search($terme, $agence = false)
+    {
+        global $db;
+        $items = array();
+        $like = GetSQLValueString('%' . $terme . '%', 'text');
+        $SQLselect = "SELECT id AS ID, " . static::$table . ".* FROM " . static::$table . " WHERE 1=1"
+            . ($agence ? " AND id_agence = " . intval($agence) : "")
+            . " AND (nom LIKE $like OR prenom LIKE $like OR raison_social LIKE $like OR email LIKE $like OR tel LIKE $like OR tel2 LIKE $like OR tel3 LIKE $like OR ice LIKE $like OR rc LIKE $like)"
+            . " ORDER BY id DESC LIMIT 8";
+        foreach ($db->queryS($SQLselect) as $data) {
+            array_push($items, static::build($data));
+        }
+        return $items;
+    }
+
+    // Carte id_client => "sans aucune activité" (0 devis, 0 facture, 0 relance, 0 paiement),
+    // pour le filtre du listing. Volontairement une seule requête agrégée (sous-requêtes
+    // corrélées) plutôt qu'un appel getFacture()/getDevis() par client : ces méthodes
+    // hydratent chaque facture/devis individuellement (facture::find() par ligne), ce qui
+    // serait bien trop coûteux répété pour chaque ligne d'un listing de centaines de clients.
+    public static function activityMap($agence = 1)
+    {
+        global $db;
+        $map = array();
+        $restrictionUser = '';
+        if ($_SESSION['user']->isSuperUser() == false) {
+            $restrictionUser = " AND id_user_added = " . intval($_SESSION['user']->getId());
+        }
+        $SQLselect = "SELECT c.id,
+                (SELECT COUNT(*) FROM " . static::$tableDevis . " d WHERE d.id_client = c.id" . $restrictionUser . ") AS nb_devis,
+                (SELECT COUNT(*) FROM " . static::$tableFacture . " f WHERE f.id_client = c.id" . $restrictionUser . ") AS nb_facture,
+                (SELECT COUNT(*) FROM " . __prefixe_db__ . "relance r WHERE r.id_client = c.id) AS nb_relance,
+                (SELECT COUNT(*) FROM " . __prefixe_db__ . "payment p INNER JOIN " . static::$tableFacture . " f2 ON f2.id = p.id_facture WHERE f2.id_client = c.id) AS nb_payment
+            FROM " . static::$table . " c
+            WHERE c.id_agence = " . GetSQLValueString($agence, "int");
+        $result = $db->queryS($SQLselect);
+        foreach ($result as $row) {
+            $map[$row['id']] = ($row['nb_devis'] == 0 && $row['nb_facture'] == 0 && $row['nb_relance'] == 0 && $row['nb_payment'] == 0);
+        }
+        return $map;
     }
 
     public function getFacture($active = false)
@@ -550,6 +685,110 @@ class client
         return $deviss;
     }
     
+    // CA total = somme des paiements réellement effectués (total - reste, calculé en live sur
+    // chaque facture), regroupé par devise. Inclut donc aussi les paiements partiels sur des
+    // factures encore ouvertes, pas seulement les factures intégralement soldées.
+    public function getChiffreAffaireParDevise()
+    {
+        $totaux = array();
+        foreach ($this->getFacture() as $facture) {
+            $montantPaye = $facture->getTotal() - $facture->getReste();
+            if ($montantPaye <= 0) {
+                continue;
+            }
+            $devise = $facture->getDevise();
+            if (!isset($totaux[$devise])) {
+                $totaux[$devise] = 0;
+            }
+            $totaux[$devise] += $montantPaye;
+        }
+        return $totaux;
+    }
+
+    // Liste chronologique des paiements réels (toutes factures confondues) : utilisée pour
+    // tracer l'évolution de l'encaissement dans le temps sur la fiche client.
+    public function getPaymentsChronologiques()
+    {
+        $paiements = array();
+        foreach ($this->getFacture() as $facture) {
+            foreach (payment::findAll($facture->getId()) as $paiement) {
+                $paiements[] = array(
+                    'date' => $paiement->getDatePayment(),
+                    'montant' => (float) $paiement->getMontant(),
+                    'devise' => $facture->getDevise()
+                );
+            }
+        }
+        usort($paiements, function ($a, $b) {
+            return strcmp($a['date'], $b['date']);
+        });
+        return $paiements;
+    }
+
+    // Télécharge le logo du site (Clearbit puis repli favicon Google, mêmes sources que l'aperçu
+    // côté formulaire) et l'enregistre dans images/clients/ pour servir de photo de client.
+    // Retourne le nom de fichier généré, ou null si aucune des deux sources n'a rien retourné
+    // d'exploitable (n'importe quelle erreur ici ne doit jamais bloquer l'enregistrement du client).
+    public static function generateLogoPhoto($siteWeb)
+    {
+        $domaine = preg_replace('#^https?://#i', '', trim($siteWeb));
+        $domaine = preg_replace('#^www\.#i', '', $domaine);
+        $domaine = explode('/', $domaine)[0];
+        if ($domaine == '') {
+            return null;
+        }
+
+        $sources = array(
+            'https://logo.clearbit.com/' . $domaine,
+            'https://www.google.com/s2/favicons?domain=' . $domaine . '&sz=128'
+        );
+
+        foreach ($sources as $url) {
+            try {
+                $ch = curl_init($url);
+                curl_setopt_array($ch, array(
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT => 10,
+                    CURLOPT_FOLLOWLOCATION => true
+                ));
+                $contenu = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                // Clearbit répond parfois 200 avec un minuscule PNG "placeholder" quand le
+                // domaine n'est pas dans sa base : on l'écarte via un seuil de taille plutôt
+                // que de se fier uniquement au code HTTP.
+                if ($contenu === false || $httpCode !== 200 || strlen($contenu) < 200) {
+                    continue;
+                }
+
+                $nomFichier = 'logo_' . md5($domaine . microtime()) . '.png';
+                $chemin = __DIR__ . '/../../../images/clients/' . $nomFichier;
+                if (file_put_contents($chemin, $contenu) !== false) {
+                    return $nomFichier;
+                }
+            } catch (\Throwable $e) {
+                error_log('client::generateLogoPhoto - ' . $e->getMessage());
+            }
+        }
+        return null;
+    }
+
+    // Mise à jour ciblée du récapitulatif IA (sans repasser par edit(), qui exige tous les autres champs)
+    public function updateIaRecap($texte)
+    {
+        global $db;
+        $this->ia_recap = $texte;
+        $this->ia_recap_date = date('Y-m-d H:i:s');
+        $SQLupdate = sprintf(
+            "UPDATE " . static::$table . " SET ia_recap = %s, ia_recap_date = %s WHERE id = %s",
+            GetSQLValueString($this->ia_recap, "text"),
+            GetSQLValueString($this->ia_recap_date, "date"),
+            GetSQLValueString($this->id, "int")
+        );
+        $db->query($SQLupdate);
+    }
+
     public static function findWhereHaveRelance($active = false, $year = false,$agence = 1)
     {
         global $db;
@@ -570,7 +809,7 @@ class client
         return $items;
     }
 	
-	public static function filterClient($year = false,$agence = 1)
+	public static function filterClient($year = false,$agence = 1, $from = false, $to = false)
     {
         global $db;
         $items = array();
@@ -578,9 +817,18 @@ class client
 		if($year){
 			$SQLselect .= " INNER JOIN ". static::$tableFacture . " B ON A.id = B.id_client";
 		}
-        $SQLselect .= " WHERE A.id_agence = $agence";
+        $SQLselect .= " WHERE A.id_agence = " . intval($agence);
         if($year){
-            $SQLselect .= " AND YEAR(A.date_add) = $year";
+            $SQLselect .= " AND YEAR(A.date_add) = " . intval($year);
+        }
+        // Filtre par période (Date début/Date fin) : remplace le filtre par année sur le listing
+        // principal, plus flexible (n'exige pas non plus qu'une facture existe, contrairement au
+        // filtre par année ci-dessus qui a un usage distinct pour l'export "par année").
+        if ($from) {
+            $SQLselect .= " AND A.date_add >= " . GetSQLValueString($from, "date");
+        }
+        if ($to) {
+            $SQLselect .= " AND A.date_add <= " . GetSQLValueString($to . " 23:59:59", "date");
         }
 		$SQLselect .= " GROUP BY A.id ORDER BY A.date_add DESC, A.id DESC";
 		//echo $SQLselect;
@@ -599,7 +847,11 @@ class client
         $client->setUserAdded(user::find($data['id_user_added']));
         $client->setUserEdited(user::find($data['id_user_edited']));
         $client->setActive($data['active']);
+        $client->setArchived(isset($data['archived']) ? $data['archived'] : 0);
         $client->setSource($data['source']);
+        $client->setSiteWeb(isset($data['site_web']) ? $data['site_web'] : null);
+        $client->setIaRecap(isset($data['ia_recap']) ? $data['ia_recap'] : null);
+        $client->setIaRecapDate(isset($data['ia_recap_date']) ? $data['ia_recap_date'] : null);
         $client->setTitre($data['titre']);
 		$client->setPrenom($data['prenom']);
         $client->setNom($data['nom']);
@@ -636,7 +888,7 @@ class client
             $SQLcount .= " AND (A.id_user_added = ".$_SESSION['user']->getId()." )";
         }
 		if($year){
-			$SQLcount .= " AND YEAR(A.date_add) = $year";
+			$SQLcount .= " AND YEAR(A.date_add) = " . intval($year);
 		}
 		
         $result = $db->query($SQLcount);
@@ -716,6 +968,96 @@ class client
         }
 		return json_encode(array("icon"=>"warning","message"=>"Email or password incorrect","client"=>$db->num_rows($result)));
 	}
+
+    /* ------------------------------------------------------------------ */
+    /* Connexion sociale (espace client) — Google / Facebook.
+       Politique : clients EXISTANTS uniquement. On vérifie le jeton du
+       fournisseur côté serveur, on en extrait l'email vérifié, puis on
+       délègue à socialLoginByEmail() qui renvoie EXACTEMENT la même forme
+       que loginApi (client + token JWT) pour que le reste de l'espace
+       client fonctionne à l'identique. Aucun compte n'est créé ici.       */
+    /* ------------------------------------------------------------------ */
+
+    private static function socialHttpGet($url)
+    {
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        $resp = curl_exec($ch);
+        $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        return array('body' => $resp, 'http' => $http);
+    }
+
+    // Rattache un email vérifié à un client actif et émet un token. Ne crée jamais de compte.
+    public static function socialLoginByEmail($email, $provider = 'social')
+    {
+        global $db;
+        $SQLselect = sprintf("SELECT * FROM " . static::$table . " WHERE email = %s AND active = %s",
+            GetSQLValueString($email, "text"),
+            GetSQLValueString(1, "int")
+        );
+        $result = $db->query($SQLselect);
+        if ($db->num_rows($result) > 0) {
+            $data = $db->fetch_assoc($result);
+            $data['ID'] = $data['id'];
+            $client = static::buildApi($data);
+            $token = setToken($client);
+            return json_encode(array("icon" => "success", "message" => "Successful connection", "client" => $client, "token" => $token));
+        }
+        return json_encode(array("icon" => "warning", "message" => "No account is linked to this email address. Please contact us.", "code" => "no_account", "provider" => $provider));
+    }
+
+    public static function googleLoginApi($data)
+    {
+        if (!defined('GOOGLE_CLIENT_ID') || GOOGLE_CLIENT_ID === '') {
+            return json_encode(array("icon" => "error", "message" => "Google sign-in is not configured", "code" => "not_configured"));
+        }
+        $credential = isset($data['credential']) ? trim($data['credential']) : '';
+        if ($credential === '') {
+            return json_encode(array("icon" => "warning", "message" => "Missing Google credential", "code" => "missing"));
+        }
+        // Vérifie signature + expiration du jeton d'identité directement auprès de Google.
+        $r = static::socialHttpGet("https://oauth2.googleapis.com/tokeninfo?id_token=" . urlencode($credential));
+        if ($r['body'] === false || $r['http'] !== 200) {
+            return json_encode(array("icon" => "error", "message" => "Google verification failed", "code" => "verify_failed"));
+        }
+        $info = json_decode($r['body']);
+        // L'audience DOIT être notre propre client ID (sinon jeton émis pour une autre app).
+        if (!is_object($info) || !isset($info->aud) || $info->aud !== GOOGLE_CLIENT_ID) {
+            return json_encode(array("icon" => "error", "message" => "Invalid Google token", "code" => "invalid_token"));
+        }
+        $emailVerified = isset($info->email_verified) && ($info->email_verified === true || $info->email_verified === 'true');
+        if (!$emailVerified || empty($info->email)) {
+            return json_encode(array("icon" => "warning", "message" => "Google email not verified", "code" => "email_unverified"));
+        }
+        return static::socialLoginByEmail($info->email, 'google');
+    }
+
+    // Scaffold Facebook : actif dès que FACEBOOK_APP_ID / FACEBOOK_APP_SECRET sont renseignés.
+    public static function facebookLoginApi($data)
+    {
+        if (!defined('FACEBOOK_APP_ID') || FACEBOOK_APP_ID === '' || !defined('FACEBOOK_APP_SECRET') || FACEBOOK_APP_SECRET === '') {
+            return json_encode(array("icon" => "error", "message" => "Facebook sign-in is not configured", "code" => "not_configured"));
+        }
+        $token = isset($data['access_token']) ? trim($data['access_token']) : '';
+        if ($token === '') {
+            return json_encode(array("icon" => "warning", "message" => "Missing Facebook token", "code" => "missing"));
+        }
+        // 1) Le jeton appartient-il bien à NOTRE app ? (anti-substitution de jeton)
+        $appToken = FACEBOOK_APP_ID . '|' . FACEBOOK_APP_SECRET;
+        $dbg = json_decode(static::socialHttpGet("https://graph.facebook.com/debug_token?input_token=" . urlencode($token) . "&access_token=" . urlencode($appToken))['body']);
+        if (!is_object($dbg) || !isset($dbg->data) || empty($dbg->data->is_valid) || (string) $dbg->data->app_id !== (string) FACEBOOK_APP_ID) {
+            return json_encode(array("icon" => "error", "message" => "Invalid Facebook token", "code" => "invalid_token"));
+        }
+        // 2) Email vérifié depuis le profil.
+        $me = json_decode(static::socialHttpGet("https://graph.facebook.com/me?fields=email&access_token=" . urlencode($token))['body']);
+        if (!is_object($me) || empty($me->email)) {
+            return json_encode(array("icon" => "warning", "message" => "Facebook email unavailable", "code" => "missing"));
+        }
+        return static::socialLoginByEmail($me->email, 'facebook');
+    }
 
     public static function verifyEmailApi($email){
         require '../../../vendor/autoload.php';

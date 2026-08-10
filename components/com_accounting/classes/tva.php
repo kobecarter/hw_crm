@@ -10,9 +10,11 @@ class tva
     private $amount;
     private $increasion;
     private $date;
+    private $date_payment;
     private $status;
     private $remark;
     private $doc;
+    private $id_charge;
     private $date_add;
     private $last_edit;
 
@@ -41,6 +43,10 @@ class tva
         return $this->date;
     }
 
+    public function getDatePayment(){
+        return $this->date_payment;
+    }
+
     public function getStatus(){
         return $this->status;
     }
@@ -52,6 +58,10 @@ class tva
 
     public function getDoc(){
         return $this->doc;
+    }
+
+    public function getIdCharge(){
+        return $this->id_charge;
     }
 
     public function getDateAdd(){
@@ -83,6 +93,10 @@ class tva
         $this->date = $date;
     }
 
+    public function setDatePayment($date_payment){
+        $this->date_payment = $date_payment;
+    }
+
     public function setStatus($status){
         $this->status = $status;
     }
@@ -93,6 +107,10 @@ class tva
     
     public function setDoc($doc){
         $this->doc = $doc;
+    }
+
+    public function setIdCharge($id_charge){
+        $this->id_charge = $id_charge;
     }
 
     public function setDateAdd($date_add){
@@ -106,14 +124,16 @@ class tva
     public function add()
     {
         global $db;
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence, amount, increasion, date, status, remark, doc, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence, amount, increasion, date, date_payment, status, remark, doc, id_charge, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->agence->getId(), "int"),
             GetSQLValueString($this->amount, "double"),
             GetSQLValueString($this->increasion, "double"),
             GetSQLValueString($this->date, "date"),
+            GetSQLValueString($this->date_payment, "date"),
             GetSQLValueString($this->status, "int"),
             GetSQLValueString($this->remark, "text"),
             GetSQLValueString($this->doc, "text"),
+            GetSQLValueString($this->id_charge, "int"),
             GetSQLValueString($this->date_add, "date"),
             GetSQLValueString($this->last_edit, "date")
         );
@@ -127,13 +147,15 @@ class tva
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET amount = %s, increasion = %s, date = %s, status = %s, remark = %s, doc = %s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET amount = %s, increasion = %s, date = %s, date_payment = %s, status = %s, remark = %s, doc = %s, id_charge = %s, last_edit = %s WHERE id = %s",
             GetSQLValueString($this->amount, "double"),
             GetSQLValueString($this->increasion, "double"),
             GetSQLValueString($this->date, "date"),
+            GetSQLValueString($this->date_payment, "date"),
             GetSQLValueString($this->status, "int"),
             GetSQLValueString($this->remark, "text"),
             GetSQLValueString($this->doc, "text"),
+            GetSQLValueString($this->id_charge, "int"),
             GetSQLValueString($this->last_edit, "date"),
             GetSQLValueString($this->getId(), "int")
         );
@@ -240,6 +262,51 @@ class tva
         return $items;
     }
 
+    // Libellé humain d'une période TVA (un mois, ou un trimestre civil T1-T4) à partir d'une
+    // date de référence — utilisé à la fois par le rappel d'échéance (list.php) et par la
+    // colonne "Période" de l'export comptable, pour que les deux parlent le même langage.
+    public static function libellePeriode($reference, $periodicite = 'mensuel')
+    {
+        $moisNoms = array(1 => 'Janvier', 2 => 'Février', 3 => 'Mars', 4 => 'Avril', 5 => 'Mai', 6 => 'Juin', 7 => 'Juillet', 8 => 'Août', 9 => 'Septembre', 10 => 'Octobre', 11 => 'Novembre', 12 => 'Décembre');
+        $ts = ($reference instanceof DateTime) ? $reference->getTimestamp() : strtotime($reference);
+        $m = (int) date('n', $ts);
+        $y = (int) date('Y', $ts);
+        if ($periodicite === 'trimestriel') {
+            return 'T' . ((int) ceil($m / 3)) . ' ' . $y;
+        }
+        return $moisNoms[$m] . ' ' . $y;
+    }
+
+    // Calcule les bornes d'une période de déclaration TVA (un mois ou un trimestre civil) et sa
+    // date limite de dépôt (le 20 du mois suivant la fin de période, règle marocaine standard),
+    // décalée de $decalage périodes par rapport à celle contenant $reference (0 = période en
+    // cours, -1 = dernière période pleinement écoulée, etc). Retourne 'debut'/'fin' (DateTime),
+    // 'limite' (DateTime) et 'libelle' (string).
+    public static function periodeReference($periodicite, DateTime $reference = null, $decalage = 0)
+    {
+        if ($reference === null) {
+            $reference = new DateTime('today');
+        }
+        if ($periodicite === 'trimestriel') {
+            $moisDebutTrimestre = ((int) ceil(((int) $reference->format('n')) / 3) - 1) * 3 + 1;
+            $debut = new DateTime($reference->format('Y') . '-' . sprintf('%02d', $moisDebutTrimestre) . '-01');
+            $debut->modify((($decalage * 3)) . ' months');
+            $fin = (clone $debut)->modify('+2 months')->modify('last day of this month');
+        } else {
+            $debut = new DateTime($reference->format('Y-m-01'));
+            $debut->modify($decalage . ' months');
+            $fin = clone $debut;
+            $fin->modify('last day of this month');
+        }
+        $limite = (clone $fin)->modify('first day of next month')->modify('+19 days');
+        return array(
+            'debut' => $debut,
+            'fin' => $fin,
+            'limite' => $limite,
+            'libelle' => self::libellePeriode($debut, $periodicite)
+        );
+    }
+
     public static function build($data){
         $tva = new tva();
         $tva->setId($data['ID']);
@@ -247,12 +314,19 @@ class tva
         $tva->setAmount($data['amount']);
         $tva->setIncreasion($data['increasion']);
         $tva->setDate($data['date']);
+        $tva->setDatePayment(isset($data['date_payment']) ? $data['date_payment'] : null);
         $tva->setStatus($data['status']);
         $tva->setRemark($data['remark']);
         $tva->setDoc($data['doc']);
+        $tva->setIdCharge(isset($data['id_charge']) ? $data['id_charge'] : null);
         $tva->setDateAdd($data['date_add']);
         $tva->setLastEdit($data['last_edit']);
         return $tva;
+    }
+
+    public static function getLastId(){
+        global $db;
+        return $db->last_id();
     }
 
     public static function count(){

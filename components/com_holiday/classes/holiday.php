@@ -237,6 +237,28 @@ class holiday
         return $db->last_id();
     }
 
+    // Convertit un holiday en événement FullCalendar. La couleur reprend la même
+    // logique que getColor() (proche = orange, en cours = vert, passé = gris,
+    // lointain = violet de la marque) pour rester cohérent avec la liste.
+    public static function toCalendarEvent($holiday)
+    {
+        $colorMap = array(
+            'table-warning' => '#f59e0b',
+            'table-success' => '#10b981',
+            'table-danger' => '#94a3b8',
+            '' => '#6366f1'
+        );
+        $color = $colorMap[$holiday->getColor()];
+        return array(
+            'title' => $holiday->getName(),
+            'start' => $holiday->getStartDate(),
+            'end' => date('Y-m-d', strtotime($holiday->getEndDate() . ' +1 day')),
+            'allDay' => true,
+            'color' => $color,
+            'textColor' => '#fff'
+        );
+    }
+
     public static function count()
     {
         global $db;

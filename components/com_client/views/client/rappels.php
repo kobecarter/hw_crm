@@ -1,6 +1,6 @@
 <div class="card card-table">
 	<div class="card-header">
-		<h4 class="card-title">Liste des rappels</h4>
+		<h4 class="card-title">Domaines &amp; Hébergement</h4>
 	</div>
 	<div class="card-body">
 		<div class="col msgbox mt-3"></div>

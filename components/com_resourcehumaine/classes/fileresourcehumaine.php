@@ -7,7 +7,45 @@ class fileresourcehumaine
     private $id;
     private $resourcehumaine;
     private $title;
+    private $document_type;
     private $file;
+
+    // Types de documents suivis pour le contrôle de conformité du dossier employé (clé stable
+    // utilisée en base, indépendante du libellé affiché qui peut être traduit/modifié).
+    // "cin" et "engagement_confidentialite" sont communs aux deux listes, avec un libellé
+    // légèrement différent pour les stagiaires (repris tel quel dans le formulaire de dépôt).
+    public static $documentsRequisParStatut = array(
+        'Titulaire' => array(
+            'cin' => 'CIN',
+            'offre_emploi' => "Offre d'emploi",
+            'contrat_cdi' => 'Contrat CDI',
+            'engagement_confidentialite' => 'Engagement de confidentialité',
+            'reglement_interieur' => 'Règlement intérieur',
+        ),
+        'Periode De test' => array(
+            'cin' => 'CIN',
+            'offre_emploi' => "Offre d'emploi",
+            'contrat_cdi' => 'Contrat CDI',
+            'engagement_confidentialite' => 'Engagement de confidentialité',
+            'reglement_interieur' => 'Règlement intérieur',
+        ),
+        'Stagaire' => array(
+            'reglement_interieur' => 'Règlement intérieur',
+            'cin' => 'Copie CIN',
+            'engagement_confidentialite' => 'Accord de confidentialité',
+            'certificat_residence' => 'Certificat de résidence',
+        ),
+    );
+
+    // Documents requis pour un statut donné (repli sur la liste "Titulaire" si le statut est
+    // inconnu/vide, pour ne jamais laisser un profil sans aucune exigence de conformité).
+    public static function documentsRequis($statut)
+    {
+        if (isset(self::$documentsRequisParStatut[$statut])) {
+            return self::$documentsRequisParStatut[$statut];
+        }
+        return self::$documentsRequisParStatut['Titulaire'];
+    }
 
     public function __construct(){
         $this->id = 0;
@@ -23,6 +61,10 @@ class fileresourcehumaine
 
     public function getTitle(){
         return $this->title;
+    }
+
+    public function getDocumentType(){
+        return $this->document_type;
     }
 
     public function getFile(){
@@ -41,6 +83,10 @@ class fileresourcehumaine
         $this->title = $title;
     }
 
+    public function setDocumentType($document_type){
+        $this->document_type = $document_type;
+    }
+
     public function setFile($file){
         $this->file = $file;
     }
@@ -48,9 +94,10 @@ class fileresourcehumaine
     public function add()
     {
         global $db;
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_resourcehumaine, title, file) VALUES (%s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_resourcehumaine, title, document_type, file) VALUES (%s, %s, %s, %s)",
             GetSQLValueString($this->resourcehumaine->getId(), "int"),
             GetSQLValueString($this->title, "text"),
+            GetSQLValueString($this->document_type, "text"),
             GetSQLValueString($this->file, "text")
         );
 
@@ -64,9 +111,10 @@ class fileresourcehumaine
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET id_resourcehumaine = %s, title = %s, file = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET id_resourcehumaine = %s, title = %s, document_type = %s, file = %s WHERE id = %s",
             GetSQLValueString($this->resourcehumaine->getId(), "int"),
             GetSQLValueString($this->title, "text"),
+            GetSQLValueString($this->document_type, "text"),
             GetSQLValueString($this->file, "text"),
             GetSQLValueString($this->getId(), "int")
         );
@@ -138,8 +186,37 @@ class fileresourcehumaine
         $fileresourcehumaine->setId($data['id']);
         $fileresourcehumaine->setResourcehumaine(resourcehumaine::find($data["id_resourcehumaine"]));
         $fileresourcehumaine->setTitle($data['title']);
+        $fileresourcehumaine->setDocumentType(isset($data['document_type']) ? $data['document_type'] : null);
         $fileresourcehumaine->setFile($data['file']);
         return $fileresourcehumaine;
+    }
+
+    // Types de documents requis pour ce statut déjà déposés parmi $files (id_resourcehumaine
+    // donné) — utilisé pour calculer les documents manquants (contrôle de conformité).
+    public static function documentTypesPresents($files)
+    {
+        $presents = array();
+        foreach ($files as $f) {
+            if ($f->getDocumentType()) {
+                $presents[$f->getDocumentType()] = true;
+            }
+        }
+        return $presents;
+    }
+
+    // Liste des documents requis (statut donné) manquants parmi $files. Retourne un tableau
+    // associatif [clé => libellé] des documents encore absents.
+    public static function documentsManquants($statut, $files)
+    {
+        $requis = self::documentsRequis($statut);
+        $presents = self::documentTypesPresents($files);
+        $manquants = array();
+        foreach ($requis as $cle => $libelle) {
+            if (!isset($presents[$cle])) {
+                $manquants[$cle] = $libelle;
+            }
+        }
+        return $manquants;
     }
 
     public static function count(){

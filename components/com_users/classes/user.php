@@ -348,15 +348,38 @@ class user {
     {
         global $db;
         $user = new user();
-        $SQLselect = sprintf("SELECT * FROM " . static::$table . " WHERE login = %s and password = %s AND actif = 1",
-            GetSQLValueString($login, "text"),
-			GetSQLValueString(hash('sha256',$password), "text"));
-		
+        // Le mot de passe n'est plus dans la clause WHERE (impossible de toute façon dès qu'on
+        // accepte password_hash() : chaque hash a son propre sel, donc pas de comparaison SQL
+        // directe possible) - on va chercher l'utilisateur par login seul, puis on vérifie le mot
+        // de passe côté PHP.
+        $SQLselect = sprintf("SELECT * FROM " . static::$table . " WHERE login = %s AND actif = 1",
+            GetSQLValueString($login, "text"));
+
         $result = $db->query($SQLselect);
         if ($db->num_rows($result) == 1) {
             $data = $db->fetch_assoc($result);
-            $user = static::build($data);
-			$user->setConnected(true);
+            $storedHash = $data['password'];
+            $valid = false;
+
+            if (password_verify($password, $storedHash)) {
+                $valid = true;
+            } elseif (hash_equals($storedHash, hash('sha256', $password))) {
+                // Ancien format (sha256 non salé, sans password_hash()) : encore accepté une
+                // dernière fois puis remplacé immédiatement par un vrai hash bcrypt/argon2 - migration
+                // silencieuse à la connexion, aucune action requise côté utilisateur ni reset forcé.
+                $valid = true;
+                $nouveauHash = password_hash($password, PASSWORD_DEFAULT);
+                $db->query(sprintf(
+                    "UPDATE " . static::$table . " SET password = %s WHERE id = %s",
+                    GetSQLValueString($nouveauHash, "text"),
+                    intval($data['id'])
+                ));
+            }
+
+            if ($valid) {
+                $user = static::build($data);
+                $user->setConnected(true);
+            }
         }
         return $user;
     }

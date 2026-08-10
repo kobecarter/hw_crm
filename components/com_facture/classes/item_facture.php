@@ -313,6 +313,51 @@ class item_facture
         return $item_facture;
     }
 
+    // Top N services vendus (par chiffre d'affaires facturé) sur une période, toutes devises
+    // converties en DH-équivalent - même logique que statsGlobalesPeriode() (includes/functions/
+    // functions.php) : une requête groupée par devise, convertie puis cumulée par service.
+    // Regroupe sur I.titre (le libellé figé au moment de la facturation, toujours renseigné) plutôt
+    // que sur un JOIN vers le catalogue service/details_service : évite la dépendance à la langue
+    // de ce catalogue et reste correct pour les lignes libres sans id_service catalogué.
+    public static function topServices($from = false, $to = false, $agence = 1, $limit = 10)
+    {
+        global $db;
+        $devises = array('DH', '€', '£', '$', 'AED');
+        $totaux = array();
+        foreach ($devises as $devise) {
+            $taux = tauxConversionDH($devise);
+            $SQLselect = "SELECT I.titre, SUM(I.total) as total, SUM(I.qte) as qte
+                FROM " . static::$table . " I
+                INNER JOIN " . __prefixe_db__ . "facture A ON I.id_facture = A.id
+                INNER JOIN " . __prefixe_db__ . "client B ON A.id_client = B.id
+                INNER JOIN " . __prefixe_db__ . "agence C ON B.id_agence = C.id
+                WHERE C.id = " . intval($agence) . "
+                AND (A.archived IS NULL OR A.archived = 0)
+                AND A.devise = " . GetSQLValueString($devise, "text");
+            if ($from) {
+                $SQLselect .= " AND A.date_facture >= " . GetSQLValueString($from, "text");
+            }
+            if ($to) {
+                $SQLselect .= " AND A.date_facture <= " . GetSQLValueString($to, "text");
+            }
+            $SQLselect .= " GROUP BY I.titre";
+            $result = $db->queryS($SQLselect);
+            foreach ($result as $row) {
+                $titre = ($row['titre'] !== null && $row['titre'] !== '') ? $row['titre'] : 'Sans titre';
+                $cle = mb_strtolower(trim($titre));
+                if (!isset($totaux[$cle])) {
+                    $totaux[$cle] = array('titre' => $titre, 'total' => 0, 'qte' => 0);
+                }
+                $totaux[$cle]['total'] += floatval($row['total']) * $taux;
+                $totaux[$cle]['qte'] += floatval($row['qte']);
+            }
+        }
+        uasort($totaux, function ($a, $b) {
+            return $b['total'] <=> $a['total'];
+        });
+        return array_slice(array_values($totaux), 0, $limit);
+    }
+
     public static function findAllByFactureApi($id_facture)
     {
         global $db;

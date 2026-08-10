@@ -19,21 +19,14 @@
 
 		<div class="row">
 			<div class="col-md-12">
-				<div class="card">
+				<div class="card client-form-card">
+					<div class="card-header">
+						<h4 class="card-title"><i class="fa fa-user-edit mr-2 text-primary"></i>Modifier client</h4>
+					</div>
 					<div class="card-body">
 						<?php include("form.php"); ?>
 					</div>
 				</div>
-			</div>
-		</div>
-		<div class="row">
-			<div class="col-md-12">
-				<?php include("factures.php"); ?>
-			</div>
-		</div>
-		<div class="row">
-			<div class="col-md-12">
-				<?php include("payments.php"); ?>
 			</div>
 		</div>
 	</div>

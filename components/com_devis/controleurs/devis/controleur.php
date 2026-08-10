@@ -19,7 +19,13 @@ if (isset($task) && !empty($task)) {
             break;
         case "getRowCondition":
             getRowCondition();
-            break;    
+            break;
+        case "sendSlackDevis":
+            sendSlackDevis($_POST);
+            break;
+        case "sendEmailDevis":
+            sendEmailDevis($_POST);
+            break;
         case "removeCondition":
             removeCondition($_POST);
             break;
@@ -61,6 +67,9 @@ if (isset($task) && !empty($task)) {
             break;
         case 'pdfDevisApi':
             pdfDevisApi($_GET);
+            break;
+        case 'slackEventWebhook':
+            slackEventWebhook();
             break;
     }
 }
@@ -198,67 +207,132 @@ function createInvoice($data)
 {
     $indices = array("id");
     if (fieldCheck($data, $indices)) {
-        
+
         $devis = devis::find($data['id'], $_SESSION['agence']);
-       
-        $facture = new facture();
-        $facture->setDevis($devis);
-        $facture->setUserAdded($_SESSION['user']);
-        $facture->setBank($devis->getBank());
-        $facture->setClient($devis->getClient());
-        $facture->setDateFacture(date("Y-m-d"));
-        $facture->setStatu(0);
-        $facture->setTotal($devis->getTotal());
-        $facture->setDevise($devis->getDevise());
-        $facture->setDiscount($devis->getDiscount());
-        $facture->setShowSignature(0);
-        $facture->setDiscountVal($devis->getDiscountVal());
-        $facture->setLangue($devis->getLangue());
-        $facture->setConditionPaiment($devis->getConditionPaiment());
-        $facture->setRemarque($devis->getRemarque());
-        $facture->setDateAdd(date("Y-m-d H:i:s"));
-        $facture->setLastEdit(date("Y-m-d H:i:s"));
-        
-        if ($facture->add() == 1) {
-            // Ajout des lignes facture
-            
-            $id_facture = facture::getLastId();
-            
-            $facture = facture::find($id_facture,$_SESSION['agence']);
-            
-            $items = $devis->getItems();
-            foreach ($items as $item) {
-                $item_facture = new item_facture();
-                $item_facture->setFacture($facture);
-                $item_facture->setService($item->getService());
-                $item_facture->setQte($item->getQte());
-                $item_facture->setDiscount($item->getDiscount());
-                $item_facture->setPrix($item->getPrix());
-                $item_facture->setTotal($item->getTotal());
-                $item_facture->setUnite($item->getUnite());
-                $item_facture->setTitre($item->getTitre());
-                $item_facture->setDescription($item->getDescription());
-                $item_facture->setOrdre($item->getOrdre());
-                $item_facture->add();
-            }
+        $facture = createInvoiceFromDevis($devis);
 
-            
-            
-            // calcul et mise a jour total facture / generer numéro facture
-            //$facture->setTotalItems();
-            $facture->generateNumero();
-            $facture->edit();
-            //echo "test7"; exit;
-			$agence = agence::find($_SESSION['agence'],$_SESSION['langue']);
-			$agence->setNumeroIncrementFacture($agence->getNumeroIncrementFacture()+1);
-    		$agence->edit();
-
-            echo "1";
+        if ($facture) {
+            echo "1|" . $facture->getId();
         } else {
             echo "2";
         }
     } else {
         echo "0";
+    }
+}
+
+// Crée la facture correspondant à un devis (mêmes lignes/total/conditions),
+// réutilisée à la fois par le bouton "+ Facture" et par le paiement inline
+// déclenché depuis le devis quand le statut passe à "Paiement effectué".
+function createInvoiceFromDevis($devis)
+{
+    $facture = new facture();
+    $facture->setDevis($devis);
+    $facture->setUserAdded($_SESSION['user']);
+    $facture->setBank($devis->getBank());
+    $facture->setClient($devis->getClient());
+    $facture->setDateFacture(date("Y-m-d"));
+    $facture->setDateDebut(date("Y-m-d"));
+    // Date fin = date de fin du contrat lié à ce devis, s'il existe et qu'elle est renseignée. Sinon vide.
+    $contratLie = contract::findByDevis($devis->getId(), $_SESSION['agence'], $_SESSION['langue']);
+    if ($contratLie && $contratLie->getId() && $contratLie->getDateFin()) {
+        $facture->setDateFin($contratLie->getDateFin());
+    }
+    $facture->setStatu(0);
+    $facture->setTotal($devis->getTotal());
+    $facture->setDevise($devis->getDevise());
+    $facture->setDiscount($devis->getDiscount());
+    $facture->setShowSignature(0);
+    $facture->setDiscountVal($devis->getDiscountVal());
+    $facture->setLangue($devis->getLangue());
+    $facture->setConditionPaiment($devis->getConditionPaiment());
+    $facture->setRemarque($devis->getRemarque());
+    $facture->setDateAdd(date("Y-m-d H:i:s"));
+    $facture->setLastEdit(date("Y-m-d H:i:s"));
+
+    if ($facture->add() != 1) {
+        return false;
+    }
+
+    $id_facture = facture::getLastId();
+    $facture = facture::find($id_facture, $_SESSION['agence']);
+
+    $items = $devis->getItems();
+    foreach ($items as $item) {
+        $item_facture = new item_facture();
+        $item_facture->setFacture($facture);
+        $item_facture->setService($item->getService());
+        $item_facture->setQte($item->getQte());
+        $item_facture->setDiscount($item->getDiscount());
+        $item_facture->setPrix($item->getPrix());
+        $item_facture->setTotal($item->getTotal());
+        $item_facture->setUnite($item->getUnite());
+        $item_facture->setTitre($item->getTitre());
+        $item_facture->setDescription($item->getDescription());
+        $item_facture->setOrdre($item->getOrdre());
+        $item_facture->add();
+    }
+
+    // calcul et mise a jour total facture / generer numéro facture
+    $facture->generateNumero();
+    $facture->edit();
+
+    $agence = agence::find($_SESSION['agence'], $_SESSION['langue']);
+    $agence->setNumeroIncrementFacture($agence->getNumeroIncrementFacture() + 1);
+    $agence->edit();
+
+    return $facture;
+}
+
+// Enregistre le paiement saisi depuis le devis au moment où son statut passe à
+// "Paiement effectué" : crée la facture si besoin, ajoute le paiement dessus, et
+// marque les relances traitées si la facture est désormais soldée (les relances de
+// paiement elles-mêmes sont générées séparément par relance::runDailyReminders()).
+function registerDevisPayment($devis, $data)
+{
+    $facture = facture::findByDevis($devis->getId(), $_SESSION['agence']);
+    if (!$facture || !$facture->getId()) {
+        $facture = createInvoiceFromDevis($devis);
+        if (!$facture) {
+            return;
+        }
+    }
+
+    $payment = new payment();
+    if (isset($_FILES['payment_photo']) && $_FILES['payment_photo']['name'][0] != '') {
+        $photo = uploadFiles('payment_photo', '../../../images/reglements/', array('jpg', 'jpeg', 'gif', 'png', 'pdf', 'JPG', 'JPEG', 'GIF', 'PNG', 'PDF'));
+        if (isset($photo[0])) {
+            $payment->setRegImg($photo[0]);
+        }
+    } else {
+        $payment->setRegImg('');
+    }
+    $payment->setFacture($facture);
+    $payment->setMontant($data['payment_montant']);
+    $payment->setDatePayment(dateBD($data['payment_date_payment']));
+    $payment->setMethodePayment($data['payment_methode_payment']);
+    $payment->setDateValidation(dateBD($data['payment_date_validation']));
+    $payment->setDetail(isset($data['payment_detail']) ? $data['payment_detail'] : '');
+    $payment->setDateAdd(date("Y-m-d H:i:s"));
+    $payment->setLastEdit(date("Y-m-d H:i:s"));
+    $payment->add();
+
+    $facture->checkPayment();
+
+    // Les relances de paiement (échéancier J-15/J-10/J-5/J0 puis retard) sont désormais générées
+    // et envoyées automatiquement par relance::runDailyReminders(), plus par une boucle ici. On
+    // garde uniquement l'arrêt des relances en cours quand la facture est soldée.
+    if ($facture->getReste() <= 0) {
+        $relances = relance::findByFacture($facture->getId());
+        foreach ($relances as $relance) {
+            $relance->setTraite(1);
+            $relance->edit();
+        }
+    }
+
+    require_once __DIR__ . '/../../../com_facture/controleurs/payment/controleur.php';
+    if (function_exists('sendPaymentConfirmationEmail')) {
+        sendPaymentConfirmationEmail($facture, $data['payment_montant']);
     }
 }
 function getServicePrice($data)
@@ -307,6 +381,12 @@ function getServiceUnite($data)
 function addDevis($data)
 {
     $indices = array("client", "bank");
+    if (isset($data['statu']) && $data['statu'] == 4) {
+        $indices[] = 'payment_montant';
+        $indices[] = 'payment_date_payment';
+        $indices[] = 'payment_methode_payment';
+        $indices[] = 'payment_date_validation';
+    }
     if (fieldCheck($data, $indices)) {
         if (buildDevis($data)->add() == 1) {
             $id_devis = devis::getLastId();
@@ -374,7 +454,14 @@ function addDevis($data)
                 $contract->setLangue($devis->getLangue());
                 $contract->add();
             }
-            echo "1";
+
+            // Statut "Paiement effectué" saisi dès la création : on enregistre tout de suite
+            // le paiement (facture créée à la volée si besoin, relance obligatoire si partiel)
+            if ($data['statu'] == 4) {
+                registerDevisPayment(devis::find($id_devis, $_SESSION['agence']), $data);
+            }
+
+            echo "1|" . $id_devis;
         } else {
             echo "2";
         }
@@ -388,6 +475,8 @@ function editDevis($data)
 
     $indices = array("id", "client", "bank");
     if (fieldCheck($data, $indices)) {
+
+        $oldStatu = devis::find($data['id'], $_SESSION['agence'])->getStatu();
 
         // check contrat
         $contrat = contract::findByDevis($data['id'], $_SESSION['agence']);
@@ -408,8 +497,14 @@ function editDevis($data)
                 }
             }
         }
-        
-        
+
+        // Passage au statut "Paiement effectué" : le paiement est obligatoire
+        if ($oldStatu != 4 && isset($data['statu']) && $data['statu'] == 4) {
+            $paymentIndices = array('payment_montant', 'payment_date_payment', 'payment_methode_payment', 'payment_date_validation');
+            if (!fieldCheck($data, $paymentIndices)) {
+                echo "0"; exit;
+            }
+        }
 
         if (buildDevis($data, $data['id'])->edit() == 1) {
             
@@ -497,6 +592,22 @@ function editDevis($data)
                     $contract->add();
                 }
             }
+
+            // Statut qui passe à "Paiement effectué" : paiement enregistré (facture créée si besoin,
+            // relance obligatoire si partiel) puis ticket Trello pour le responsable technique
+            if ($oldStatu != 4 && $data['statu'] == 4) {
+                registerDevisPayment(devis::find($data['id'], $_SESSION['agence']), $data);
+                $updatedDevis = devis::find($data['id'], $_SESSION['agence']);
+                projectNotifier::launch($updatedDevis->getClient(), $updatedDevis, 'Devis N°' . $updatedDevis->getNumero() . ' passé en "Paiement effectué".');
+            }
+
+            // Statut qui passe à "Accepté" : email automatique de remerciement au client (montant,
+            // conditions de paiement, contrat à signer si applicable), dans la langue du devis
+            if ($oldStatu != 2 && $data['statu'] == 2) {
+                require_once '../../../vendor/autoload.php';
+                sendDevisAcceptedEmailToClient(devis::find($data['id'], $_SESSION['agence']));
+            }
+
             echo "1";
         } else {
             echo "2";
@@ -544,12 +655,110 @@ function removeItemDevis($data)
     }
 }
 
+function sendSlackDevis($data)
+{
+    header('Content-Type: application/json');
+
+    $indices = array("id");
+    if (!fieldCheck($data, $indices)) {
+        echo json_encode(array('success' => 0, 'message' => 'Devis invalide'));
+        return;
+    }
+
+    if (!defined('SLACK_WEBHOOK_URL') || SLACK_WEBHOOK_URL == '') {
+        echo json_encode(array('success' => 0, 'message' => "Webhook Slack non configuré (config.secrets.php)."));
+        return;
+    }
+
+    $devis = devis::find($data['id'], $_SESSION['agence']);
+    if (!$devis->getId()) {
+        echo json_encode(array('success' => 0, 'message' => 'Devis introuvable'));
+        return;
+    }
+
+    global $siteURL;
+    $pdfLink = $siteURL . "components/com_devis/controleurs/router.php?task=pdfDevisApi&id=" . $devis->getId();
+    $client = $devis->getClient();
+
+    $texte = ":page_facing_up: *Nouveau devis à valider* — N°" . $devis->getNumero() . "\n"
+        . "*Client :* " . $client->getPrenom() . " " . $client->getNom() . ($client->getRaisonSocial() ? " (" . $client->getRaisonSocial() . ")" : "") . "\n"
+        . "*Montant :* " . $devis->getTotal() . " " . $devis->getDevise() . "\n"
+        . "*Ajouté par :* " . $_SESSION['user']->getNom() . "\n"
+        . "*PDF :* " . $pdfLink;
+
+    $payload = array('text' => $texte);
+
+    $ch = curl_init(SLACK_WEBHOOK_URL);
+    curl_setopt_array($ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_HTTPHEADER => array('Content-Type: application/json'),
+        CURLOPT_POSTFIELDS => json_encode($payload),
+        CURLOPT_TIMEOUT => 15
+    ));
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+
+    if ($response === false) {
+        echo json_encode(array('success' => 0, 'message' => "Erreur de connexion à Slack : " . $curlError));
+        return;
+    }
+    if ($httpCode !== 200 || trim($response) !== 'ok') {
+        echo json_encode(array('success' => 0, 'message' => "Erreur Slack (" . $httpCode . "): " . $response));
+        return;
+    }
+
+    $statu = markDevisEnvoyeSiBrouillon($devis);
+    echo json_encode(array('success' => 1, 'statu' => $statu));
+}
+
+function sendEmailDevis($data)
+{
+    header('Content-Type: application/json');
+
+    $indices = array("id");
+    if (!fieldCheck($data, $indices)) {
+        echo json_encode(array('success' => 0, 'message' => 'Devis invalide'));
+        return;
+    }
+
+    $devis = devis::find($data['id'], $_SESSION['agence']);
+    if (!$devis->getId()) {
+        echo json_encode(array('success' => 0, 'message' => 'Devis introuvable'));
+        return;
+    }
+
+    require_once '../../../vendor/autoload.php';
+    $result = sendDevisPdfEmailToClient($devis);
+    if ($result === true) {
+        $statu = markDevisEnvoyeSiBrouillon($devis);
+        echo json_encode(array('success' => 1, 'statu' => $statu));
+    } else {
+        echo json_encode(array('success' => 0, 'message' => $result));
+    }
+}
+
+// Un devis envoyé (email ou Slack) sort de l'état "Brouillon" : s'il y est encore,
+// on le passe à "Envoyé" (1). On ne touche à rien si son statut a déjà avancé plus loin.
+function markDevisEnvoyeSiBrouillon($devis)
+{
+    if ($devis->getStatu() != 0) {
+        return $devis->getStatu();
+    }
+    $devis->setStatu(1);
+    $devis->setLastEdit(date('Y-m-d H:i:s'));
+    $devis->edit();
+    return 1;
+}
+
 function getRowDevis($data)
 {
     $services = service::findAll($data["lang"], true);
 ?>
     <tr>
-        <td></td>
+        <td><input type="number" name="ordre[]" value="1" class="form-control"></td>
         <td>
             <select class="chosen-select service-select" name="id_service[]" style="width:500px;" required>
                 <option value="" selected>Sélectionner</option>
@@ -570,7 +779,7 @@ function getRowDevis($data)
             <input type="number" step="any" name="prix[]" value="<?php echo $services[0]->getPrix(); ?>" class="form-control price-input" style="width:100px;">
         </td>
         <td>
-            <select class="chosen-select" name="unite[]" style="width:300px;" required>
+            <select class="chosen-select unite-input" name="unite[]" style="width:300px;" required>
     		    <option value="" selected>Sélectionner</option>
     			<?php
     			    $unities = getUnities()[isset($devis) ? $devis->getLangue() : 'fr'];
@@ -584,6 +793,7 @@ function getRowDevis($data)
         </td>
         <td class="add-remove text-right">
             <input type="hidden" name="item_id[]" value="0" class="id-item-input">
+            <i class="fas fa-magic ask-ai-item-row" data-toggle="tooltip" data-placement="top" data-original-title="Assistant IA"></i>
             <i class="fas fa-plus-circle add-row" data-toggle="tooltip" data-placement="top" data-original-title="Ajouter ligne"></i>
             <i class="fas fa-minus-circle remove-row" data-toggle="tooltip" data-placement="top" data-original-title="Supprimer cette ligne"></i>
         </td>
@@ -695,6 +905,9 @@ function customItemDevis($data)
                 <label>Description <span class="text-danger">*</span></label>
                 <textarea class="form-control" name="description" id="description"><?php echo $item_devis->getDescription(); ?></textarea>
                 <script type="text/javascript">
+                    if (CKEDITOR.instances.description) {
+                        CKEDITOR.instances.description.destroy(true);
+                    }
                     CKEDITOR.replace('description', {
                         //allowedContent: true,
                         allowedContent: 'p b i ul li tr th h2 h1 h3 h4 h5 h6 a; a[!href];',
@@ -799,8 +1012,14 @@ function buildDevis($data, $id = null)
         $devis->setUserAdded($_SESSION['user']);
     }
 
+    $banqueChoisie = bank::find($data['bank']);
+    // Comptes personnels (Hamid/Zakaria - "PERSO" dans la raison sociale) : jamais de TVA, toujours
+    // proforma - imposé ici plutôt qu'uniquement côté JS (assets/js/ia-bank-filter.js), pour que la
+    // règle tienne même si le formulaire est soumis sans que le JS ait tourné.
+    $estBanquePersonnelle = $banqueChoisie->getId() && stripos($banqueChoisie->getRaisonSociale(), 'PERSO') !== false;
+
     $devis->setNumero($data['numero']);
-    $devis->setBank(bank::find($data['bank']));
+    $devis->setBank($banqueChoisie);
     $devis->setClient(client::find($data['client'],$_SESSION['agence']));
     $devis->setDateDevis(dateBD($data['date_devis']));
     $devis->setStatu($data['statu']);
@@ -810,9 +1029,9 @@ function buildDevis($data, $id = null)
     $devis->setConditionPaiment($data['condition_paiment']);
     $devis->setRemarque($data['remarque']);
     //$devis->setMotifRefus($data['motif_refus']);
-    $devis->setProforma(isset($data['proforma']) ? 1 : 0);
+    $devis->setProforma($estBanquePersonnelle ? 1 : (isset($data['proforma']) ? 1 : 0));
     $devis->setPack(isset($data['pack']) ? 1 : 0);
-    $devis->setTVA($data['tva']);
+    $devis->setTVA($estBanquePersonnelle ? 0 : $data['tva']);
     $devis->setLangue($data['langue']);
     $devis->setDateAdd(date("Y-m-d H:i:s"));
     $devis->setLastEdit(date("Y-m-d H:i:s"));
@@ -1079,7 +1298,7 @@ if($devis->getBank()){
         $htmlInvoice = mb_convert_encoding($htmlInvoice, 'UTF-8', 'UTF-8');
         $mpdf->WriteHTML($htmlInvoice);
 
-        $file_name = $traduction['DEVIS'][$devis->getLangue()] . ' - ' . $invoiceFor . '.pdf';
+        $file_name = $traduction['DEVIS'][$devis->getLangue()] . ' - ' . str_replace(array('/', '\\'), '-', $invoiceFor) . '.pdf';
         $mpdf->Output($file_name, 'I');
     }
 }
@@ -1109,14 +1328,14 @@ function pdfDevisApi($data)
 	}
 }
 
-function pdfDevisTexte($data)
+function pdfDevisTexte($data, $forEmailAttachment = false)
 {
     global $db;
     if (isset($data["id"]) && !empty($data["id"])) {
 
         require_once '../../../vendor/autoload.php';
         require_once '../../../includes/traduction.php';
-        
+
         $dirPath = "../../../";
 
         $devis = devis::find($data["id"], $_SESSION['agence']);
@@ -1373,7 +1592,284 @@ if($devis->getBank()){
         $htmlInvoice = mb_convert_encoding($htmlInvoice, 'UTF-8', 'UTF-8');
         $mpdf->WriteHTML($htmlInvoice);
 
-        $file_name = $traduction['DEVIS'][$devis->getLangue()] . ' - ' . $invoiceFor . '.pdf';
+        $file_name = $traduction['DEVIS'][$devis->getLangue()] . ' - ' . str_replace(array('/', '\\'), '-', $invoiceFor) . '.pdf';
+        $file_path = $dirPath . 'uploads/' . $file_name;
+        if ($forEmailAttachment) {
+            $mpdf->Output($file_path, 'F');
+            return realpath($file_path);
+        }
         $mpdf->Output($file_name, 'I');
+    }
+}
+
+// Endpoint public (Slack Events API) : Slack POST ici un JSON à chaque message
+// écrit dans le channel où le bot est invité. Gère le handshake de vérification
+// d'URL et, pour un vrai message, détecte un numéro de devis (10 chiffres) +
+// un mot-clé d'action (valide / accepté / refusé / contrat).
+function slackEventWebhook()
+{
+    header('Content-Type: application/json');
+
+    $rawBody = file_get_contents('php://input');
+    $payload = json_decode($rawBody, true);
+
+    if (!is_array($payload)) {
+        echo json_encode(array('ok' => true));
+        return;
+    }
+
+    if (isset($payload['type']) && $payload['type'] === 'url_verification') {
+        echo json_encode(array('challenge' => isset($payload['challenge']) ? $payload['challenge'] : ''));
+        return;
+    }
+
+    // Slack relivre le même événement si on ne répond pas assez vite : on ignore les relivraisons
+    // pour ne pas ré-envoyer l'email / re-changer le statut plusieurs fois pour un même message.
+    if (!empty($_SERVER['HTTP_X_SLACK_RETRY_NUM'])) {
+        echo json_encode(array('ok' => true));
+        return;
+    }
+
+    if (!isset($payload['type']) || $payload['type'] !== 'event_callback' || !isset($payload['event'])) {
+        echo json_encode(array('ok' => true));
+        return;
+    }
+
+    $event = $payload['event'];
+
+    if (
+        !isset($event['type']) || $event['type'] !== 'message'
+        || !empty($event['bot_id'])
+        || !empty($event['subtype'])
+        || !isset($event['text'])
+    ) {
+        echo json_encode(array('ok' => true));
+        return;
+    }
+
+    $text = $event['text'];
+    $channel = isset($event['channel']) ? $event['channel'] : '';
+    $threadTs = isset($event['ts']) ? $event['ts'] : null;
+
+    if (!preg_match('/\b(\d{10})\b/', $text, $matches)) {
+        echo json_encode(array('ok' => true));
+        return;
+    }
+    $numero = $matches[1];
+
+    $devis = devis::findByNumero($numero);
+    if (!$devis->getId()) {
+        slackPostMessage($channel, ":warning: Devis N°" . $numero . " introuvable.", $threadTs);
+        echo json_encode(array('ok' => true));
+        return;
+    }
+
+    // "Utilisateur système" pour les champs id_user_edited / last_edit lors des mises à jour
+    $_SESSION['user'] = user::find(defined('SLACK_BOT_ACTING_USER_ID') ? SLACK_BOT_ACTING_USER_ID : 5);
+
+    $textLower = mb_strtolower($text);
+
+    if (strpos($textLower, 'refus') !== false) {
+        $devis->setStatu(5);
+        $devis->setUserEdited($_SESSION['user']);
+        $devis->setLastEdit(date('Y-m-d H:i:s'));
+        $devis->edit();
+        slackPostMessage($channel, ":x: Devis N°" . $numero . " marqué comme *Devis Refusé*.", $threadTs);
+    } elseif (strpos($textLower, 'accept') !== false) {
+        $devis->setStatu(2);
+        $devis->setUserEdited($_SESSION['user']);
+        $devis->setLastEdit(date('Y-m-d H:i:s'));
+        $devis->edit();
+        slackPostMessage($channel, ":white_check_mark: Devis N°" . $numero . " marqué comme *Accepté*.", $threadTs);
+    } elseif (strpos($textLower, 'valide') !== false) {
+        $devis->setStatu(1);
+        $devis->setUserEdited($_SESSION['user']);
+        $devis->setLastEdit(date('Y-m-d H:i:s'));
+        $devis->edit();
+
+        $mailResult = sendDevisPdfEmailToClient($devis);
+        if ($mailResult === true) {
+            slackPostMessage($channel, ":email: Devis N°" . $numero . " validé (statut *Envoyé*) et le PDF a été envoyé par email à " . $devis->getClient()->getEmail() . ".", $threadTs);
+        } else {
+            slackPostMessage($channel, ":warning: Devis N°" . $numero . " marqué *Envoyé*, mais l'email n'a pas pu être envoyé : " . $mailResult, $threadTs);
+        }
+    } elseif (strpos($textLower, 'contrat') !== false) {
+        slackPostMessage($channel, ":bell: Reçu, merci de préparer le contrat pour le devis N°" . $numero . ".", $threadTs);
+    }
+
+    echo json_encode(array('ok' => true));
+}
+
+function slackPostMessage($channel, $text, $threadTs = null)
+{
+    if (!defined('SLACK_BOT_TOKEN') || SLACK_BOT_TOKEN == '' || empty($channel)) {
+        return false;
+    }
+    $payload = array('channel' => $channel, 'text' => $text);
+    if ($threadTs) {
+        $payload['thread_ts'] = $threadTs;
+    }
+    $ch = curl_init('https://slack.com/api/chat.postMessage');
+    curl_setopt_array($ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_HTTPHEADER => array(
+            'Content-Type: application/json; charset=utf-8',
+            'Authorization: Bearer ' . SLACK_BOT_TOKEN
+        ),
+        CURLOPT_POSTFIELDS => json_encode($payload),
+        CURLOPT_TIMEOUT => 15
+    ));
+    $response = curl_exec($ch);
+    curl_close($ch);
+    $decoded = json_decode($response, true);
+    return is_array($decoded) && !empty($decoded['ok']);
+}
+
+function sendDevisPdfEmailToClient($devis)
+{
+    require_once '../../../vendor/autoload.php';
+
+    $client = $devis->getClient();
+    if (!$client->getEmail()) {
+        return "le client n'a pas d'adresse email.";
+    }
+    if (!defined('SMTP_HOST') || SMTP_HOST == '') {
+        return "SMTP non configuré (config.secrets.php).";
+    }
+
+    $pdfPath = pdfDevisTexte(array('id' => $devis->getId()), true);
+    if (!$pdfPath || !file_exists($pdfPath)) {
+        return "le PDF n'a pas pu être généré.";
+    }
+
+    try {
+        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+        $mail->isSMTP();
+        $mail->Host = SMTP_HOST;
+        $mail->SMTPAuth = true;
+        $mail->Username = SMTP_USERNAME;
+        $mail->Password = SMTP_PASSWORD;
+        $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
+        $mail->CharSet = 'UTF-8';
+
+        global $siteURL;
+        $baseUrl = (defined('PUBLIC_SITE_URL') && PUBLIC_SITE_URL) ? PUBLIC_SITE_URL : $siteURL;
+        $espaceClientLink = $baseUrl . "index.php?option=com_elogin";
+
+        $mail->setFrom(SMTP_USERNAME, 'Hello World');
+        $mail->addAddress($client->getEmail(), trim($client->getPrenom() . ' ' . $client->getNom()));
+        $mail->addCC('contact@helloworld-agency.com');
+        $mail->addAttachment($pdfPath, 'Devis-' . $devis->getNumero() . '.pdf');
+
+        $mail->isHTML(true);
+        $isEn = ($devis->getLangue() == 'en');
+
+        if ($isEn) {
+            $mail->Subject = "Your quote N°" . $devis->getNumero() . " is ready!";
+            $mail->Body = "Hello " . htmlspecialchars($client->getPrenom()) . ",<br><br>"
+                . "We hope you are doing well! ✨<br><br>"
+                . "We are pleased to send you your quote N°" . $devis->getNumero() . " as an attachment.<br><br>"
+                . "Handy reminder: you can find this quote, along with all your quotes and invoices, at any time from your client portal: <a href=\"" . $espaceClientLink . "\">" . $espaceClientLink . "</a> (also available from our mobile app).<br><br>"
+                . "Feel free to reach out with any question, we are always happy to help.<br><br>"
+                . "Have a great day,<br>The Hello World team";
+            $mail->AltBody = "Hello " . $client->getPrenom() . ", please find attached your quote N°" . $devis->getNumero() . ". Client portal: " . $espaceClientLink;
+        } else {
+            $mail->Subject = "Votre devis N°" . $devis->getNumero() . " est prêt !";
+            $mail->Body = "Bonjour " . htmlspecialchars($client->getPrenom()) . ",<br><br>"
+                . "Nous espérons que vous allez bien ! ✨<br><br>"
+                . "C'est avec grand plaisir que nous vous transmettons votre devis N°" . $devis->getNumero() . " en pièce jointe.<br><br>"
+                . "Petit rappel utile : vous pouvez à tout moment retrouver ce devis, ainsi que l'ensemble de vos devis et factures, directement depuis votre espace client : <a href=\"" . $espaceClientLink . "\">" . $espaceClientLink . "</a> (également accessible depuis notre application mobile).<br><br>"
+                . "N'hésitez pas à revenir vers nous pour la moindre question, nous sommes toujours ravis de vous accompagner.<br><br>"
+                . "Belle journée à vous,<br>L'équipe Hello World";
+            $mail->AltBody = "Bonjour " . $client->getPrenom() . ", veuillez trouver ci-joint votre devis N°" . $devis->getNumero() . ". Espace client : " . $espaceClientLink;
+        }
+
+        $mail->send();
+        return true;
+    } catch (\Exception $e) {
+        return $mail->ErrorInfo;
+    }
+}
+
+// Devis passé à "Accepté" : email professionnel automatique de remerciement, avec le montant à
+// régler, les conditions de paiement, et le contrat à signer s'il y en a un pour ce devis. Rédigé
+// dans la langue du devis (fr/en) puisque c'est ce qui détermine la langue de tous les emails client.
+function sendDevisAcceptedEmailToClient($devis)
+{
+    if (!defined('SMTP_HOST') || SMTP_HOST == '') {
+        return "SMTP non configuré (config.secrets.php).";
+    }
+    $client = $devis->getClient();
+    if (!$client->getEmail()) {
+        return "le client n'a pas d'adresse email.";
+    }
+
+    require_once '../../../vendor/autoload.php';
+
+    global $siteURL;
+    $baseUrl = (defined('PUBLIC_SITE_URL') && PUBLIC_SITE_URL) ? PUBLIC_SITE_URL : $siteURL;
+    $espaceClientLink = $baseUrl . "index.php?option=com_elogin";
+    $isEn = ($devis->getLangue() == 'en');
+
+    $conditions = $devis->getConditions();
+    $conditionsHtml = '';
+    foreach ($conditions as $condition) {
+        $conditionsHtml .= "<li>" . htmlspecialchars($condition->getMontant()) . " — " . htmlspecialchars($condition->getCondition()) . "</li>";
+    }
+    if ($conditionsHtml == '' && $devis->getConditionPaiment() != '') {
+        $conditionsHtml = "<li>" . $devis->getConditionPaiment() . "</li>";
+    }
+
+    $contract = contract::findByDevis($devis->getId(), $_SESSION['agence'], $devis->getLangue());
+    $hasContractToSign = ($contract->getId() && $contract->getStatus() != 3);
+
+    try {
+        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+        $mail->isSMTP();
+        $mail->Host = SMTP_HOST;
+        $mail->SMTPAuth = true;
+        $mail->Username = SMTP_USERNAME;
+        $mail->Password = SMTP_PASSWORD;
+        $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
+        $mail->CharSet = 'UTF-8';
+
+        $mail->setFrom(SMTP_USERNAME, 'Hello World');
+        $mail->addAddress($client->getEmail(), trim($client->getPrenom() . ' ' . $client->getNom()));
+        $mail->addCC('contact@helloworld-agency.com');
+        $mail->isHTML(true);
+
+        $montant = number_format($devis->getTotal(), 2, ',', ' ') . ' ' . $devis->getDevise();
+
+        if ($isEn) {
+            $mail->Subject = "Thank you for your trust — Quote N°" . $devis->getNumero() . " accepted";
+            $mail->Body = "Hello " . htmlspecialchars($client->getPrenom()) . ",<br><br>"
+                . "Thank you for your trust and for validating quote N°" . $devis->getNumero() . "! We are excited to get started.<br><br>"
+                . "Amount to be paid: <strong>" . $montant . "</strong><br><br>"
+                . ($conditionsHtml != '' ? "Payment terms:<ul>" . $conditionsHtml . "</ul><br>" : "")
+                . ($hasContractToSign ? "A contract has also been prepared for this quote and is awaiting your signature.<br><br>" : "")
+                . "You can find all of this (quote, payment terms" . ($hasContractToSign ? ", contract" : "") . ") from your client portal: <a href=\"" . $espaceClientLink . "\">" . $espaceClientLink . "</a> (also available from our mobile app).<br><br>"
+                . "Feel free to reach out with any question, we are always happy to help.<br><br>"
+                . "Have a great day,<br>The Hello World team";
+            $mail->AltBody = "Hello " . $client->getPrenom() . ", thank you for validating quote N°" . $devis->getNumero() . ". Amount to be paid: " . $montant . ". Client portal: " . $espaceClientLink;
+        } else {
+            $mail->Subject = "Merci pour votre confiance — Devis N°" . $devis->getNumero() . " accepté";
+            $mail->Body = "Bonjour " . htmlspecialchars($client->getPrenom()) . ",<br><br>"
+                . "Merci pour votre confiance et pour la validation du devis N°" . $devis->getNumero() . " ! Nous sommes ravis de démarrer avec vous.<br><br>"
+                . "Montant à régler : <strong>" . $montant . "</strong><br><br>"
+                . ($conditionsHtml != '' ? "Conditions de paiement :<ul>" . $conditionsHtml . "</ul><br>" : "")
+                . ($hasContractToSign ? "Un contrat a également été préparé pour ce devis et est en attente de votre signature.<br><br>" : "")
+                . "Vous pouvez retrouver tout ceci (devis, conditions de paiement" . ($hasContractToSign ? ", contrat" : "") . ") depuis votre espace client : <a href=\"" . $espaceClientLink . "\">" . $espaceClientLink . "</a> (également accessible depuis notre application mobile).<br><br>"
+                . "N'hésitez pas à revenir vers nous pour la moindre question, nous sommes toujours ravis de vous accompagner.<br><br>"
+                . "Belle journée à vous,<br>L'équipe Hello World";
+            $mail->AltBody = "Bonjour " . $client->getPrenom() . ", merci pour la validation du devis N°" . $devis->getNumero() . ". Montant à régler : " . $montant . ". Espace client : " . $espaceClientLink;
+        }
+
+        $mail->send();
+        return true;
+    } catch (\Exception $e) {
+        return $mail->ErrorInfo;
     }
 }

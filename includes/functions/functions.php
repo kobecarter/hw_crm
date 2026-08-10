@@ -30,7 +30,107 @@ function getCategorieFournisseur(){
         24 => 'Agence événementielle',
         25 => 'Artiste',
         26 => 'Influenceur',
+        27 => 'Hébergement web & noms de domaine',
+        28 => 'Intelligence artificielle (IA)',
+        29 => 'Outils & services Google',
+        30 => 'Outils créatifs, multimédia & SEO',
+        31 => 'Marketing, réseaux & gestion de projet',
         20 => 'Autres');
+}
+
+// Icône FontAwesome associée à chaque catégorie fournisseur - utilisé par les badges/puces de
+// filtre de la page Fournisseurs (jamais de générique "tag" partout, chaque métier a son symbole).
+function getCategorieFournisseurIcone($id){
+    $icones = array(
+        1 => 'fa-camera-retro',
+        2 => 'fa-video',
+        3 => 'fa-tools',
+        4 => 'fa-walking',
+        5 => 'fa-university',
+        6 => 'fa-calculator',
+        7 => 'fa-code',
+        8 => 'fa-pen-nib',
+        9 => 'fa-broom',
+        10 => 'fa-shield-alt',
+        11 => 'fa-landmark',
+        12 => 'fa-file-invoice-dollar',
+        13 => 'fa-umbrella',
+        14 => 'fa-paperclip',
+        15 => 'fa-print',
+        16 => 'fa-car',
+        17 => 'fa-wifi',
+        18 => 'fa-truck',
+        19 => 'fa-building',
+        20 => 'fa-ellipsis-h',
+        21 => 'fa-bullhorn',
+        22 => 'fa-newspaper',
+        23 => 'fa-microphone',
+        24 => 'fa-calendar-alt',
+        25 => 'fa-palette',
+        26 => 'fa-hashtag',
+        27 => 'fa-server',
+        28 => 'fa-robot',
+        29 => 'fa-cloud',
+        30 => 'fa-magic',
+        31 => 'fa-project-diagram',
+    );
+    return isset($icones[$id]) ? $icones[$id] : 'fa-briefcase';
+}
+
+// Icône, couleur d'accent et photo réelle (récupérée du site helloworld-agency.com, une par
+// catégorie) associées à chaque catégorie de service (crm_categorie/crm_details_categorie) - même
+// principe que getCategorieFournisseurIcone() ci-dessus, mais avec en plus une photo puisque la
+// page Services affiche désormais une bannière par catégorie (grille façon page Fournisseurs).
+function getServiceCategorieIcone($id){
+    $icones = array(
+        1 => 'fa-code',
+        2 => 'fa-chart-line',
+        3 => 'fa-palette',
+        4 => 'fa-bullhorn',
+        5 => 'fa-camera-retro',
+    );
+    return isset($icones[$id]) ? $icones[$id] : 'fa-briefcase';
+}
+
+function getServiceCategorieCouleur($id){
+    $couleurs = array(
+        1 => '#6366f1',
+        2 => '#0d9488',
+        3 => '#a855f7',
+        4 => '#3b82f6',
+        5 => '#22c55e',
+    );
+    return isset($couleurs[$id]) ? $couleurs[$id] : '#6366f1';
+}
+
+function getServiceCategoriePhoto($id){
+    $photos = array(
+        1 => '1-developpement.webp',
+        2 => '2-seo.webp',
+        3 => '3-design.webp',
+        4 => '4-marketing.webp',
+        5 => '5-shooting.webp',
+    );
+    return isset($photos[$id]) ? $photos[$id] : null;
+}
+
+// Années sans déclaration enregistrée, depuis la création de l'agence jusqu'à l'année en cours
+// incluse - même principe que le calcul "mois manquants" de la page TVA/CNSS, mais à la maille
+// annuelle pour les déclarations qui n'ont lieu qu'une fois par an (Bilan, Impôts, Taxe
+// professionnelle). Partagé entre les 3 pages plutôt que dupliqué, car $classe change mais la
+// logique (findByYear($agenceId, $annee) vide = manquante) est strictement identique.
+function comAccountingAnneesManquantes($classe, $agenceObj)
+{
+    $anneeCourante = (int) date('Y');
+    $anneeCreation = $agenceObj && $agenceObj->getDateAdd() ? (int) date('Y', strtotime($agenceObj->getDateAdd())) : 2022;
+    $manquantes = array();
+    for ($y = $anneeCreation; $y <= $anneeCourante; $y++) {
+        $lignes = $classe::findByYear($agenceObj->getId(), (string) $y);
+        if (empty($lignes)) {
+            $manquantes[] = $y;
+        }
+    }
+    return array('annees' => $manquantes, 'anneeCreation' => $anneeCreation);
 }
 
 function fileExtension($s) {
@@ -356,7 +456,13 @@ function uploadFiles($nomChampTxt, $uploadTo, $extensions = NULL)
 				
 				$accents = '/&([A-Za-z]{1,2})(grave|acute|circ|cedil|uml|lig);/';
 				$string_encoded = htmlentities($nom_fichier,ENT_NOQUOTES,'UTF-8');
-				$nom_fichier = preg_replace($accents,'$1',$string_encoded); 	
+				$nom_fichier = preg_replace($accents,'$1',$string_encoded);
+
+				// macOS encode les accents en Unicode décomposé (ex: "é" = "e" + accent combinant U+0301) :
+				// htmlentities() ne convertit pas ces marques combinantes (pas d'entité nommée), elles
+				// restaient donc telles quelles dans le nom de fichier et faisaient planter l'INSERT SQL
+				// ("Incorrect string value") sur les noms du type "Capture d'écran...png".
+				$nom_fichier = preg_replace('/[\x{0300}-\x{036F}]/u', '', $nom_fichier);
 
 				$nom_fichier = strtolower($nom_fichier);
 				
@@ -928,4 +1034,411 @@ function chargesTitles(){
         "Indemenité de période d'essai",
         "Indemenité de stage",
     ];
+}
+
+// Simule une session utilisateur pour un appelant automatisé sans navigateur (endpoint public
+// appelé par un webhook ou un service de tâche planifiée externe) : plusieurs classes du modèle
+// (client, facture, devis, relance...) lisent $_SESSION['user']/['agence']/['langue'] directement,
+// exactement comme slackEventWebhook() le fait déjà pour $_SESSION['user'] seul.
+// Emoji drapeau pour le sélecteur d'agence du bandeau haut - aucun champ "pays" sur l'agence,
+// seule l'agence 2 (HELLOWORLDLABEL - FZCO, Dubaï) est aux Émirats, toutes les autres facturent
+// depuis le Maroc (même distinction que le "groupeMaroc" de com_rapprochement).
+function agenceFlagEmoji($idAgence)
+{
+    return intval($idAgence) === 2 ? '🇦🇪' : '🇲🇦';
+}
+
+// Emoji drapeau pour le sélecteur de langue du bandeau haut - remplace les images
+// images/langues/*.png qui n'existent pas sur le disque (référencées avec un chemin relatif
+// erroné "../images/langues/", générant un 404 sur toutes les pages).
+function langueFlagEmoji($code)
+{
+    $drapeaux = array('fr' => '🇫🇷', 'en' => '🇬🇧', 'ar' => '🇲🇦');
+    return isset($drapeaux[$code]) ? $drapeaux[$code] : '🏳️';
+}
+
+function bootstrapSystemSession($userId, $agenceId, $langue = 'fr')
+{
+    $_SESSION['user'] = user::find($userId);
+    $_SESSION['agence'] = $agenceId;
+    $_SESSION['langue'] = $langue;
+}
+
+// Agrège les alertes urgentes de plusieurs modules (rappels clients, factures à échéance,
+// fournisseurs en attente de validation, lignes BANK STATEMENT encore à traiter) en une seule
+// structure groupée, cliquable vers la bonne page - alimente le centre "Rappels(Urgent)" du
+// bandeau haut (includes/tpl/notification.php + bottom.php) à la place des mini-dropdowns
+// dispersés. Chaque groupe n'apparaît que si l'utilisateur a le droit de voir le module
+// correspondant ET qu'il y a au moins une alerte - jamais une section vide.
+function getAlertesUrgentes($agence)
+{
+    $user = $_SESSION['user'];
+    $groupes = array();
+
+    if ($user->hasDroit('view', 'com_rappel')) {
+        $items = array();
+        foreach (rappel::findAll(false, $agence) as $rappel) {
+            if ($rappel->getDaysLeft() < 30) {
+                $items[] = array(
+                    'titre' => trim($rappel->getDomaine() . ' ' . $rappel->getType()),
+                    'sous_titre' => 'Expire dans ' . $rappel->getDaysLeft() . ' jour(s)',
+                    'url' => 'index.php?option=com_rappel&highlight=' . $rappel->getId(),
+                    'urgence' => $rappel->getDaysLeft() <= 7 ? 'danger' : 'warning'
+                );
+            }
+        }
+        if (!empty($items)) {
+            $groupes['rappels'] = array('label' => 'Hosting / Domaines / Renouvellements Rappel', 'icon' => 'fa-bell', 'items' => $items);
+        }
+    }
+
+    if ($user->hasDroit('view', 'com_facture')) {
+        $items = array();
+        foreach (facture::findAll(false, false, false, true, false, false, $agence) as $f) {
+            if ($f->getDaysLeft() < 30 && $f->getDateFin() != null && ($f->getTotal() == $f->getReste() || ($f->getTotal() > $f->getReste() && $f->getReste() > 0))) {
+                $items[] = array(
+                    'titre' => 'Facture N°' . $f->getNumero(),
+                    'sous_titre' => 'Expire dans ' . $f->getDaysLeft() . ' jour(s)',
+                    'url' => 'index.php?option=com_facture&task=show&id=' . $f->getId(),
+                    'urgence' => $f->getDaysLeft() <= 7 ? 'danger' : 'warning'
+                );
+            }
+        }
+        if (!empty($items)) {
+            $groupes['factures'] = array('label' => 'Factures à échéance', 'icon' => 'fa-file-invoice', 'items' => $items);
+        }
+    }
+
+    if ($user->hasDroit('view', 'com_fournisseur')) {
+        $items = array();
+        foreach (fournisseur::findAll() as $f) {
+            if (!$f->isValide()) {
+                $nom = trim((string) $f->getRaisonSocial()) !== '' ? $f->getRaisonSocial() : trim($f->getPrenom() . ' ' . $f->getNom());
+                $items[] = array(
+                    'titre' => $nom !== '' ? $nom : '(sans nom)',
+                    'sous_titre' => 'En attente de validation',
+                    'url' => 'index.php?option=com_fournisseur&task=edit&id=' . $f->getId(),
+                    'urgence' => 'warning'
+                );
+            }
+        }
+        if (!empty($items)) {
+            $groupes['fournisseurs'] = array('label' => 'Fournisseurs en attente', 'icon' => 'fa-truck', 'items' => $items);
+        }
+    }
+
+    if ($user->hasDroit('view', 'com_rapprochement')) {
+        $items = array();
+        foreach (releveLot::findAll($agence) as $lot) {
+            $compteurs = releveLigne::compterParLot($lot->getLotImport());
+            $nbATraiter = $compteurs['a_valider'] + $compteurs['sans_justificatif'];
+            if ($nbATraiter > 0) {
+                $bank = $lot->getBank();
+                $nomCompte = '—';
+                if ($bank) {
+                    $nomCompte = $bank->getLabel() !== null && $bank->getLabel() !== '' ? $bank->getLabel()
+                        : ($bank->getRaisonSociale() !== null && $bank->getRaisonSociale() !== '' ? $bank->getRaisonSociale() : $bank->getBanque());
+                }
+                $items[] = array(
+                    'titre' => $nomCompte . ' — ' . $lot->getPeriodeLibelle(),
+                    'sous_titre' => $nbATraiter . ' ligne(s) à traiter' . ($compteurs['sans_justificatif'] > 0 ? ' (dont ' . $compteurs['sans_justificatif'] . ' sans justificatif)' : ''),
+                    'url' => 'index.php?option=com_rapprochement',
+                    'urgence' => $compteurs['sans_justificatif'] > 0 ? 'danger' : 'warning'
+                );
+            }
+        }
+        if (!empty($items)) {
+            $groupes['rapprochement'] = array('label' => 'BANK STATEMENT à traiter', 'icon' => 'fa-exchange-alt', 'items' => $items);
+        }
+    }
+
+    if ($user->hasDroit('view', 'com_relance')) {
+        $items = array();
+        foreach (relance::findAllNonTraite($agence) as $r) {
+            $client = $r->getClient();
+            $nomClient = $client ? (trim((string) $client->getRaisonSocial()) !== '' ? $client->getRaisonSocial() : trim($client->getPrenom() . ' ' . $client->getNom())) : '';
+            $facture = $r->getFacture();
+            $joursRestants = $r->getDaysLeft();
+            $items[] = array(
+                'titre' => $nomClient . ($facture ? ' — Facture N°' . $facture->getNumero() : ''),
+                'sous_titre' => $joursRestants < 0 ? 'En retard de ' . abs($joursRestants) . ' jour(s)' : 'Relance ' . $r->getEtape() . ' dans ' . $joursRestants . ' jour(s)',
+                'url' => 'index.php?option=com_relance&highlight=' . $r->getId(),
+                'urgence' => $joursRestants < 0 ? 'danger' : 'warning'
+            );
+        }
+        if (!empty($items)) {
+            $groupes['relances'] = array('label' => 'Relances de paiement', 'icon' => 'fa-hand-holding-usd', 'items' => $items);
+        }
+    }
+
+    if ($user->hasDroit('view', 'com_accounting')) {
+        $agenceObjet = agence::find($agence, isset($_SESSION['langue']) ? $_SESSION['langue'] : 'fr');
+        $periodicite = $agenceObjet->getTvaPeriodicite() === 'trimestriel' ? 'trimestriel' : 'mensuel';
+        $periodeCloturee = tva::periodeReference($periodicite, null, -1);
+        $periodeDeclaree = true;
+        $curseurPeriode = clone $periodeCloturee['debut'];
+        while ($curseurPeriode <= $periodeCloturee['fin']) {
+            if (empty(tva::findByDate($agence, $curseurPeriode->format('Y-m')))) {
+                $periodeDeclaree = false;
+                break;
+            }
+            $curseurPeriode->modify('+1 month');
+        }
+        if (!$periodeDeclaree) {
+            $joursAvantEcheance = (int) (new DateTime('today'))->diff($periodeCloturee['limite'])->format('%r%a');
+            $items = array(array(
+                'titre' => 'Déclaration TVA — ' . $periodeCloturee['libelle'],
+                'sous_titre' => $joursAvantEcheance < 0 ? 'En retard de ' . abs($joursAvantEcheance) . ' jour(s)' : 'À déposer dans ' . $joursAvantEcheance . ' jour(s)',
+                'url' => 'index.php?option=com_accounting&task=tva',
+                'urgence' => $joursAvantEcheance < 0 ? 'danger' : 'warning'
+            ));
+            $groupes['tva'] = array('label' => 'TVA à déclarer', 'icon' => 'fa-file-invoice-dollar', 'items' => $items);
+        }
+    }
+
+    if ($user->hasDroit('view', 'com_resourcehumaine')) {
+        $items = array();
+        foreach (resourcehumaine::findAll() as $employe) {
+            if (!$employe->getAgency() || $employe->getAgency()->getId() != $agence) {
+                continue;
+            }
+            foreach (request::findAllByResourcehumaine($employe->getId()) as $demande) {
+                if ($demande->getStatus() == 0) {
+                    $items[] = array(
+                        'titre' => $employe->getFirstName() . ' ' . $employe->getLastName() . ' — ' . $demande->getTitle(),
+                        'sous_titre' => 'Demande en attente depuis le ' . date('d/m/Y', strtotime($demande->getDateAdd())),
+                        'url' => 'index.php?option=com_resourcehumaine&task=request&id=' . $employe->getId(),
+                        'urgence' => 'warning'
+                    );
+                }
+            }
+        }
+        if (!empty($items)) {
+            $groupes['demandes_rh'] = array('label' => 'Demandes employés en attente', 'icon' => 'fa-user-clock', 'items' => $items);
+        }
+    }
+
+    // Réseaux sociaux à revérifier tous les 3 mois (90 jours) : un identifiant peut avoir changé
+    // (mot de passe renouvelé, compte perdu) sans que personne ne le remarque avant d'en avoir
+    // besoin - cf. components/com_client/classes/clientsocial.php::findStaleByAgence(). Un simple
+    // ré-enregistrement (même sans changer les valeurs) via la page ou un accès temporaire suffit
+    // à repousser l'échéance de 3 mois, pas besoin d'un bouton "vérifié" dédié.
+    if ($user->hasDroit('edit', 'com_client')) {
+        $items = array();
+        foreach (clientsocial::findStaleByAgence($agence, 90) as $stale) {
+            $clientStale = client::findAny($stale['id_client']);
+            if ($clientStale->getId() == 0) {
+                continue;
+            }
+            $nomStale = $clientStale->getRaisonSocial() != '' ? $clientStale->getRaisonSocial() : trim($clientStale->getTitre() . ' ' . $clientStale->getNom() . ' ' . $clientStale->getPrenom());
+            $joursDepuis = $stale['derniere_verif'] ? (int) round((time() - strtotime($stale['derniere_verif'])) / 86400) : null;
+            $items[] = array(
+                'titre' => $nomStale,
+                'sous_titre' => $joursDepuis !== null ? 'Non revérifié depuis ' . $joursDepuis . ' jour(s)' : 'Jamais vérifié',
+                'url' => 'index.php?option=com_client&task=socialAccounts&id=' . $stale['id_client'],
+                'urgence' => ($joursDepuis === null || $joursDepuis >= 120) ? 'danger' : 'warning'
+            );
+        }
+        if (!empty($items)) {
+            $groupes['social_a_verifier'] = array('label' => 'Réseaux sociaux à vérifier', 'icon' => 'fa-share-alt', 'items' => $items);
+        }
+    }
+
+    return $groupes;
+}
+
+// ---- Statistiques globales (com_dashboard, task=globalStats) : conversion devises + agrégats
+// comptables réutilisables, centralisés ici pour ne plus dupliquer les mêmes taux/calculs dans
+// chaque fonction du contrôleur (l'ancienne version de la page les répétait 3 fois). --------------
+
+// Taux de conversion approximatifs vers le DH - mêmes valeurs déjà utilisées historiquement par
+// cette page (aucun module "taux de change" réel dans ce CRM, ce sont les valeurs métier
+// existantes) : centralisées ici en un seul endroit plutôt que recopiées à chaque calcul.
+function tauxConversionDH($devise)
+{
+    $taux = array('DH' => 1, '€' => 10, '£' => 12, '$' => 9, 'AED' => 2.5);
+    return isset($taux[$devise]) ? $taux[$devise] : 1;
+}
+
+// Agrégats comptables d'une période (toutes devises confondues, converties en DH) pour une agence
+// donnée ou toutes agences (false) : chiffre d'affaires, encaissé, charges, créances (impayé),
+// marge et les deux taux qui donnent vraiment un sens de pilotage à ces chiffres (taux de marge,
+// taux de recouvrement) plutôt que de simples totaux isolés.
+function statsGlobalesPeriode($from, $to, $agence = false)
+{
+    $devises = array('DH', '€', '£', '$', 'AED');
+    $ca = 0;
+    $encaissements = 0;
+    $charges = 0;
+    $creances = 0;
+    foreach ($devises as $d) {
+        $taux = tauxConversionDH($d);
+        $ca += facture::getCAbyDate(false, $from, $to, $d, $agence) * $taux;
+        $encaissements += payment::getReglementbyDate($from, $to, $d, $agence) * $taux;
+        $charges += charge::getCharge($from, $to, $agence, $d) * $taux;
+        $creances += facture::getCreanceByDate($from, $to, $d, $agence) * $taux;
+    }
+    $marge = $ca - $charges;
+    return array(
+        'ca' => $ca,
+        'encaissements' => $encaissements,
+        'charges' => $charges,
+        'creances' => $creances,
+        'marge' => $marge,
+        'tauxMarge' => $ca > 0 ? ($marge / $ca) * 100 : 0,
+        'tauxRecouvrement' => $ca > 0 ? ($encaissements / $ca) * 100 : 0,
+    );
+}
+
+// Variation en % entre deux valeurs (pour les puces de tendance des KPI) - null si la valeur de
+// référence est nulle (pas de "vs 0" qui donnerait un pourcentage absurde style +99900%).
+function variationPourcent($actuel, $precedent)
+{
+    if (!$precedent) {
+        return null;
+    }
+    return (($actuel - $precedent) / abs($precedent)) * 100;
+}
+
+// Chiffrement des identifiants réseaux sociaux client (com_client, onglet "Réseaux sociaux") -
+// AES-256-CBC réversible (PAS un hash : ces mots de passe doivent pouvoir être réaffichés/copiés
+// par un superadmin pour se connecter aux comptes réels du client, contrairement aux mots de passe
+// de connexion à ce CRM qui sont hashés en bcrypt, cf. audit sécurité). Clé dans
+// config.secrets.php (SOCIAL_CREDENTIALS_KEY, non versionné). IV aléatoire à chaque chiffrement,
+// stocké à côté du texte chiffré (l'IV n'a pas besoin d'être secret, seule la clé l'est).
+function encryptSocialCredential($plain)
+{
+    if ($plain === null || $plain === '') {
+        return '';
+    }
+    $key = hex2bin(SOCIAL_CREDENTIALS_KEY);
+    $iv = random_bytes(16);
+    $cipher = openssl_encrypt($plain, 'aes-256-cbc', $key, OPENSSL_RAW_DATA, $iv);
+    return base64_encode($iv) . ':' . base64_encode($cipher);
+}
+
+function decryptSocialCredential($encoded)
+{
+    if ($encoded === null || $encoded === '') {
+        return '';
+    }
+    $parts = explode(':', $encoded, 2);
+    if (count($parts) !== 2) {
+        return '';
+    }
+    $key = hex2bin(SOCIAL_CREDENTIALS_KEY);
+    $iv = base64_decode($parts[0]);
+    $cipher = base64_decode($parts[1]);
+    $plain = openssl_decrypt($cipher, 'aes-256-cbc', $key, OPENSSL_RAW_DATA, $iv);
+    return $plain === false ? '' : $plain;
+}
+
+// Contrôle d'accès de la page "Réseaux sociaux" d'un client : soit un admin normalement connecté
+// (session CRM habituelle), soit une session d'accès temporaire valide ($_SESSION['socialAccess'],
+// posée par components/com_client/controleurs/socialaccess/router.php après vérification
+// token+code - voir clientsocialtoken::verify()). Centralisé ici pour que le contrôleur
+// (add/edit/delete) ET la page publique appellent exactement la même règle - jamais dupliquée.
+function socialAccessAllowed($idClient, $plateforme = null)
+{
+    if (isset($_SESSION['user']) && $_SESSION['user']->hasDroit('edit', 'com_client')) {
+        return true;
+    }
+    return socialAccessTokenAllows($idClient, $plateforme);
+}
+
+// Le déchiffrement/affichage du mot de passe est réservé au superadmin côté session normale (audit
+// sécurité 2026-08-04) - mais un accès temporaire valide doit aussi pouvoir révéler, sa légitimité
+// venant du couple token+code plutôt que du statut superadmin.
+function socialRevealAllowed($idClient, $plateforme = null)
+{
+    if (isset($_SESSION['user']) && $_SESSION['user']->isSuperUser()) {
+        return true;
+    }
+    return socialAccessTokenAllows($idClient, $plateforme);
+}
+
+function socialAccessTokenAllows($idClient, $plateforme = null)
+{
+    if (empty($_SESSION['socialAccessTokenId'])) {
+        return false;
+    }
+    $t = clientsocialtoken::find($_SESSION['socialAccessTokenId']);
+    if (!$t->isUsable()) {
+        return false;
+    }
+    if (!$t->getClient() || $t->getClient()->getId() != intval($idClient)) {
+        return false;
+    }
+    if ($t->getScopeType() === 'specific' && $plateforme !== null && $t->getScopePlateforme() !== $plateforme) {
+        return false;
+    }
+    return true;
+}
+
+// Rappel bimestriel des documents manquants (dossier employé incomplet - CIN, contrat, engagement
+// de confidentialité...) : appelée à chaque chargement de la liste RH (com_resourcehumaine/
+// index.php, cas par défaut). Pas de vrai cron sur cet environnement (même principe que le rappel
+// 90 jours des réseaux sociaux, cf. getAlertesUrgentes() ci-dessus) : un email n'est réellement
+// renvoyé à un employé donné que si last_document_reminder est vide ou vieux de 60 jours ou plus,
+// jamais à chaque visite de la page.
+function verifierRappelsDocumentsManquantsRH()
+{
+    if (!defined('SMTP_HOST') || SMTP_HOST == '') {
+        return;
+    }
+    $seuil = strtotime('-60 days');
+    foreach (resourcehumaine::findAll() as $employe) {
+        if ($employe->getActive() != 1 || !$employe->getEmail()) {
+            continue;
+        }
+        $dernierRappel = $employe->getLastDocumentReminder();
+        if ($dernierRappel && strtotime($dernierRappel) > $seuil) {
+            continue;
+        }
+        $files = fileresourcehumaine::findAllByResourcehumaine($employe->getId());
+        $manquants = fileresourcehumaine::documentsManquants($employe->getStatus(), $files);
+        if (empty($manquants)) {
+            continue;
+        }
+        if (envoyerEmailDocumentsManquantsRH($employe, $manquants)) {
+            resourcehumaine::updateLastDocumentReminder($employe->getId(), date('Y-m-d'));
+        }
+    }
+}
+
+function envoyerEmailDocumentsManquantsRH($employe, $manquants)
+{
+    require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
+    try {
+        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+        $mail->isSMTP();
+        $mail->Host = SMTP_HOST;
+        $mail->SMTPAuth = true;
+        $mail->Username = SMTP_USERNAME;
+        $mail->Password = SMTP_PASSWORD;
+        $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
+        $mail->CharSet = 'UTF-8';
+
+        $mail->setFrom(SMTP_USERNAME, 'Hello World');
+        $mail->addAddress($employe->getEmail(), trim($employe->getFirstName() . ' ' . $employe->getLastName()));
+        $mail->isHTML(true);
+
+        $listeHtml = '';
+        foreach ($manquants as $libelle) {
+            $listeHtml .= '<li>' . htmlspecialchars($libelle) . '</li>';
+        }
+        $mail->Subject = "Documents manquants à votre dossier";
+        $mail->Body = "Bonjour " . htmlspecialchars($employe->getFirstName()) . ",<br><br>"
+            . "Merci de bien vouloir ajouter le(s) document(s) suivant(s), encore manquant(s) à votre dossier :<br>"
+            . "<ul>" . $listeHtml . "</ul>"
+            . "Merci de les transmettre à l'administration dès que possible — tant que ces documents ne sont pas fournis, "
+            . "certaines demandes (congé notamment) resteront indisponibles.<br><br>"
+            . "Cordialement,<br>L'équipe Hello World";
+        $mail->AltBody = "Documents manquants à votre dossier : " . implode(', ', $manquants) . ". Merci de les transmettre à l'administration.";
+
+        return $mail->send();
+    } catch (\Exception $e) {
+        return false;
+    }
 }

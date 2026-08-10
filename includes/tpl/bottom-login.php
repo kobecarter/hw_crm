@@ -20,5 +20,9 @@
 		<!-- Custom JS -->
 		<script src="assets/js/script.js"></script>
 		<script src="assets/js/custom.js"></script>
+
+		<!-- Modern Theme (GSAP micro-interactions, surcouche additive) -->
+		<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+		<script src="assets/js/modern-theme.js"></script>
 	</body>
 </html>

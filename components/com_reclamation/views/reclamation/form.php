@@ -39,7 +39,17 @@
 				<textarea name="message" class="form-control"><?php if(isset($reclamation)) echo $reclamation->getMessage(); ?></textarea>
 			</div>
 		</div>
-		
+
+		<div class="col-md-12">
+			<div class="form-group">
+				<label>Réponse au client <small class="text-muted">(visible dans l'espace client)</small></label>
+				<textarea name="reponse" class="form-control" rows="5" placeholder="Écrivez votre réponse au client…"><?php if(isset($reclamation)) echo htmlspecialchars($reclamation->getReponse()); ?></textarea>
+				<?php if(isset($reclamation) && $reclamation->hasReponse() && $reclamation->getDateReponse()): ?>
+					<small class="text-success">Répondu le <?php echo date("d/m/Y H:i", strtotime($reclamation->getDateReponse())); ?></small>
+				<?php endif; ?>
+			</div>
+		</div>
+
 		<!-- Toggle Switch -->
 		<div class="col-md-6">
 			<label class="row form-group toggle-switch">

@@ -5,6 +5,7 @@ switch ($task)
 {
     case 'add' :
         if ($_SESSION['user']->hasDroit('add', 'com_bank')) {
+            $agences = agence::findAll($_SESSION['langue']);
             $action = "components/com_bank/controleurs/router.php?task=addBank";
             $submitName = "add";
             $submitValue = "Ajouter bank";
@@ -16,6 +17,7 @@ switch ($task)
             if (isset($_GET['id']) && !empty($_GET['id'])) {
                 $id = intval($_GET['id']);
                 $bank = bank::find($id);
+                $agences = agence::findAll($_SESSION['langue']);
                 $action = "components/com_bank/controleurs/router.php?task=editBank";
                 $submitName = "edit";
                 $submitValue = "Modifier bank";

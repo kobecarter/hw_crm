@@ -19,80 +19,79 @@ function generateChartLines(year) {
 			var facture2 = parseInt(data_reponse[10]);
 			var facture3 = parseInt(data_reponse[11]);
 	
-			// regénération du graphe Paiement par devis par mois
+			// regénération du graphe Paiement par devis par mois - style aligné sur le graphe
+			// "Évolution mensuelle" de Statistiques globales (aire lissée + dégradé, même famille
+			// de couleurs, Charges toujours en rouge sur les deux pages) plutôt que des colonnes
+			// pleines : 6 séries en barres pleines se chevauchaient visuellement et étaient
+			// difficiles à lire mois par mois.
 			var columnCtx1 = document.getElementById("sales_chart"),
 			columnConfig1 = {
-				colors: ['#7638ff', '#22cc62', '#ffbc34', '#009efb', '#6c757d', '#ef3737'],
+				colors: ['#6366f1', '#22c55e', '#f59e0b', '#0ea5e9', '#8b5cf6', '#ef4444'],
 				series: [
 					{
 						name: "Encaissements MAD",
-						type: "column",
 						data: payment1
 					},
 					{
 						name: "Encaissements EUR",
-						type: "column",
 						data: payment2
 					},
 					{
 						name: "Encaissements Pound",
-						type: "column",
 						data: payment3
 					},
 					{
 						name: "Encaissements Dollar",
-						type: "column",
 						data: payment4
 					},
 					{
 						name: "Encaissements Aed",
-						type: "column",
 						data: payment5
 					},
 					{
 						name: "Charges",
-						type: "column",
 						data: charge1
 					}
 				],
 				chart: {
-					type: 'bar',
-					fontFamily: 'Poppins, sans-serif',
+					type: 'area',
+					fontFamily: 'inherit',
 					height: 350,
 					toolbar: {
 						show: false
 					}
 				},
-				plotOptions: {
-					bar: {
-						horizontal: false,
-						columnWidth: '60%',
-						endingShape: 'rounded'
-					},
-				},
 				dataLabels: {
 					enabled: false
 				},
 				stroke: {
-					show: true,
-					width: 2,
-					colors: ['transparent']
+					curve: 'smooth',
+					width: 2.5
+				},
+				fill: {
+					type: 'gradient',
+					gradient: {
+						opacityFrom: 0.35,
+						opacityTo: 0.02
+					}
+				},
+				legend: {
+					position: 'top'
 				},
 				xaxis: {
 					categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
 				},
 				yaxis: {
-					title: {
-						text: 'Encaissements / Charges'
+					labels: {
+						formatter: function (v) {
+							return Math.round(v).toLocaleString('fr-FR');
+						}
 					}
-				},
-				fill: {
-					opacity: 1
 				},
 				tooltip: {
 					y: {
 						formatter: function (val) {
-							return val
+							return Number(val).toLocaleString('fr-FR')
 						}
 					}
 				}
@@ -315,10 +314,17 @@ $(document).ready(function () {
     	// Switch Data per Year
     	$(".switch-year a").click(function () {
     		var year = $(this).attr("data-year");
-    		generateChartLines(year);		
+    		generateChartLines(year);
     	})
-    
-    	generateChartLines($(".switch-year a").attr("data-year"));
+
+    	// Garde-fou : ce bloc "else" suppose être sur le dashboard normal (#sales_chart +
+    	// .switch-year présents). D'autres pages déclarent aussi STATS_GLOBAL=false sans avoir ces
+    	// éléments (ex: com_dashboard&task=globalStats) - sans ce test, generateChartLines(undefined)
+    	// partait quand même en AJAX vers getChiffreYear avec year=undefined, provoquant un 500 pour
+    	// rien à chaque chargement de ces pages-là.
+    	if ($(".switch-year a").length) {
+    		generateChartLines($(".switch-year a").attr("data-year"));
+    	}
 	}
 	
 	// envoi du formulaire filtre stats par date en ajax

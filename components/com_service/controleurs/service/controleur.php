@@ -20,6 +20,48 @@ if (isset($task) && !empty($task)) {
         case 'enableServices' :
             enableServices($_POST);
             break;
+        case 'getServiceOptions' :
+            getServiceOptions();
+            break;
+        case 'updateServiceDescriptionOnly' :
+            updateServiceDescriptionOnly($_POST);
+            break;
+    }
+}
+
+function updateServiceDescriptionOnly($data)
+{
+    header('Content-Type: application/json');
+
+    $id_service = isset($data['id_service']) ? intval($data['id_service']) : 0;
+    $description = isset($data['description']) ? $data['description'] : '';
+
+    if (!$id_service) {
+        echo json_encode(array('success' => 0, 'message' => 'Service invalide'));
+        return;
+    }
+
+    // on part toujours d'un service existant fraîchement rechargé, pour ne modifier QUE
+    // la description et laisser tous ses autres champs (catégorie, prix, etc.) intacts
+    $service = service::find($id_service, $_SESSION['langue']);
+    if (!$service->getId()) {
+        echo json_encode(array('success' => 0, 'message' => 'Service introuvable'));
+        return;
+    }
+
+    $service->setDescription($description);
+    $service->edit();
+
+    echo json_encode(array('success' => 1));
+}
+
+function getServiceOptions()
+{
+    $lastId = service::getLastId();
+    $services = service::findAll($_SESSION['langue'], true, false, true);
+    foreach ($services as $service) {
+        $sl = $lastId == $service->getId() ? "selected" : "";
+        echo '<option data-title="' . htmlspecialchars($service->getTitre()) . '" data-description="' . htmlspecialchars(addslashes($service->getDescription())) . '" value="' . $service->getId() . '" ' . $sl . '>' . htmlspecialchars($service->getTitre()) . '</option>';
     }
 }
 
@@ -28,7 +70,7 @@ function addService($data)
     $indices = array("titre");
     if (fieldCheck($data, $indices)) {
         if (buildService($data)->add() == 1) {
-            echo "1";
+            echo "1|" . service::getLastId();
         } else {
             echo "2";
         }

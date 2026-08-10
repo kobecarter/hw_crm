@@ -18,9 +18,11 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
                 $action = "components/com_client/controleurs/router.php?task=addClient";
                 $submitName = "addclientrapide";
                 $submitValue = "Ajouter client";
+                $agences = agence::findAll($_SESSION['langue']);
+                $prefillClient = isset($_GET['prefill']) ? json_decode($_GET['prefill'], true) : array();
                 include_once("../views/client/form.php");
             }
-            break;    
+            break;
         case 'editClient' :
             if ($_SESSION['user']->hasDroit('edit', 'com_client')) {
                 include_once ("client/controleur.php");
@@ -32,6 +34,16 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
             }
             break;
         case 'enableClient' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_client')) {
+                include_once ("client/controleur.php");
+            }
+            break;
+        case 'archiveClient' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_client')) {
+                include_once ("client/controleur.php");
+            }
+            break;
+        case 'retablirClient' :
             if ($_SESSION['user']->hasDroit('edit', 'com_client')) {
                 include_once ("client/controleur.php");
             }
@@ -63,7 +75,13 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
             break;
         case 'loginApi' :
                 include_once ("client/controleur.php");
-            break;	
+            break;
+        case 'googleLoginApi' :
+                include_once ("client/controleur.php");
+            break;
+        case 'facebookLoginApi' :
+                include_once ("client/controleur.php");
+            break;
         case 'verifyEmailApi' :
                 include_once ("client/controleur.php");
             break;
@@ -78,6 +96,30 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
             break;	
         case 'updateProfileApi' :
                 include_once ("client/controleur.php");
-            break;			
+            break;
+        // Pas de contrôle hasDroit() ici pour les 4 tâches ci-dessous, contrairement au reste de ce
+        // routeur : un accès temporaire (token+code, components/com_client/controleurs/
+        // socialaccess/router.php) n'a PAS de $_SESSION['user'] du tout - y accéder ferait une
+        // erreur fatale. Chaque fonction du contrôleur appelle elle-même socialAccessAllowed()/
+        // socialRevealAllowed() (includes/functions/functions.php), qui gèrent les deux cas
+        // (session CRM normale OU jeton temporaire valide) - c'est la vraie porte d'entrée.
+        case 'addClientSocial' :
+            include_once ("clientsocial/controleur.php");
+            break;
+        case 'editClientSocial' :
+            include_once ("clientsocial/controleur.php");
+            break;
+        case 'deleteClientSocial' :
+            include_once ("clientsocial/controleur.php");
+            break;
+        case 'revealClientSocialPassword' :
+            include_once ("clientsocial/controleur.php");
+            break;
+        case 'generateClientSocialToken' :
+            include_once ("clientsocial/controleur.php");
+            break;
+        case 'revokeClientSocialToken' :
+            include_once ("clientsocial/controleur.php");
+            break;
     }
 }

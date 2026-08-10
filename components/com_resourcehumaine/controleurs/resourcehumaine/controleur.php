@@ -114,8 +114,14 @@ function deleteResourceHumaine($data)
     $indices = array("id");
     if (fieldCheck($data, $indices))
     {
-        $resourcehumaine = new resourcehumaine();
-        $resourcehumaine->setId($data['id']);
+        // find() puis vérification manuelle de l'agence (resourcehumaine::find($id) ne prend pas
+        // d'agence en paramètre, contrairement à client/fournisseur/tva/...) - sans ce contrôle,
+        // n'importe quel id d'employé valide, même d'une autre agence, se faisait supprimer (IDOR).
+        $resourcehumaine = resourcehumaine::find($data['id']);
+        if ($resourcehumaine->getId() == 0 || !$resourcehumaine->getAgency() || $resourcehumaine->getAgency()->getId() != $_SESSION['agence']) {
+            echo "2";
+            return;
+        }
         if ($resourcehumaine->delete() == 1) {
             echo "1";
         } else {
@@ -148,7 +154,7 @@ function buildResourceHumaine($data, $id = null)
 		$resourcehumaine->setPhoto($photo[0]);
 	}
     if(isset($data['password']) && !empty($data['password'])){
-        $resourcehumaine->setPassword(hash('sha256',$data['password']));
+        $resourcehumaine->setPassword(password_hash($data['password'], PASSWORD_DEFAULT));
     }
 	
     $resourcehumaine->setReference($data['reference']);
@@ -165,6 +171,8 @@ function buildResourceHumaine($data, $id = null)
     $resourcehumaine->setCity($data['city']);
     $resourcehumaine->setProspectingSource($data['prospecting_source']);
     $resourcehumaine->setRib($data['rib']);
+    $resourcehumaine->setSalaireInitial(isset($data['salaire_initial']) && $data['salaire_initial'] !== '' ? $data['salaire_initial'] : null);
+    $resourcehumaine->setSalaireActuel(isset($data['salaire_actuel']) && $data['salaire_actuel'] !== '' ? $data['salaire_actuel'] : null);
 	$resourcehumaine->setFunction($data['function']);
     $resourcehumaine->setProfil(isset($data['id_profil']) ? profil::find($data['id_profil']) : new profil());
     $resourcehumaine->setStatus($data['status']);

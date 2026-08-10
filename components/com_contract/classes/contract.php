@@ -15,6 +15,7 @@ class contract
     private $garantie;
     private $ville;
     private $date;
+    private $date_fin;
     private $tribunal;
     private $nombre_de_paiement;
     private $texte;
@@ -69,7 +70,12 @@ class contract
     {
         return $this->date;
     }
-    
+
+    public function getDateFin()
+    {
+        return $this->date_fin;
+    }
+
     public function getTribunal()
     {
         return $this->tribunal;
@@ -160,6 +166,11 @@ class contract
         $this->date = $date;
     }
 
+    public function setDateFin($date_fin)
+    {
+        $this->date_fin = $date_fin;
+    }
+
     public function setTribunal($tribunal)
     {
         $this->tribunal = $tribunal;
@@ -208,10 +219,11 @@ class contract
     {
         global $db;
 
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_devis, type, date, nombre_de_paiement, show_signature, status, contrat_pdf, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_devis, type, date, date_fin, nombre_de_paiement, show_signature, status, contrat_pdf, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
 			GetSQLValueString($this->devis->getId(), "id"),
             GetSQLValueString($this->type, "text"),
             GetSQLValueString($this->date, "date"),
+            GetSQLValueString($this->date_fin, "date"),
             GetSQLValueString($this->nombre_de_paiement, "int"),
             GetSQLValueString($this->show_signature, "int"),
             GetSQLValueString($this->status, "int"),
@@ -247,11 +259,12 @@ class contract
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  id_devis = %s, type = %s, date = %s, nombre_de_paiement = %s, show_signature = %s, status = %s, contrat_pdf = %s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  id_devis = %s, type = %s, date = %s, date_fin = %s, nombre_de_paiement = %s, show_signature = %s, status = %s, contrat_pdf = %s, last_edit = %s WHERE id = %s",
 			GetSQLValueString($this->devis->getId(), "int"),
-            GetSQLValueString($this->type, "text"), 
-            GetSQLValueString($this->date, "date"), 
-            GetSQLValueString($this->nombre_de_paiement, "int"), 
+            GetSQLValueString($this->type, "text"),
+            GetSQLValueString($this->date, "date"),
+            GetSQLValueString($this->date_fin, "date"),
+            GetSQLValueString($this->nombre_de_paiement, "int"),
             GetSQLValueString($this->show_signature, "int"),
             GetSQLValueString($this->status, "int"),
             GetSQLValueString($this->contrat_pdf, "text"),
@@ -399,6 +412,7 @@ class contract
         $contract->setGarantie($data['garantie']);
         $contract->setVille($data['ville']);
         $contract->setDate($data['date']);
+        $contract->setDateFin($data['date_fin']);
         $contract->setTribunal($data['tribunal']);
         $contract->setNombreDePaiement($data['nombre_de_paiement']);
         $contract->setTexte($data['texte']);
@@ -453,6 +467,7 @@ class contract
             'garantie' => $data['garantie'],
             'ville' => $data['ville'],
             'date' => $data['date'],
+            'date_fin' => $data['date_fin'],
             'tribunal' => $data['tribunal'],
             'nombre_de_paiement' => $data['nombre_de_paiement'],
             'texte' => $data['texte'],

@@ -6,6 +6,9 @@ if (isset($task) && !empty($task)) {
 		case 'addFacture':
 			addFacture($_POST);
 			break;
+		case 'verifierDossierDriveClient':
+			verifierDossierDriveClient($_POST);
+			break;
 		case 'editFacture':
 			editFacture($_POST);
 			break;
@@ -257,6 +260,28 @@ function getServiceUnite($data)
 	}
 }
 
+// Étape de validation avant création d'une facture : cherche, dans le dossier Drive du
+// pays/ville du client, un dossier au nom déjà proche du sien (sans y correspondre exactement -
+// une correspondance exacte est de toute façon retrouvée en silence, jamais dupliquée). Appelé en
+// AJAX depuis le formulaire "Ajouter facture" AVANT l'envoi réel : si rien de similaire n'est
+// trouvé, le formulaire s'envoie normalement sans interruption ; sinon une modale de confirmation
+// est affichée côté client (voir components/com_facture/views/facture/form.php).
+function verifierDossierDriveClient($data)
+{
+	header('Content-Type: application/json');
+	$indices = array("client");
+	if (!fieldCheck($data, $indices)) {
+		echo json_encode(array('configure' => false, 'similaires' => array()));
+		return;
+	}
+	$client = client::find($data['client'], $_SESSION['agence']);
+	if (!$client->getId() || !class_exists('googleDriveClient')) {
+		echo json_encode(array('configure' => false, 'similaires' => array()));
+		return;
+	}
+	echo json_encode(googleDriveClient::verifierDossierClientSimilaire($client));
+}
+
 function addFacture($data)
 {
 	$indices = array("client", "bank");
@@ -295,6 +320,8 @@ function addFacture($data)
 					$agence->edit();
 				}
 			}
+			$dossierDriveChoisi = isset($data['drive_folder_override']) && $data['drive_folder_override'] !== '' ? $data['drive_folder_override'] : null;
+			projectNotifier::launch($facture->getClient(), $facture->getDevis(), 'Facture #' . $facture->getNumero() . ' créée.', $dossierDriveChoisi);
 			echo "1";
 		} else {
 			echo "2";
@@ -489,7 +516,7 @@ function getRowFacture()
 	$services = service::findAll($_SESSION['langue'], true);
 	?>
 	<tr>
-		<td></td>
+		<td><input type="number" name="ordre[]" value="1" class="form-control"></td>
 		<td>
 			<select class="chosen-select service-select" name="id_service[]" style="width:500px;" required>
 				<option value="" selected>Sélectionner</option>
@@ -510,7 +537,7 @@ function getRowFacture()
 			<input type="number" step="any" name="prix[]" value="<?php echo $services[0]->getPrix(); ?>" class="form-control price-input" style="width:100px;">
 		</td>
 		<td>
-			<select class="chosen-select" name="unite[]" style="width:300px;" required>
+			<select class="chosen-select unite-input" name="unite[]" style="width:300px;" required>
 				<option value="" selected>Sélectionner</option>
 				<?php
 				$unities = getUnities()[isset($facture) ? $facture->getLangue() : 'fr'];
@@ -524,6 +551,7 @@ function getRowFacture()
 		</td>
 		<td class="add-remove text-right">
 			<input type="hidden" name="item_id[]" value="0" class="id-item-input">
+			<i class="fas fa-magic ask-ai-item-row" data-toggle="tooltip" data-placement="top" data-original-title="Assistant IA"></i>
 			<i class="fas fa-plus-circle add-row" data-toggle="tooltip" data-placement="top" data-original-title="Ajouter ligne"></i>
 			<i class="fas fa-minus-circle remove-row" data-toggle="tooltip" data-placement="top" data-original-title="Supprimer cette ligne"></i>
 		</td>
@@ -603,6 +631,9 @@ function customItemFacture($data)
 				<label>Description <span class="text-danger">*</span></label>
 				<textarea class="form-control" name="description" id="description"><?php echo $item_facture->getDescription(); ?></textarea>
 				<script type="text/javascript">
+					if (CKEDITOR.instances.description) {
+						CKEDITOR.instances.description.destroy(true);
+					}
 					CKEDITOR.replace('description', {
 						//allowedContent: true,
 						allowedContent: 'p b i ul li tr th h2 h1 h3 h4 h5 h6 a; a[!href];',
@@ -706,15 +737,21 @@ function buildFacture($data, $id = null, $factureavoir = false)
 		$facture->setUserAdded($_SESSION['user']);
 	}
 
+	$banqueFactureChoisie = bank::find($data['bank']);
+	// Comptes personnels (Hamid/Zakaria - "PERSO" dans la raison sociale) : toujours proforma -
+	// imposé ici plutôt qu'uniquement côté JS (assets/js/ia-bank-filter.js), même règle que côté
+	// devis (com_devis/controleurs/devis/controleur.php:buildDevis).
+	$estBanquePersonnelleFacture = $banqueFactureChoisie->getId() && stripos($banqueFactureChoisie->getRaisonSociale(), 'PERSO') !== false;
+
 	$facture->setNumero($data['numero']);
 	$facture->setClient(client::find($data['client'], $_SESSION['agence']));
-	$facture->setBank(bank::find($data['bank']));
+	$facture->setBank($banqueFactureChoisie);
 	$facture->setDateFacture(dateBD($data['date_facture']));
 	$facture->setStatu($data['statu']);
 	$facture->setDevise($data['devise']);
 	$facture->setDiscount($data['discount']);
 	$facture->setDiscountVal($data['discount_val']);
-	$facture->setProforma(isset($data['proforma']) ? 1 : 0);
+	$facture->setProforma($estBanquePersonnelleFacture ? 1 : (isset($data['proforma']) ? 1 : 0));
 	$facture->setShowSignature(isset($data['show_signature']) ? 1 : 0);
 	$facture->setLangue($data['langue']);
 	$facture->setConditionPaiment($data['condition_paiment']);
@@ -732,6 +769,12 @@ function buildFacture($data, $id = null, $factureavoir = false)
 	// print_r($facture);die;
 	return $facture;
 }
+
+/* Le lancement de projet (dossier Drive + ticket Trello + Slack #familly +
+   email support) est désormais géré par la classe partagée projectNotifier
+   (components/com_facture/classes/projectNotifier.php), appelée depuis ici,
+   depuis le paiement, et depuis le changement de statut devis — un seul
+   ticket Trello par client, jamais de doublon. */
 
 function pdfFacture($data)
 {

@@ -28,6 +28,30 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
             if ($_SESSION['user']->hasDroit('edit', 'com_service')) {
                 include_once ("service/controleur.php");
             }
-            break;        
+            break;
+        case 'addServiceForm' :
+            if ($_SESSION['user']->hasDroit('add', 'com_service')) {
+                $action = "components/com_service/controleurs/router.php?task=addService";
+                $submitName = "addservicerapide";
+                $submitValue = "Ajouter service";
+                $categories = categorie::findAll($_SESSION["langue"], true, true);
+                $intervenantsConnus = service::intervenantsConnus();
+                $prefillTitre = isset($_GET['titre']) ? $_GET['titre'] : '';
+                $prefillPrix = isset($_GET['prix']) ? $_GET['prix'] : '';
+                $prefillUnite = isset($_GET['unite']) ? $_GET['unite'] : '';
+                $prefillDescription = isset($_GET['description']) ? $_GET['description'] : '';
+                include_once("../views/service/form.php");
+            }
+            break;
+        case 'getServiceOptions' :
+            if ($_SESSION['user']->hasDroit('add', 'com_service')) {
+                include_once ("service/controleur.php");
+            }
+            break;
+        case 'updateServiceDescriptionOnly' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_service')) {
+                include_once ("service/controleur.php");
+            }
+            break;
     }
 }

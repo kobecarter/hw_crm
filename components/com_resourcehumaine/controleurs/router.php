@@ -109,6 +109,55 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
             if ($_SESSION['user']->hasDroit('delete', 'com_resourcehumaine')) {
                 include_once ("payslip/controleur.php");
             }
+            break;
+        case 'generateJobOfferAI' :
+            if ($_SESSION['user']->hasDroit('add', 'com_resourcehumaine')) {
+                include_once ("joboffer/controleur.php");
+            }
+            break;
+        case 'submitJobOffer' :
+            if ($_SESSION['user']->hasDroit('add', 'com_resourcehumaine')) {
+                include_once ("joboffer/controleur.php");
+            }
+            break;
+        case 'marquerOffreSignee' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_resourcehumaine')) {
+                include_once ("joboffer/controleur.php");
+            }
+            break;
+        case 'validerOffreManuellement' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_resourcehumaine')) {
+                include_once ("joboffer/controleur.php");
+            }
+            break;
+        case 'deleteJobOffer' :
+            if ($_SESSION['user']->hasDroit('delete', 'com_resourcehumaine')) {
+                include_once ("joboffer/controleur.php");
+            }
+            break;
+        case 'telechargerOffreWord' :
+            if ($_SESSION['user']->hasDroit('view', 'com_resourcehumaine')) {
+                include_once ("joboffer/controleur.php");
+            }
+            break;
+        case 'telechargerOffrePDF' :
+            if ($_SESSION['user']->hasDroit('view', 'com_resourcehumaine')) {
+                include_once ("joboffer/controleur.php");
+            }
+            break;
+        case 'cronRelanceOffreEmploi' :
+            // Endpoint public (pas de cron serveur disponible) : appelé toutes les heures par un
+            // service externe planifié (ex: cron-job.org), même principe que
+            // com_accounting/controleurs/router.php task=cronCheckEcheanceTva. Aucune session
+            // utilisateur active, donc pas de hasDroit() ici - protégé par un secret partagé.
+            include_once ("joboffer/controleur.php");
+            cronRelanceOffreEmploiEndpoint();
+            break;
+        case 'cronVerifierValidationSlack' :
+            // Idem, à appeler toutes les 5-10 minutes.
+            include_once ("joboffer/controleur.php");
+            cronVerifierValidationSlackEndpoint();
+            break;
         case 'addRequest' :
             if ($_SESSION['user']->isResourceHumaine()) {
                 include_once ("request/controleur.php");

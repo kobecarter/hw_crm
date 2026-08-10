@@ -4,8 +4,7 @@
 function my_autoloader($class_name)
 {
     global $debug;
-    $components_directory = $debug ? "companies-management/components/" : "hw-agences/components/";
-    $directory = realpath((dirname(__DIR__))) . "/" .  $components_directory;
+    $directory = __DIR__ . "/components/";
     $items = scandir($directory);
     foreach ($items as $item) {
         if ($item == "." || $item == "..") {

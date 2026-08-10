@@ -9,6 +9,17 @@
 				<input type="text" class="form-control" name="title" value="<?php if(isset($file)) echo $file->getTitle(); ?>" required>
 			</div>
 		</div>
+        <div class="col-md-3">
+            <div class="form-group">
+                <label>Type de document</label>
+                <select class="form-control" name="document_type">
+                    <option value="">Autre / non catégorisé</option>
+                    <?php foreach (fileresourcehumaine::documentsRequis($resourcehumaine->getStatus()) as $cle => $libelle) : ?>
+                        <option value="<?= $cle ?>" <?= (isset($file) && $file->getDocumentType() == $cle) ? 'selected' : '' ?>><?= htmlspecialchars($libelle) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        </div>
         <div class="col-md-3 form-group">
             <label>Fichier
             </label>

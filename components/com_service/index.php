@@ -9,6 +9,7 @@ switch ($task)
             $submitName = "add";
             $submitValue = "Ajouter service";
 			$categories = categorie::findAll($_SESSION["langue"], true, true);
+			$intervenantsConnus = service::intervenantsConnus();
             include_once("components/com_service/views/service/add.php");
         }
         break;
@@ -21,13 +22,34 @@ switch ($task)
                 $submitName = "edit";
                 $submitValue = "Modifier service";
                 $categories = categorie::findAll($_SESSION["langue"], true, true);
+                $intervenantsConnus = service::intervenantsConnus();
                 include_once("components/com_service/views/service/edit.php");
             }
         }
         break;
     default :
         if ($_SESSION['user']->hasDroit('view', 'com_service')) {
-            $services = service::findAll($_SESSION["langue"], false, false, true);
+            // Vue par défaut : uniquement les services actifs (le catalogue accumule des dizaines
+            // de lignes historiques inactives rattachées à des catégories supprimées depuis -
+            // volontairement masquées pour ne pas noyer le catalogue courant). Lien "Afficher les
+            // services inactifs" pour les retrouver au besoin.
+            $tousLesServices = isset($_GET['tous']) && $_GET['tous'] == '1';
+            $services = service::findAll($_SESSION["langue"], $tousLesServices ? false : true, false, true);
+            $categoriesService = categorie::findAll($_SESSION["langue"], true, true);
+
+            $kpiServicesActifs = 0;
+            $kpiPacksActifs = 0;
+            $kpiCategoriesRepresentees = array();
+            foreach ($services as $s) {
+                if (!$s->isActive()) { continue; }
+                $kpiServicesActifs++;
+                if ($s->isPack()) { $kpiPacksActifs++; }
+                if ($s->getCategorie() && $s->getCategorie()->getId()) {
+                    $kpiCategoriesRepresentees[$s->getCategorie()->getId()] = true;
+                }
+            }
+            $kpiCaDevis = service::caGenereeDevis(12);
+
             include_once("components/com_service/views/service/list.php");
         }
         break;

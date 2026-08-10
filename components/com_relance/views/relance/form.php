@@ -2,6 +2,10 @@
 <form method="post" action="<?php echo $action; ?>" id="relanceForm" enctype="multipart/form-data">
 	<div class="row">
 		<div class="col-md-12 msgbox"></div>
+
+		<div class="col-12">
+			<div class="form-section-title"><i class="fa fa-user"></i> Client &amp; facture concernés</div>
+		</div>
 		<div class="col-md-3">
 			<div class="form-group">
 				<label>Client<span class="text-danger"> * </span></label>
@@ -37,6 +41,9 @@
 			</div>
 		</div>
 
+		<div class="col-12">
+			<div class="form-section-title"><i class="fa fa-info-circle"></i> Détails de la relance</div>
+		</div>
 		<div class="col-md-3">
 			<div class="form-group">
 				<label>Type<span class="text-danger"> * </span></label>
@@ -88,6 +95,9 @@
 
 		
 
+		<div class="col-12">
+			<div class="form-section-title"><i class="fa fa-comment-alt"></i> Remarque &amp; justificatif</div>
+		</div>
 		<div class="col-md-12">
 			<div class="form-group">
 				<label>Remarque<span class="text-danger"> * </span></label>

@@ -478,7 +478,23 @@ class fournisseur
         
         return $items;
     }
-    
+
+    // Recherche globale (bandeau de recherche du bandeau haut) : nom, raison sociale, email,
+    // téléphone(s) ou ICE - pas de filtre par agence, cohérent avec findAll() ci-dessus qui n'en
+    // applique pas non plus. Inclure tel2/tel3/ice permet à une saisie purement numérique de
+    // retomber naturellement sur le bon fournisseur sans logique de détection de format séparée.
+    public static function search($terme)
+    {
+        global $db;
+        $items = array();
+        $like = GetSQLValueString('%' . $terme . '%', 'text');
+        $SQLselect = "SELECT id AS ID, " . static::$table . ".* FROM " . static::$table . " WHERE (nom LIKE $like OR prenom LIKE $like OR raison_social LIKE $like OR email LIKE $like OR tel LIKE $like OR tel2 LIKE $like OR tel3 LIKE $like OR ice LIKE $like) ORDER BY id DESC LIMIT 8";
+        foreach ($db->queryS($SQLselect) as $data) {
+            array_push($items, static::build($data));
+        }
+        return $items;
+    }
+
     public static function findAllByCategory($active = false, $cat = 1)
     {
         global $db;
@@ -514,14 +530,12 @@ class fournisseur
 		if($year){
 			$SQLselect .= " INNER JOIN ". static::$tableFacture . " C ON A.id = C.id_client";
 		}
-        $SQLselect .= " WHERE A.id_agence = $agence";
+        $SQLselect .= " WHERE A.id_agence = " . intval($agence);
         if($year){
-            $SQLselect .= " AND YEAR(C.date_facture) = $year";
+            $SQLselect .= " AND YEAR(C.date_facture) = " . intval($year);
         }
 		
 		$SQLselect .= " GROUP BY A.id ORDER BY A.date_add DESC, id DESC";
-		die($SQLselect);
-		//echo $SQLselect;
         $result = $db->queryS($SQLselect);
         foreach ($result as $data) {
             $fournisseur = static::build($data);
@@ -574,7 +588,7 @@ class fournisseur
         $SQLcount = "SELECT count(id) as c FROM " . static::$table;
 		
 		if($year){
-			$SQLcount .= " WHERE YEAR(date_add) = $year";
+			$SQLcount .= " WHERE YEAR(date_add) = " . intval($year);
 		}
 		
         $result = $db->query($SQLcount);
@@ -584,5 +598,26 @@ class fournisseur
         }
         return 0;
     }
-	
+
+    // Avatar "initiales colorées" pour un fournisseur sans photo (utilisé par le hero de la
+    // page Fournisseurs) - même principe que bank::getLogoInfo(), mais sans liste d'enseignes
+    // connues (un fournisseur est une entreprise quelconque, pas une des quelques grandes
+    // banques marocaines) : couleur choisie dans une petite palette de façon déterministe à
+    // partir du nom, pour varier visuellement les bulles sans dépendre du hasard.
+    public static function getLogoInfo($nom)
+    {
+        $nom = trim((string) $nom);
+        $palette = array('#6366f1', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#8b5cf6', '#ef4444', '#14b8a6');
+        $indexCouleur = $nom !== '' ? (crc32($nom) % count($palette)) : 0;
+
+        $mots = preg_split('/\s+/', $nom);
+        $initiales = '';
+        foreach (array_slice($mots, 0, 2) as $mot) {
+            if ($mot !== '') {
+                $initiales .= mb_strtoupper(mb_substr($mot, 0, 1, 'UTF-8'), 'UTF-8');
+            }
+        }
+        return array('initials' => $initiales !== '' ? $initiales : '?', 'bg' => $palette[$indexCouleur]);
+    }
+
 }

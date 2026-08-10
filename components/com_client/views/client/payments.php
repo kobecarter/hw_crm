@@ -18,6 +18,7 @@
 				</thead>
 				<tbody>
 					<?php foreach ($factures as $facture) : ?>
+						<?php if ($facture->getId() == 0) continue; // référence orpheline (facture introuvable) ?>
 						<?php $payments = payment::findAll($facture->getId()); ?>
 						<?php foreach ($payments as $payment) : ?>
 							<tr>

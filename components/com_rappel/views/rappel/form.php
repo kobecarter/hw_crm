@@ -18,9 +18,9 @@
 	<div class="form-group">
 		<label>Type</label>
 		<select class="select" name="type">
-			<option value="domaine" <?= ($rappel->getType() == 'domaine') ? 'selected' : '' ?>>Nom de domaine</option>
-			<option value="hosting" <?= ($rappel->getType() == 'hosting') ? 'selected' : '' ?>>Hébergement</option>
-			<option value="ssl" <?= ($rappel->getType() == 'ssl') ? 'selected' : '' ?>>Certificat SSL</option>
+			<option value="domaine" <?= (isset($rappel) && $rappel->getType() == 'domaine') ? 'selected' : '' ?>>Nom de domaine</option>
+			<option value="hosting" <?= (isset($rappel) && $rappel->getType() == 'hosting') ? 'selected' : '' ?>>Hébergement</option>
+			<option value="ssl" <?= (isset($rappel) && $rappel->getType() == 'ssl') ? 'selected' : '' ?>>Certificat SSL</option>
 		</select>
 	</div>
 </div>
@@ -39,6 +39,20 @@
 				<div class="cal-icon">
 					<input type="text" class="form-control datetimepicker" name="date_expir" value="<?php if (isset($rappel)) echo normaldate($rappel->getDateExpir()); ?>">
 				</div>
+			</div>
+		</div>
+
+		<div class="col-md-6">
+			<div class="form-group">
+				<label>Fournisseur(s)</label>
+				<select class="chosen-select" name="fournisseurs[]" multiple="multiple" style="width:100%;">
+					<?php $fournisseursActuelsRappel = isset($rappel) ? array_map(function ($f) { return $f->getId(); }, $rappel->getFournisseurs()) : array(); ?>
+					<?php foreach ($fournisseurs as $fournisseurOption) : ?>
+						<?php $nomFournisseurRappel = trim((string) $fournisseurOption->getRaisonSocial()) !== '' ? $fournisseurOption->getRaisonSocial() : trim($fournisseurOption->getPrenom() . ' ' . $fournisseurOption->getNom()); ?>
+						<option value="<?php echo $fournisseurOption->getId() ?>" <?php echo in_array($fournisseurOption->getId(), $fournisseursActuelsRappel) ? 'selected' : ''; ?>><?php echo htmlspecialchars($nomFournisseurRappel); ?></option>
+					<?php endforeach; ?>
+				</select>
+				<small class="text-muted">Ex: domaine chez un fournisseur, hébergement chez un autre.</small>
 			</div>
 		</div>
 

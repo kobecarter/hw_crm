@@ -19,6 +19,9 @@
 		
 		<!-- Main CSS -->
 		<link rel="stylesheet" href="assets/css/style.css">
+
+		<!-- Modern Theme (surcouche additive : ne modifie aucune structure/fichier de vue) -->
+		<link rel="stylesheet" href="assets/css/modern-theme.css">
 		<style>
             .btn-primary {
                 background: #e3d3aa !important;

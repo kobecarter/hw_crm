@@ -155,6 +155,7 @@ function buildRappel($data, $id = null)
     $rappel->setDomaine($data['domaine']);
     $rappel->setDateExpir(dateBD($data['date_expir']));
     $rappel->setRemarque($data['remarque']);
+    $rappel->setFournisseursIds(isset($data['fournisseurs']) && is_array($data['fournisseurs']) ? $data['fournisseurs'] : array());
     $rappel->setDateAdd(date('Y-m-d'));
     $rappel->setLastEdit(date('Y-m-d'));
     $rappel->setArchived(isset($data['archived']) ? 1 : 0);

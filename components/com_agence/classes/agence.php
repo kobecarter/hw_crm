@@ -23,6 +23,9 @@ class agence
     private $numero_increment_facture;
     private $numero_increment_devis;
     private $tva;
+    private $tva_seuil_alerte;
+    private $tva_periodicite;
+    private $tva_slack_derniere_alerte;
     private $website;
     private $color;
     private $if;
@@ -128,6 +131,21 @@ class agence
     public function getTva()
     {
         return $this->tva;
+    }
+
+    public function getTvaSeuilAlerte()
+    {
+        return $this->tva_seuil_alerte;
+    }
+
+    public function getTvaPeriodicite()
+    {
+        return $this->tva_periodicite;
+    }
+
+    public function getTvaSlackDerniereAlerte()
+    {
+        return $this->tva_slack_derniere_alerte;
     }
 
     public function getWebsite()
@@ -277,6 +295,16 @@ class agence
         $this->tva = $tva;
     }
 
+    public function setTvaSeuilAlerte($tva_seuil_alerte)
+    {
+        $this->tva_seuil_alerte = $tva_seuil_alerte;
+    }
+
+    public function setTvaPeriodicite($tva_periodicite)
+    {
+        $this->tva_periodicite = $tva_periodicite === 'trimestriel' ? 'trimestriel' : 'mensuel';
+    }
+
     public function setWebsite($website)
     {
         $this->website = $website;
@@ -336,7 +364,7 @@ class agence
     {
         global $db;
 
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (logo, signature, email, raison_social, manager, cin, tel, tel2, fax, numero_increment_facture, numero_increment_devis, tva, website, color, `if`, tp, rc, ice, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (logo, signature, email, raison_social, manager, cin, tel, tel2, fax, numero_increment_facture, numero_increment_devis, tva, tva_seuil_alerte, tva_periodicite, website, color, `if`, tp, rc, ice, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
 			GetSQLValueString($this->logo, "text"),
 			GetSQLValueString($this->signature, "text"),
             GetSQLValueString($this->email, "text"),
@@ -350,6 +378,8 @@ class agence
             GetSQLValueString($this->numero_increment_facture, "int"),
             GetSQLValueString($this->numero_increment_devis, "int"),
             GetSQLValueString($this->tva, "int"),
+            GetSQLValueString($this->tva_seuil_alerte, "double"),
+            GetSQLValueString($this->tva_periodicite, "text"),
             GetSQLValueString($this->website, "text"),
             GetSQLValueString($this->color, "text"),
             GetSQLValueString($this->if, "text"),
@@ -386,7 +416,7 @@ class agence
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  logo = %s, signature = %s, email = %s, raison_social = %s, manager = %s, cin = %s,  tel = %s, tel2 = %s, fax = %s, numero_increment_facture = %s, numero_increment_devis = %s, tva = %s, website = %s, color = %s, `if` = %s, tp = %s, rc = %s, ice = %s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  logo = %s, signature = %s, email = %s, raison_social = %s, manager = %s, cin = %s,  tel = %s, tel2 = %s, fax = %s, numero_increment_facture = %s, numero_increment_devis = %s, tva = %s, tva_seuil_alerte = %s, tva_periodicite = %s, website = %s, color = %s, `if` = %s, tp = %s, rc = %s, ice = %s, last_edit = %s WHERE id = %s",
 			GetSQLValueString($this->logo, "text"),
 			GetSQLValueString($this->signature, "text"),
             GetSQLValueString($this->email, "text"),
@@ -399,6 +429,8 @@ class agence
             GetSQLValueString($this->numero_increment_facture, "text"),
             GetSQLValueString($this->numero_increment_devis, "text"),
             GetSQLValueString($this->tva, "int"),
+            GetSQLValueString($this->tva_seuil_alerte, "double"),
+            GetSQLValueString($this->tva_periodicite, "text"),
             GetSQLValueString($this->website, "text"),
             GetSQLValueString($this->color, "text"),
             GetSQLValueString($this->if, "text"),
@@ -484,6 +516,28 @@ class agence
         return $agence;
     }
 
+    // Recherche globale (bandeau de recherche du bandeau haut) : nom/ville (table détails, par
+    // langue) + raison sociale, gérant, email, téléphone(s), ICE, RC (table agence) - utilisé par
+    // com_search pour retrouver l'agence elle-même (son "espace agence") quand on tape son nom
+    // dans la barre de recherche. "nom"/"ville" ne vivent PAS sur la table agence elle-même mais
+    // sur crm_details_agence (comme "adresse") - d'où le besoin de filtrer aussi sur B, pas
+    // seulement sur A comme les autres colonnes.
+    public static function search($terme, $langue = 'fr')
+    {
+        global $db;
+        $items = array();
+        $like = GetSQLValueString('%' . $terme . '%', 'text');
+        // Pas de sprintf() ici (contrairement à find()/findAll() ci-dessous) : $like contient des
+        // "%" littéraux (jokers LIKE) qui seraient réinterprétés comme des specifiers de format et
+        // feraient planter sprintf() ("X arguments are required, 2 given").
+        $SQLselect = "SELECT A.id as ID, A.*, B.* FROM " . static::$table . " A LEFT JOIN " . static::$table2 . " B ON A.id = B.id_agence AND B.langue = " . GetSQLValueString($langue, "text")
+            . " WHERE (B.nom LIKE $like OR B.ville LIKE $like OR A.raison_social LIKE $like OR A.manager LIKE $like OR A.email LIKE $like OR A.tel LIKE $like OR A.tel2 LIKE $like OR A.ice LIKE $like OR A.rc LIKE $like) ORDER BY A.id ASC LIMIT 8";
+        foreach ($db->queryS($SQLselect) as $data) {
+            array_push($items, static::build($data));
+        }
+        return $items;
+    }
+
     public static function findAll($langue, $active = false)
     {
         global $db;
@@ -563,6 +617,9 @@ class agence
         $agence->setNumeroIncrementFacture($data['numero_increment_facture']);
         $agence->setNumeroIncrementDevis($data['numero_increment_devis']);
         $agence->setTva($data['tva']);
+        $agence->setTvaSeuilAlerte(isset($data['tva_seuil_alerte']) ? $data['tva_seuil_alerte'] : null);
+        $agence->setTvaPeriodicite(isset($data['tva_periodicite']) ? $data['tva_periodicite'] : 'mensuel');
+        $agence->tva_slack_derniere_alerte = isset($data['tva_slack_derniere_alerte']) ? $data['tva_slack_derniere_alerte'] : null;
         $agence->setWebsite($data['website']);
         $agence->setColor($data['color']);
         $agence->setIf($data['if']);
@@ -580,6 +637,20 @@ class agence
     public static function getLastId(){
         global $db;
         return $db->last_id();
+    }
+
+    // Marque qu'une alerte Slack "échéance TVA proche" a déjà été envoyée aujourd'hui pour cette
+    // agence — évite les envois en double si le cron externe (cronCheckEcheanceTva) est appelé
+    // plusieurs fois le même jour. Simple UPDATE ciblé plutôt qu'un aller-retour add()/edit()
+    // complet : ce champ est purement opérationnel, jamais affiché/modifié via le formulaire Agence.
+    public static function marquerAlerteTvaEnvoyee($idAgence)
+    {
+        global $db;
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET tva_slack_derniere_alerte = %s WHERE id = %s",
+            GetSQLValueString(date('Y-m-d'), "date"),
+            GetSQLValueString($idAgence, "int")
+        );
+        $db->query($SQLupdate);
     }
 
     public static function count(){

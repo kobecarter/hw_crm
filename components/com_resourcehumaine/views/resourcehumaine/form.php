@@ -2,6 +2,35 @@
 <form method="post" action="<?php echo $action; ?>" id="resourceHumaineForm" enctype="multipart/form-data">
 	<div class="row">
 		<div class="col-md-12 msgbox"></div>
+
+		<div class="col-md-12">
+			<div class="client-form-top">
+				<div class="client-form-avatar-wrap">
+					<label class="avatar avatar-xl profile-cover-avatar m-0" for="edit_img">
+						<?php $photoLink = isset($resourcehumaine) && $resourcehumaine->getPhoto() != '' ? "images/resourceshumaines/" . $resourcehumaine->getPhoto() : "assets/img/profiles/avatar-02.jpg"; ?>
+						<img id="avatarImg" class="avatar-img" src="<?php echo $photoLink; ?>" alt="Profile Image">
+						<input type="file" name="photo[]" id="edit_img">
+						<span class="avatar-edit">
+							<i data-feather="edit-2" class="avatar-uploader-icon shadow-soft"></i>
+						</span>
+					</label>
+				</div>
+				<?php if (!isset($resourcehumaine)): ?>
+				<div id="iaDropzoneEmployee" class="ia-dropzone client-form-dropzone">
+					<input type="file" accept="application/pdf,image/jpeg,image/png,image/webp" style="display:none;">
+					<div class="ia-dropzone-text">
+						<i class="fa fa-id-card"></i> Glissez-déposez la CIN ou le CV du candidat (photo ou PDF) ici, ou cliquez pour la sélectionner<br>
+						<small>Les informations d'identité seront extraites par l'IA et pré-remplies automatiquement ci-dessous.</small>
+					</div>
+				</div>
+				<?php endif; ?>
+			</div>
+		</div>
+
+		<div class="col-12">
+			<div class="form-section-title"><i class="fa fa-id-badge"></i> Identité</div>
+		</div>
+
 		<div class="col-md-3">
 			<div class="form-group">
 				<label>Profil<span class="text-danger"> * </span></label>
@@ -68,6 +97,22 @@
 
 		<div class="col-md-3">
 			<div class="form-group">
+				<label>Status<span class="text-danger"> * </span></label>
+				<select class="select" name="status" required>
+					<option value="" disabled selected>Sélectionner</option>
+					<option value="Titulaire" <?php if (isset($resourcehumaine) && $resourcehumaine->getStatus() == "Titulaire") echo "selected"; ?>>Titulaire</option>
+					<option value="Stagaire" <?php if (isset($resourcehumaine) && $resourcehumaine->getStatus() == "Stagaire") echo "selected"; ?>>Stagaire</option>
+					<option value="Periode De test" <?php if (isset($resourcehumaine) && $resourcehumaine->getStatus() == "Periode De test") echo "selected"; ?>>Periode De test</option>
+				</select>
+			</div>
+		</div>
+
+		<div class="col-12">
+			<div class="form-section-title"><i class="fa fa-address-book"></i> Coordonnées</div>
+		</div>
+
+		<div class="col-md-3">
+			<div class="form-group">
 				<label>E-mail<span class="text-danger"> * </span></label>
 				<input type="email" class="form-control" name="email" value="<?php if (isset($resourcehumaine)) echo $resourcehumaine->getEmail(); ?>" required>
 			</div>
@@ -77,13 +122,6 @@
 			<div class="form-group">
 				<label>Password<span class="text-danger d-none"> * </span></label>
 				<input type="password" class="form-control" name="password" value="">
-			</div>
-		</div>
-
-		<div class="col-md-3">
-			<div class="form-group">
-				<label>Adresse<span class="text-danger"> * </span></label>
-				<input type="text" class="form-control" name="address" value="<?php if (isset($resourcehumaine)) echo $resourcehumaine->getAddress(); ?>" required>
 			</div>
 		</div>
 
@@ -101,10 +139,41 @@
 			</div>
 		</div>
 
+		<div class="col-md-6">
+			<div class="form-group">
+				<label>Adresse<span class="text-danger"> * </span></label>
+				<input type="text" class="form-control" name="address" value="<?php if (isset($resourcehumaine)) echo $resourcehumaine->getAddress(); ?>" required>
+			</div>
+		</div>
+
 		<div class="col-md-3">
 			<div class="form-group">
 				<label>Ville<span class="text-danger"> * </span></label>
 				<input type="text" class="form-control" name="city" value="<?php if (isset($resourcehumaine)) echo $resourcehumaine->getCity(); ?>" required>
+			</div>
+		</div>
+
+		<div class="col-12">
+			<div class="form-section-title"><i class="fa fa-briefcase"></i> Emploi</div>
+		</div>
+
+		<div class="col-md-3">
+			<div class="form-group">
+				<label>Fonction<span class="text-danger"> * </span></label>
+				<select class="select" name="function" required>
+					<option value="" disabled selected>Sélectionner</option>
+					<option value="Assistante de direction" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Assistante de direction") echo "selected"; ?>>Assistante de direction</option>
+					<option value="Responsable administrative" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Responsable administrative") echo "selected"; ?>>Responsable administrative</option>
+					<option value="Manager" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Manager") echo "selected"; ?>>Manager</option>
+					<option value="Community manager" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Community manager") echo "selected"; ?>>Community manager</option>
+					<option value="Graphic designer" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Graphic designer") echo "selected"; ?>>Graphic designer</option>
+					<option value="Developpeur web" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Developpeur web") echo "selected"; ?>>Developpeur web</option>
+					<option value="Developpeur mobile" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Developpeur mobile") echo "selected"; ?>>Developpeur mobile</option>
+					<option value="ADS Manager" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "ADS Manager") echo "selected"; ?>>ADS Manager</option>
+					<option value="Chef de projet" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Chef de projet") echo "selected"; ?>>Chef de projet</option>
+					<option value="Commercial" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Commercial") echo "selected"; ?>>Commercial</option>
+					<option value="Femme de ménage" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Femme de ménage") echo "selected"; ?>>Femme de ménage</option>
+				</select>
 			</div>
 		</div>
 
@@ -131,33 +200,15 @@
 
 		<div class="col-md-3">
 			<div class="form-group">
-				<label>Fonction<span class="text-danger"> * </span></label>
-				<select class="select" name="function" required>
-					<option value="" disabled selected>Sélectionner</option>
-					<option value="Assistante de direction" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Assistante de direction") echo "selected"; ?>>Assistante de direction</option>
-					<option value="Responsable administrative" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Responsable administrative") echo "selected"; ?>>Responsable administrative</option>
-					<option value="Manager" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Manager") echo "selected"; ?>>Manager</option>
-					<option value="Community manager" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Community manager") echo "selected"; ?>>Community manager</option>
-					<option value="Graphic designer" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Graphic designer") echo "selected"; ?>>Graphic designer</option>
-					<option value="Developpeur web" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Developpeur web") echo "selected"; ?>>Developpeur web</option>
-					<option value="Developpeur mobile" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Developpeur mobile") echo "selected"; ?>>Developpeur mobile</option>
-					<option value="ADS Manager" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "ADS Manager") echo "selected"; ?>>ADS Manager</option>
-					<option value="Chef de projet" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Chef de projet") echo "selected"; ?>>Chef de projet</option>
-					<option value="Commercial" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Commercial") echo "selected"; ?>>Commercial</option>
-					<option value="Femme de ménage" <?php if (isset($resourcehumaine) && $resourcehumaine->getFunction() == "Femme de ménage") echo "selected"; ?>>Femme de ménage</option>
-				</select>
+				<label>Salaire premier jour (DH)<span class="text-danger d-none"> * </span></label>
+				<input type="number" step="0.01" min="0" class="form-control" name="salaire_initial" value="<?php if (isset($resourcehumaine)) echo $resourcehumaine->getSalaireInitial(); ?>">
 			</div>
 		</div>
 
 		<div class="col-md-3">
 			<div class="form-group">
-				<label>Status<span class="text-danger"> * </span></label>
-				<select class="select" name="status" required>
-					<option value="" disabled selected>Sélectionner</option>
-					<option value="Titulaire" <?php if (isset($resourcehumaine) && $resourcehumaine->getStatus() == "Titulaire") echo "selected"; ?>>Titulaire</option>
-					<option value="Stagaire" <?php if (isset($resourcehumaine) && $resourcehumaine->getStatus() == "Stagaire") echo "selected"; ?>>Stagaire</option>
-					<option value="Periode De test" <?php if (isset($resourcehumaine) && $resourcehumaine->getStatus() == "Periode De test") echo "selected"; ?>>Periode De test</option>
-				</select>
+				<label>Salaire actuel (DH)<span class="text-danger d-none"> * </span></label>
+				<input type="number" step="0.01" min="0" class="form-control" name="salaire_actuel" value="<?php if (isset($resourcehumaine)) echo $resourcehumaine->getSalaireActuel(); ?>">
 			</div>
 		</div>
 
@@ -187,7 +238,7 @@
 			<div class="form-group">
 				<label>Date fin</label>
 				<div class="cal-icon">
-					<input type="text" class="form-control datetimepicker end-date-filed" name="end_date" value="<?php if (isset($resourcehumaine)) {
+					<input type="text" class="form-control datetimepicker" name="end_date" value="<?php if (isset($resourcehumaine)) {
 																														echo normaldate($resourcehumaine->getEndDate());
 																													} ?>">
 				</div>
@@ -209,12 +260,8 @@
 			<!-- /Toggle Switch -->
 		</div>
 
-		<div class="col-12 div-employee mb-3 d-none">
-			<p class="text-danger">Les documents "Lettre de démission" et "STC" sont requis!</p>
-		</div>
-
-		<div class="col-12 div-trainee mb-3 d-none">
-			<p class="text-danger">Le document "Attestation de stage" est requis!</p>
+		<div class="col-12">
+			<div class="form-section-title"><i class="fa fa-align-left"></i> Informations complémentaires</div>
 		</div>
 
 		<div class="col-md-12">
@@ -233,31 +280,13 @@
 			</div>
 		</div>
 
-		<div class="col-md-6">
-			<div class="form-group">
-				<label for="photo" class="col-sm-3 col-form-label input-label">Photo</label>
-				<div class="col-sm-9">
-					<div class="d-flex align-items-center">
-						<label class="avatar avatar-xl profile-cover-avatar m-0" for="edit_img">
-							<?php $photoLink = isset($resourcehumaine) && $resourcehumaine->getPhoto() != '' ? "images/resourceshumaines/" . $resourcehumaine->getPhoto() : "assets/img/profiles/avatar-02.jpg"; ?>
-							<img id="avatarImg" class="avatar-img" src="<?php echo $photoLink; ?>" alt="Profile Image">
-							<input type="file" name="photo[]" id="edit_img">
-							<span class="avatar-edit">
-								<i data-feather="edit-2" class="avatar-uploader-icon shadow-soft"></i>
-							</span>
-						</label>
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<!-- Toggle Switch -->
-
 		<?php if (isset($resourcehumaine)): ?>
 			<input type="hidden" name="id" value="<?php echo $resourcehumaine->getId(); ?>">
 		<?php endif; ?>
 	</div>
-	<div class="myResponsivTable mt-4 mb-4">
+
+	<div class="form-section-title mt-3"><i class="fa fa-history"></i> Historique des périodes de travail</div>
+	<div class="myResponsivTable mb-4">
 		<table class="table table-stripped table-center table-hover table-workdates">
 			<thead>
 				<tr>
@@ -335,17 +364,30 @@
 </form>
 
 <script>
-	function showMessage(value, status) {
-		$(".div-employee").addClass('d-none')
-		$(".div-trainee").addClass('d-none')
-		if (!value) return
-		if (status == "Titulaire") {
-			$(".div-employee").removeClass('d-none')
-		} else if (status == "Stagaire") {
-			$(".div-trainee").removeClass('d-none')
-		}
-	}
 	$(function() {
+
+		<?php if (!isset($resourcehumaine)): ?>
+		initEmployeeIaDropzone({
+			zoneSelector: '#iaDropzoneEmployee',
+			onExtracted: function (c) {
+				if (c.prenom) $('[name=firstname]').val(c.prenom);
+				if (c.nom) $('[name=lastname]').val(c.nom);
+				if (c.cin) $('[name=cin]').val(c.cin);
+				if (c.adresse) $('[name=address]').val(c.adresse);
+				if (c.ville) $('[name=city]').val(c.ville);
+				if (c.email) $('[name=email]').val(c.email);
+				if (c.tel) $('[name=phone]').val(c.tel);
+				if (c.fonction) {
+					var $fonctionSelect = $('select[name=function]');
+					$fonctionSelect.find('option').each(function () {
+						if ($(this).val().toLowerCase() === c.fonction.toLowerCase()) {
+							$fonctionSelect.val($(this).val()).trigger('change');
+						}
+					});
+				}
+			}
+		});
+		<?php endif; ?>
 
 		// envoi du formulaire en ajax
 		$('form#resourceHumaineForm').ajaxForm({
@@ -382,20 +424,6 @@
 			}
 		});
 
-		$(".end-date-filed").on('click input change', function() {
-			let self = $(this)
-			let value = self.val().trim()
-			let status = $("select[name='status']").val()
-			showMessage(value, status)
-		})
-
-		$("select[name='status']").on('change', function() {
-			let self = $(this)
-			let value = $("input[name='end_date']").val().trim()
-			let status = self.val()
-			showMessage(value, status)
-		})
-		
 		$(document).on("click", ".add-row", function() {
 			var $btn = $(this);
 			var order = '';

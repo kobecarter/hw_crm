@@ -2,17 +2,25 @@
 
     <div class="row">
         <div class="col-sm-12 msgbox"></div>
-        <div class="col-md-3">
+        <div class="col-md-4">
 			<div class="form-group">
-				<label>Titre<span class="text-danger"> * </span></label>
-				<input type="text" class="form-control" name="title" value="<?php if(isset($payslip)) echo $payslip->getTitle(); ?>" required>
+				<label>Titre</label>
+				<input type="text" class="form-control" id="paySlipTitrePreview" value="<?php if(isset($payslip)) echo $payslip->getTitle(); ?>" readonly>
+				<small class="text-muted">Généré automatiquement à partir du nom de l'employé et du mois — non modifiable.</small>
 			</div>
 		</div>
-		<div class="col-md-4">
+		<div class="col-md-3">
 			<div class="form-group">
 				<label>Date<span class="text-danger"> * </span></label>
 				<div class="cal-icon">
-					<input type="month" class="form-control" name="date" value="<?php if (isset($payslip)){ echo normaldate($payslip->getDate());}?>" required>
+					<?php
+					// Pré-remplissage possible depuis le bandeau "bulletins manquants" (?mois=YYYY-MM)
+					// de la liste, en plus du cas édition normal. normaldate() n'existe pas dans ce
+					// projet (seul normaldate2() existe, format texte "mois année" - pas utilisable
+					// pour un <input type="month">) : on formate direct depuis la date stockée.
+					$dateInitiale = isset($payslip) && $payslip->getDate() ? date('Y-m', strtotime($payslip->getDate())) : (isset($_GET['mois']) ? preg_replace('/[^0-9\-]/', '', $_GET['mois']) : '');
+					?>
+					<input type="month" class="form-control" id="paySlipDate" name="date" value="<?= $dateInitiale ?>" required>
 				</div>
 			</div>
 		</div>
@@ -50,6 +58,28 @@
 
 <script>
 $(function() {
+    // Aperçu du titre auto-généré (payslip::titreAuto() côté serveur - même convention reproduite
+    // ici en JS pour un retour immédiat, le serveur reste la seule source de vérité à l'enregistrement).
+    var paySlipNomEmploye = <?= json_encode(trim($resourcehumaine->getFirstName() . ' ' . $resourcehumaine->getLastName())) ?>;
+    function updatePaySlipTitrePreview() {
+        var val = $('#paySlipDate').val();
+        if (!val) {
+            $('#paySlipTitrePreview').val('');
+            return;
+        }
+        var parts = val.split('-');
+        $('#paySlipTitrePreview').val('Bulletin de paie ' + paySlipNomEmploye + ' ' + parts[1] + '/' + parts[0]);
+    }
+    $('#paySlipDate').on('change', updatePaySlipTitrePreview);
+    updatePaySlipTitrePreview();
+
+    // Clic sur une pastille "mois manquant" (bandeau d'alerte, en bas de cette même page) :
+    // pré-remplit le mois ici et fait défiler jusqu'au formulaire plutôt que de naviguer ailleurs.
+    $(document).on('click', '.payslip-missing-pill', function () {
+        $('#paySlipDate').val($(this).data('ym')).trigger('change');
+        $('html, body').animate({ scrollTop: $('#paySlipForm').offset().top - 100 }, 'slow');
+    });
+
     // envoi du formulaire en ajax
     $('form#paySlipForm').ajaxForm({
         beforeSubmit: function() {
@@ -72,6 +102,13 @@ $(function() {
                 $('#paySlipForm .msgbox').html(
                     '<div class="alert alert-success alert-dismissable"><i class="icon-check-sign"></i> <strong>Succès</strong> ' +
                     msgsucces + '</div>').slideDown();
+
+                // Pastille "mois manquant" correspondante (si le mois ajouté en faisait partie) :
+                // bascule au vert tout de suite, le rechargement ci-dessous la fera disparaître
+                // pour de bon (le mois n'est plus manquant, moisManquants recalculé côté serveur).
+                var addedYm = $('#paySlipDate').val();
+                $('.payslip-missing-pill[data-ym="' + addedYm + '"]').addClass('payslip-missing-pill-done');
+
                 setTimeout(function() {
 
                     <?php $loc = "index.php?option=com_resourcehumaine&task=payslip&id=" . $_GET['id']; ?>

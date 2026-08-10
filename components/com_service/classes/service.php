@@ -4,6 +4,8 @@ class service
 {
     static $table =  __prefixe_db__ . "service";
     static $table2 =  __prefixe_db__ . "details_service";
+    static $tableItemDevis =  __prefixe_db__ . "item_devis";
+    static $tableDevis =  __prefixe_db__ . "devis";
 
     private $id;
     private $categorie;
@@ -92,6 +94,15 @@ class service
     public function getLangue()
     {
         return $this->langue;
+    }
+
+    // Un "pack" n'a pas de colonne dédiée en base - c'est une convention de nommage déjà en place
+    // dans les données ("Pack - L'Astronaute...", "Pack - Le Commandant...") plutôt qu'un attribut
+    // saisi séparément. Utilisé pour le regroupement visuel Services actifs / Packs de la page
+    // liste, sans changer le schéma existant.
+    public function isPack()
+    {
+        return stripos(trim((string) $this->titre), 'pack') === 0;
     }
 
 	
@@ -300,7 +311,7 @@ class service
             $SQLselect .= " AND active = 1";
         }
         if($categorie){
-            $SQLselect .= " AND id_categorie = $categorie";
+            $SQLselect .= " AND id_categorie = " . intval($categorie);
         }
 		if($ordre){
 			$SQLselect .= " ORDER BY ordre ASC";
@@ -350,6 +361,24 @@ class service
         return 0;
     }
 
+    // KPI de l'en-tête de la page Services : CA total des lignes de devis (toutes agences,
+    // comme le reste du module qui n'est pas scindé par agence) sur les N derniers mois. Reflète
+    // les offres envoyées, pas seulement les ventes conclues - cohérent avec "revenus générés"
+    // au sens large demandé pour ce tableau de bord.
+    public static function caGenereeDevis($mois = 12)
+    {
+        global $db;
+        $SQLselect = sprintf("SELECT SUM(I.total) as ca FROM " . static::$tableItemDevis . " I INNER JOIN " . static::$tableDevis . " D ON D.id = I.id_devis WHERE D.date_devis >= DATE_SUB(CURDATE(), INTERVAL %s MONTH)",
+            GetSQLValueString($mois, "int")
+        );
+        $result = $db->query($SQLselect);
+        if ($db->num_rows($result) == 1) {
+            $data = $db->fetch_assoc($result);
+            return $data['ca'] !== null ? floatval($data['ca']) : 0;
+        }
+        return 0;
+    }
+
     public static function enableMultiple($data)
     {
         global $db;
@@ -383,6 +412,53 @@ class service
         }
         else
             return 0;
+    }
+
+    // Liste des profils d'intervenants déjà connus, pour préremplir la drop-list du formulaire
+    // (remplace l'ancien champ texte libre) : agrège les valeurs déjà saisies sur les services
+    // existants (le champ reste un simple texte "Chef de projet, Développeur web..." séparé par
+    // virgules, jamais une vraie table de rôles) avec les intitulés de poste des employés actifs,
+    // pour proposer des profils réalistes même sur un service qui n'a encore aucun historique.
+    public static function intervenantsConnus()
+    {
+        global $db;
+        // Dédoublonnage insensible à la casse (l'historique contient "Développeur web" /
+        // "développeur web" / "Developpeur web"... comme variantes du même profil) : on garde la
+        // première casse rencontrée comme forme canonique affichée, purement pour la drop-list -
+        // aucune donnée existante n'est modifiée.
+        $profils = array();
+
+        $SQLselect = "SELECT DISTINCT intervenant FROM " . static::$table2 . " WHERE intervenant IS NOT NULL AND intervenant != ''";
+        foreach ($db->queryS($SQLselect) as $data) {
+            foreach (explode(',', $data['intervenant']) as $morceau) {
+                $morceau = trim($morceau);
+                if ($morceau === '' || ctype_digit($morceau)) {
+                    continue;
+                }
+                $cle = mb_strtolower($morceau);
+                if (!isset($profils[$cle])) {
+                    $profils[$cle] = $morceau;
+                }
+            }
+        }
+
+        foreach (resourcehumaine::findAll() as $employe) {
+            if (!$employe->isActive()) {
+                continue;
+            }
+            $fonction = trim((string) $employe->getFunction());
+            if ($fonction === '') {
+                continue;
+            }
+            $cle = mb_strtolower($fonction);
+            if (!isset($profils[$cle])) {
+                $profils[$cle] = $fonction;
+            }
+        }
+
+        $liste = array_values($profils);
+        sort($liste, SORT_FLAG_CASE | SORT_STRING);
+        return $liste;
     }
 
     // api
@@ -432,7 +508,7 @@ class service
             $SQLselect .= " AND active = 1";
         }
         if($categorie){
-            $SQLselect .= " AND id_categorie = $categorie";
+            $SQLselect .= " AND id_categorie = " . intval($categorie);
         }
 		if($ordre){
 			$SQLselect .= " ORDER BY ordre ASC";

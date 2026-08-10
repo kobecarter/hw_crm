@@ -12,6 +12,11 @@ if (isset($_GET['task']) && !empty($_GET['task'])) {
                 include_once("facture/controleur.php");
             }
             break;
+        case 'verifierDossierDriveClient':
+            if ($_SESSION['user']->hasDroit('add', 'com_facture')) {
+                include_once("facture/controleur.php");
+            }
+            break;
         case 'addFactureAvoir':
             if ($_SESSION['user']->hasDroit('add', 'com_facture')) {
                 include_once("facture/controleur.php");

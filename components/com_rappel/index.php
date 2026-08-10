@@ -8,6 +8,7 @@ switch ($task) {
             $submitName = "add";
             $submitValue = "Ajouter rappel";
             $clients = client::findAll(true,false,$_SESSION['agence']);
+            $fournisseurs = fournisseur::findAll(true);
             include_once("components/com_rappel/views/rappel/add.php");
         }
         break;
@@ -20,6 +21,7 @@ switch ($task) {
                 $submitName = "edit";
                 $submitValue = "Modifier rappel";
                 $clients = client::findAll(true,false,$_SESSION['agence']);
+                $fournisseurs = fournisseur::findAll(true);
                 include_once("components/com_rappel/views/rappel/edit.php");
             }
         }

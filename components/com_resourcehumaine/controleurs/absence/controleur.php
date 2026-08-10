@@ -17,6 +17,18 @@ function addAbsenceResourceHumaine($data)
 {
     $indices = array("id_resourcehumaine","start_date","end_date","back_date","number_of_days","nature_of_absence");
     if (fieldCheck($data, $indices)) {
+        // Dossier employé incomplet (CIN, contrat, engagement de confidentialité...) : pas de
+        // demande de congé tant que la situation n'est pas régularisée avec l'administration -
+        // même contrôle que le bandeau "Profil non finalisé" déjà affiché ailleurs sur la fiche
+        // (fileresourcehumaine::documentsManquants()). Contrôle refait ici côté serveur, pas
+        // seulement dans la vue : le formulaire masqué côté client ne suffit pas à empêcher un
+        // POST direct.
+        $employe = resourcehumaine::find($data['id_resourcehumaine']);
+        $manquants = fileresourcehumaine::documentsManquants($employe->getStatus(), fileresourcehumaine::findAllByResourcehumaine($employe->getId()));
+        if (!empty($manquants)) {
+            echo "3";
+            return;
+        }
         if (buildAbsenceResourceHumaine($data)->add() == 1) {
             echo "1";
         } else {
@@ -46,8 +58,15 @@ function deleteAbsenceResourceHumaine($data)
     $indices = array("id");
     if (fieldCheck($data, $indices))
     {
-        $absence = new absence();
-        $absence->setId($data['id']);
+        // find() + vérification manuelle de l'agence via l'employé lié (absence::find($id) ne
+        // prend pas d'agence en paramètre) - sans ce contrôle, n'importe quel id d'absence valide,
+        // même d'une autre agence, se faisait supprimer (IDOR).
+        $absence = absence::find($data['id']);
+        $employeAbsence = $absence->getResourcehumaine();
+        if ($absence->getId() == 0 || !$employeAbsence || !$employeAbsence->getAgency() || $employeAbsence->getAgency()->getId() != $_SESSION['agence']) {
+            echo "2";
+            return;
+        }
         if ($absence->delete() == 1) {
             echo "1";
         } else {

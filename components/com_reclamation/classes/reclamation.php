@@ -12,7 +12,9 @@ class reclamation
     private $department;
     private $sujet;
     private $message;
+    private $reponse;
     private $etat;
+    private $date_reponse;
     private $date_add;
 
     public function __construct()
@@ -60,6 +62,21 @@ class reclamation
         return $this->date_add;
     }
 
+    public function getReponse()
+    {
+        return $this->reponse;
+    }
+
+    public function getDateReponse()
+    {
+        return $this->date_reponse;
+    }
+
+    public function hasReponse()
+    {
+        return trim((string) $this->reponse) !== '';
+    }
+
     public function setId($id)
     {
         $this->id = $id;
@@ -95,6 +112,16 @@ class reclamation
         $this->date_add = $date_add;
     }
 
+    public function setReponse($reponse)
+    {
+        $this->reponse = $reponse;
+    }
+
+    public function setDateReponse($date_reponse)
+    {
+        $this->date_reponse = $date_reponse;
+    }
+
     public function add()
     {
         global $db;
@@ -118,11 +145,13 @@ class reclamation
     {
         global $db;
         $SQLupdate = sprintf(
-            "UPDATE " . static::$table . " SET  id_client = %s, department = %s, sujet = %s, message = %s, etat = %s WHERE id = %s",
+            "UPDATE " . static::$table . " SET  id_client = %s, department = %s, sujet = %s, message = %s, reponse = %s, date_reponse = %s, etat = %s WHERE id = %s",
             GetSQLValueString($this->client->getId(), "int"),
             GetSQLValueString($this->department, "text"),
             GetSQLValueString($this->sujet, "text"),
             GetSQLValueString($this->message, "text"),
+            GetSQLValueString($this->reponse, "text"),
+            GetSQLValueString($this->date_reponse, "text"),
             GetSQLValueString($this->etat, "int"),
             GetSQLValueString($this->id, "int")
         );
@@ -179,7 +208,7 @@ class reclamation
         }
 
         if ($client) {
-            $SQLselect .= " WHERE A.id_client = $client";
+            $SQLselect .= " WHERE A.id_client = " . intval($client);
         }
 
         $SQLselect .= " ORDER BY A.date_add DESC, id DESC";
@@ -200,6 +229,8 @@ class reclamation
         $reclamation->setDepartment($data['department']);
         $reclamation->setSujet($data['sujet']);
         $reclamation->setMessage($data['message']);
+        $reclamation->setReponse(isset($data['reponse']) ? $data['reponse'] : null);
+        $reclamation->setDateReponse(isset($data['date_reponse']) ? $data['date_reponse'] : null);
         $reclamation->setEtat($data['etat']);
         $reclamation->setDateAdd($data['date_add']);
         return $reclamation;
@@ -218,7 +249,7 @@ class reclamation
         $SQLcount = "SELECT count(id) as c FROM " . static::$table;
 
         if ($year) {
-            $SQLcount .= " WHERE YEAR(date_add) = $year";
+            $SQLcount .= " WHERE YEAR(date_add) = " . intval($year);
         }
 
         $result = $db->query($SQLcount);
@@ -238,6 +269,8 @@ class reclamation
             'department' => $data['department'],
             'sujet' => $data['sujet'],
             'message' => $data['message'],
+            'reponse' => isset($data['reponse']) ? $data['reponse'] : null,
+            'date_reponse' => isset($data['date_reponse']) ? $data['date_reponse'] : null,
             'etat' => $data['etat'],
             'date_add' => $data['date_add'],
         );
@@ -286,6 +319,97 @@ class reclamation
             }
         }else{
             return json_encode(array("icon"=>"error","message"=>"Unauthorized"));
+        }
+    }
+
+    // Modification d'une réclamation par le client depuis l'espace client.
+    // Sécurité : le client (identifié par le token, PAS par un id_client posté) ne peut
+    // modifier QUE sa propre réclamation, et seulement tant qu'elle n'a pas reçu de réponse.
+    public static function updateReclamationApi($data)
+    {
+        $auth = getToken();
+        if (!is_object($auth) || !isset($auth->id)) {
+            return json_encode(array("icon" => "error", "message" => "Unauthorized"));
+        }
+        if (!isset($data['id']) || empty($data['id']) || !isset($data['sujet']) || trim((string) $data['sujet']) === '' || !isset($data['message']) || trim((string) $data['message']) === '') {
+            return json_encode(array("icon" => "warning", "message" => "All fields must be filled in"));
+        }
+        global $db;
+        $SQLselect = sprintf("SELECT id_client, reponse FROM " . static::$table . " WHERE id = %s",
+            GetSQLValueString($data['id'], "int"));
+        $result = $db->query($SQLselect);
+        if ($db->num_rows($result) != 1) {
+            return json_encode(array("icon" => "warning", "message" => "Request not found"));
+        }
+        $row = $db->fetch_assoc($result);
+        // Appartenance : la réclamation doit être celle du client authentifié.
+        if ((int) $row['id_client'] !== (int) $auth->id) {
+            return json_encode(array("icon" => "error", "message" => "Unauthorized"));
+        }
+        // Verrou : une réclamation déjà répondue n'est plus modifiable.
+        if (trim((string) $row['reponse']) !== '') {
+            return json_encode(array("icon" => "warning", "message" => "This request has already been answered and can no longer be edited"));
+        }
+        $SQLupdate = sprintf(
+            "UPDATE " . static::$table . " SET department = %s, sujet = %s, message = %s WHERE id = %s AND id_client = %s",
+            GetSQLValueString(isset($data['department']) ? $data['department'] : null, "text"),
+            GetSQLValueString($data['sujet'], "text"),
+            GetSQLValueString($data['message'], "text"),
+            GetSQLValueString($data['id'], "int"),
+            GetSQLValueString($auth->id, "int")
+        );
+        if (!$db->query($SQLupdate)) {
+            return json_encode(array("icon" => "success", "message" => "The request has been successfully updated"));
+        }
+        return json_encode(array("icon" => "warning", "message" => "The request has not been updated"));
+    }
+
+    // Notifie le client par email qu'une réponse a été apportée à sa réclamation.
+    // Même config SMTP que le reste du CRM ; en local (SMTP non défini) on trace juste.
+    public function sendReponseEmail()
+    {
+        $client = $this->getClient();
+        if (!$client || !$client->getEmail()) {
+            return false;
+        }
+        global $hwaURL;
+        $espaceUrl = isset($hwaURL) ? rtrim($hwaURL, '/') . '/client-space/' : '';
+        $nomClient = trim((string) $client->getRaisonSocial()) !== '' ? $client->getRaisonSocial() : trim($client->getPrenom() . ' ' . $client->getNom());
+        $sujet = "Réponse à votre réclamation : " . $this->getSujet();
+        $corps = "Bonjour " . htmlspecialchars($nomClient) . ",<br><br>"
+            . "Notre équipe a répondu à votre réclamation <strong>&laquo; " . htmlspecialchars($this->getSujet()) . " &raquo;</strong> :<br><br>"
+            . "<div style=\"border-left:3px solid #09A1BE;padding:12px 16px;background:#f4fbfd;color:#222222;border-radius:0 8px 8px 0\">" . nl2br(htmlspecialchars($this->getReponse())) . "</div><br>"
+            . ($espaceUrl ? "Retrouvez cette réponse dans votre espace client :<br><a href=\"" . $espaceUrl . "\">" . $espaceUrl . "</a><br><br>" : "")
+            . "Cordialement,<br>L'équipe Hello World.";
+
+        // SMTP non configuré (ex. en local) : on trace et on sort proprement.
+        if (!defined('SMTP_HOST') || SMTP_HOST == '') {
+            error_log('[reclamation reponse] email non envoye (SMTP non configure) -> ' . $client->getEmail() . ' | sujet: ' . $sujet);
+            return false;
+        }
+
+        require_once __DIR__ . '/../../../vendor/autoload.php';
+        try {
+            $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+            $mail->isSMTP();
+            $mail->Host = SMTP_HOST;
+            $mail->SMTPAuth = true;
+            $mail->Username = SMTP_USERNAME;
+            $mail->Password = SMTP_PASSWORD;
+            $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
+            $mail->CharSet = 'UTF-8';
+            $mail->setFrom(SMTP_USERNAME, 'Hello World');
+            $mail->addAddress($client->getEmail(), $nomClient);
+            $mail->isHTML(true);
+            $mail->Subject = $sujet;
+            $mail->Body = $corps;
+            $mail->AltBody = strip_tags(str_replace(array('<br>', '<br/>', '<br />'), "\n", $corps));
+            $mail->send();
+            return true;
+        } catch (\Throwable $e) {
+            error_log('[reclamation reponse email] ' . $e->getMessage());
+            return false;
         }
     }
 }
