@@ -25,6 +25,17 @@
        require_once(__DIR__ . "/config.secrets.php");
    }
 
+/* -- Connexion sociale (espace client) --
+   Vérification serveur des jetons Google / Facebook. Renseignez ces valeurs
+   (idéalement dans config.secrets.php, qui a priorité car inclus au-dessus).
+   - GOOGLE_CLIENT_ID : l'ID client OAuth "Web" (Google Cloud Console). DOIT être
+     identique à celui utilisé côté site (hwm_new) pour afficher le bouton.
+   - FACEBOOK_APP_ID / FACEBOOK_APP_SECRET : app Meta for Developers. Laisser vide
+     tant que Facebook n'est pas activé (le endpoint refuse alors proprement). */
+   if (!defined("GOOGLE_CLIENT_ID"))     define("GOOGLE_CLIENT_ID", "953284949892-4miu903begvg1f3tnel0db8s17f8hjid.apps.googleusercontent.com");
+   if (!defined("FACEBOOK_APP_ID"))      define("FACEBOOK_APP_ID", "");
+   if (!defined("FACEBOOK_APP_SECRET"))  define("FACEBOOK_APP_SECRET", "");
+
 /* -- Durcissement du cookie de session -- */
 // httponly : le cookie de session devient invisible à document.cookie côté JS - si une faille XSS
 // existe quelque part dans l'app, elle ne peut plus voler la session par ce biais. samesite=Lax

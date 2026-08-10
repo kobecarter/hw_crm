@@ -37,6 +37,12 @@ if (isset($task) && !empty($task)) {
         case "loginApi":
             loginApi($_POST);
             break;
+        case "googleLoginApi":
+            googleLoginApi($_POST);
+            break;
+        case "facebookLoginApi":
+            facebookLoginApi($_POST);
+            break;
         case "verifyEmailApi":
             verifyEmailApi($_POST);
             break;
@@ -593,6 +599,16 @@ function exportEmail()
 function loginApi($data)
 {
     echo client::loginApi($data['email'], $data['password']);
+}
+
+function googleLoginApi($data)
+{
+    echo client::googleLoginApi($data);
+}
+
+function facebookLoginApi($data)
+{
+    echo client::facebookLoginApi($data);
 }
 
 function verifyEmailApi($data)

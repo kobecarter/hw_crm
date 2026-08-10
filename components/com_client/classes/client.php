@@ -969,6 +969,96 @@ class client
 		return json_encode(array("icon"=>"warning","message"=>"Email or password incorrect","client"=>$db->num_rows($result)));
 	}
 
+    /* ------------------------------------------------------------------ */
+    /* Connexion sociale (espace client) — Google / Facebook.
+       Politique : clients EXISTANTS uniquement. On vérifie le jeton du
+       fournisseur côté serveur, on en extrait l'email vérifié, puis on
+       délègue à socialLoginByEmail() qui renvoie EXACTEMENT la même forme
+       que loginApi (client + token JWT) pour que le reste de l'espace
+       client fonctionne à l'identique. Aucun compte n'est créé ici.       */
+    /* ------------------------------------------------------------------ */
+
+    private static function socialHttpGet($url)
+    {
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        $resp = curl_exec($ch);
+        $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        return array('body' => $resp, 'http' => $http);
+    }
+
+    // Rattache un email vérifié à un client actif et émet un token. Ne crée jamais de compte.
+    public static function socialLoginByEmail($email, $provider = 'social')
+    {
+        global $db;
+        $SQLselect = sprintf("SELECT * FROM " . static::$table . " WHERE email = %s AND active = %s",
+            GetSQLValueString($email, "text"),
+            GetSQLValueString(1, "int")
+        );
+        $result = $db->query($SQLselect);
+        if ($db->num_rows($result) > 0) {
+            $data = $db->fetch_assoc($result);
+            $data['ID'] = $data['id'];
+            $client = static::buildApi($data);
+            $token = setToken($client);
+            return json_encode(array("icon" => "success", "message" => "Successful connection", "client" => $client, "token" => $token));
+        }
+        return json_encode(array("icon" => "warning", "message" => "No account is linked to this email address. Please contact us.", "code" => "no_account", "provider" => $provider));
+    }
+
+    public static function googleLoginApi($data)
+    {
+        if (!defined('GOOGLE_CLIENT_ID') || GOOGLE_CLIENT_ID === '') {
+            return json_encode(array("icon" => "error", "message" => "Google sign-in is not configured", "code" => "not_configured"));
+        }
+        $credential = isset($data['credential']) ? trim($data['credential']) : '';
+        if ($credential === '') {
+            return json_encode(array("icon" => "warning", "message" => "Missing Google credential", "code" => "missing"));
+        }
+        // Vérifie signature + expiration du jeton d'identité directement auprès de Google.
+        $r = static::socialHttpGet("https://oauth2.googleapis.com/tokeninfo?id_token=" . urlencode($credential));
+        if ($r['body'] === false || $r['http'] !== 200) {
+            return json_encode(array("icon" => "error", "message" => "Google verification failed", "code" => "verify_failed"));
+        }
+        $info = json_decode($r['body']);
+        // L'audience DOIT être notre propre client ID (sinon jeton émis pour une autre app).
+        if (!is_object($info) || !isset($info->aud) || $info->aud !== GOOGLE_CLIENT_ID) {
+            return json_encode(array("icon" => "error", "message" => "Invalid Google token", "code" => "invalid_token"));
+        }
+        $emailVerified = isset($info->email_verified) && ($info->email_verified === true || $info->email_verified === 'true');
+        if (!$emailVerified || empty($info->email)) {
+            return json_encode(array("icon" => "warning", "message" => "Google email not verified", "code" => "email_unverified"));
+        }
+        return static::socialLoginByEmail($info->email, 'google');
+    }
+
+    // Scaffold Facebook : actif dès que FACEBOOK_APP_ID / FACEBOOK_APP_SECRET sont renseignés.
+    public static function facebookLoginApi($data)
+    {
+        if (!defined('FACEBOOK_APP_ID') || FACEBOOK_APP_ID === '' || !defined('FACEBOOK_APP_SECRET') || FACEBOOK_APP_SECRET === '') {
+            return json_encode(array("icon" => "error", "message" => "Facebook sign-in is not configured", "code" => "not_configured"));
+        }
+        $token = isset($data['access_token']) ? trim($data['access_token']) : '';
+        if ($token === '') {
+            return json_encode(array("icon" => "warning", "message" => "Missing Facebook token", "code" => "missing"));
+        }
+        // 1) Le jeton appartient-il bien à NOTRE app ? (anti-substitution de jeton)
+        $appToken = FACEBOOK_APP_ID . '|' . FACEBOOK_APP_SECRET;
+        $dbg = json_decode(static::socialHttpGet("https://graph.facebook.com/debug_token?input_token=" . urlencode($token) . "&access_token=" . urlencode($appToken))['body']);
+        if (!is_object($dbg) || !isset($dbg->data) || empty($dbg->data->is_valid) || (string) $dbg->data->app_id !== (string) FACEBOOK_APP_ID) {
+            return json_encode(array("icon" => "error", "message" => "Invalid Facebook token", "code" => "invalid_token"));
+        }
+        // 2) Email vérifié depuis le profil.
+        $me = json_decode(static::socialHttpGet("https://graph.facebook.com/me?fields=email&access_token=" . urlencode($token))['body']);
+        if (!is_object($me) || empty($me->email)) {
+            return json_encode(array("icon" => "warning", "message" => "Facebook email unavailable", "code" => "missing"));
+        }
+        return static::socialLoginByEmail($me->email, 'facebook');
+    }
+
     public static function verifyEmailApi($email){
         require '../../../vendor/autoload.php';
 	    require '../../../includes/traduction.php';
