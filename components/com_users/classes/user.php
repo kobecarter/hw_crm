@@ -294,7 +294,15 @@ class user {
     public function hasDroit($action, $module){
         global $db;
 		//return true;
-        if($this->getProfil()->hasDroit($action, $module)){
+        // Garde-fou : un objet user sans profil chargé (ex. session sérialisée périmée,
+        // héritée d'une ancienne version du code) ne doit pas planter tout le CRM. On
+        // considère alors qu'il n'a aucun droit - l'utilisateur n'a qu'à se reconnecter
+        // pour recharger un profil valide.
+        $profil = $this->getProfil();
+        if($profil === null){
+            return false;
+        }
+        if($profil->hasDroit($action, $module)){
             return true;
         }else{
             return false;
