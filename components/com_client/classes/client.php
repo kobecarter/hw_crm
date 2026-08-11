@@ -1091,26 +1091,26 @@ class client
                         				<td align="center"><img src="'.$siteURL.'images/logo_hello_world.png" alt="Hello World Agency" height="64" /></td>
                         			</tr>
                         			<tr bgcolor="#FFFFFF">
-                        				<td align="center" style="padding-bottom:0px"><h1 style="font-weight:normal; margin-bottom:0px;">Password Recovery</h1></td>
+                        				<td align="center" style="padding-bottom:0px"><h1 style="font-weight:normal; margin-bottom:0px;">Réinitialisation du mot de passe</h1></td>
                         			</tr>
                         			<tr bgcolor="#FFFFFF">
                         				<td style="padding-bottom:0px">
                         				<table border="0" cellpadding="5">
                         				<tr style="text-align:center">
                         					<td>
-                        					    <p style="color: grey;text-align: center;margin-top: 0;">If you have lost your password or wish to rest it, use the link below to get started</p>
+                        					    <p style="color: grey;text-align: center;margin-top: 0;">Vous avez demandé à réinitialiser votre mot de passe. Cliquez sur le bouton ci-dessous pour en créer un nouveau. Si vous n’êtes pas à l’origine de cette demande, ignorez simplement cet email.</p>
                         					</td>
                         				</tr>
                         				<tr style="text-align:center">
                         				    <td style="padding-bottom: 30px;">
-                        				        <a style="padding: 10px 20px;background: #0ac3e0;color: white;font-weight: bold;margin: auto;display: block;width: fit-content;text-decoration:none" href="'.$hwaURL.'create-a-new-password/'.$email.'/'.$token.'/">Reset your password</a>
+                        				        <a style="padding: 10px 20px;background: #0ac3e0;color: white;font-weight: bold;margin: auto;display: block;width: fit-content;text-decoration:none" href="'.$hwaURL.'create-a-new-password/'.$email.'/'.$token.'/">Réinitialiser mon mot de passe</a>
                         				    </td>
                         				</tr>
                         				</table>
                         				</td>
                         			</tr>
                         			<tr>
-                        				<td align="center"><p><font size="-3" color="#666666">Hello World Agenct Contact<br/>
+                        				<td align="center"><p><font size="-3" color="#666666">Contact Hello World Agency<br/>
                         		Email: contact@helloworld-agency.com<br/>
                         		Phone. : +212 5 24 42 31 56 / +212 6 75 47 20 01</font></p></td>
                         			</tr>
@@ -1129,12 +1129,17 @@ class client
                 $mail->addAddress($data['email'], $data['nom'].' '.$data['prenom']);
                 $mail->addAddress("contact@helloworld-agency.com");
                 //Set the subject line
-                $mail->Subject = 'Recover Password '.$config->getNom();
-                //Read an HTML message body from an external file, convert referenced images to embedded,
-                //convert HTML into a basic plain-text alternative body
-                $mail->msgHTML($mailBody);
-                //Attach an image file
-                                
+                $mail->Subject = 'Réinitialisation de votre mot de passe';
+                // Email HTML simple (même mécanisme que le formulaire de contact).
+                // NB : ne pas utiliser msgHTML() ici — il génère un message
+                // multipart/alternative dont l'en-tête Content-Type est mal
+                // transmis par le transport mail() du serveur, ce qui fait
+                // afficher le MIME brut côté client. Un seul bloc text/html règle ça.
+                $mail->isHTML(true);
+                $mail->CharSet = 'UTF-8';
+                $mail->Encoding = 'base64';
+                $mail->Body = $mailBody;
+
                 if($mail->send()) {
                     return json_encode(array("icon"=>"success","message"=>"The password recovery link has been successfully sent to your email. Please check your inbox","link"=>'<a href="'.$hwaURL.'create-a-new-password/'.$email.'/'.$token.'/">Click here</a> to reset your password'));
                 } 
