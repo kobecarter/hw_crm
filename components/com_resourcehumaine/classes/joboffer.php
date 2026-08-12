@@ -28,7 +28,7 @@ class joboffer
     // (objectif/brief, spécifiques au poste) et des valeurs saisies dans le formulaire (période
     // d'essai, salaire, conditions de paiement, commissions). Résultat inséré tel quel dans le
     // WYSIWYG - l'utilisateur peut toujours le retoucher avant envoi.
-    public static function construireLettreHTML($resourcehumaine, $periodeEssai, $salaire, $conditionsPaiement, $commissions, $objectifPoste, $briefPosteItems)
+    public static function construireLettreHTML($resourcehumaine, $periodeEssai, $salaire, $conditionsPaiement, $commissions, $objectifPoste, $briefPosteItems, $langue = 'fr')
     {
         $agence = $resourcehumaine->getAgency();
         $nomAgence = $agence ? trim($agence->getNom()) : '';
@@ -46,6 +46,66 @@ class joboffer
             $briefHtml .= '<li>' . htmlspecialchars($item) . '</li>';
         }
 
+        // Pas d'en-tête/pied de page société ici : sur le vrai document (impression/téléchargement,
+        // voir telechargerOffrePDF()) ils sont générés par mPDF comme en-tête/pied RÉPÉTÉ SUR CHAQUE
+        // PAGE (mpdfHeaderFooterBlock() ci-dessous), exactement comme le modèle de référence fourni
+        // par l'utilisateur - les inclure ici en HTML statique les aurait rendus non répétés et
+        // mélangés avec le corps modifiable dans le WYSIWYG.
+        //
+        // Modèle dupliqué (FR/EN) plutôt que templaté avec des labels traduits séparément : pour un
+        // document destiné à être signé, chaque version doit rester lisible et auditable telle
+        // quelle d'un bloc, sans risque qu'un fragment mal raccordé change le sens d'une clause.
+        if ($langue === 'en') {
+            $remuneration = '<p>Your probationary and training period will last <strong>' . htmlspecialchars($periodeEssai) . '</strong>.</p>';
+            if ($salaire !== '' && $salaire !== null) {
+                $remuneration .= '<p>During this period, your compensation will be <strong>' . number_format((float) $salaire, 2, '.', ',') . ' MAD</strong>'
+                    . ($conditionsPaiement !== '' ? ', ' . htmlspecialchars($conditionsPaiement) : '') . '.</p>';
+            }
+            if ($commissions !== '' && $commissions !== null) {
+                $remuneration .= '<p>You will also benefit from the following commissions: <strong>' . htmlspecialchars($commissions) . '</strong>.</p>';
+            }
+            $remuneration .= '<p>Once the probationary and training period has been successfully completed, your compensation will be reviewed based on your performance.</p>';
+
+            $html = '<div style="font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.5;">';
+            $html .= '<h2 style="text-align:center;">EMPLOYMENT OFFER LETTER</h2>';
+            $html .= '<p><strong>PERSONAL AND CONFIDENTIAL</strong><br><strong>' . htmlspecialchars($nomComplet) . '</strong></p>';
+            $html .= '<p style="text-align:right;"><strong>' . htmlspecialchars($ville !== '' ? $ville . ', ' : '') . $dateOffre . '</strong></p>';
+            $html .= '<p>Dear ' . htmlspecialchars($nomComplet) . ',</p>';
+            $html .= '<p>We are pleased to offer you employment at <strong>' . htmlspecialchars($nomAgence) . '</strong> as <strong>' . htmlspecialchars($poste) . '</strong>'
+                . ($ville !== '' ? ' in ' . htmlspecialchars($ville) : '') . '. You will begin your position'
+                . ($dateEntree !== '' ? ' on <strong>' . $dateEntree . '</strong>' : '') . ', or on another date to be mutually agreed upon'
+                . ($gerants !== '' ? ', and you will report to <strong>' . htmlspecialchars($gerants) . '</strong>' : '') . '. '
+                . 'As part of our hiring practices, we conduct employment reference and educational background checks. '
+                . 'It is understood that this offer remains conditional upon obtaining positive results from these checks and upon your acceptance regarding bonding, licensing and/or insurance requirements.</p>';
+
+            $html .= '<h3><u>Salary and Other Compensation</u></h3>' . $remuneration;
+            $html .= '<h3><u>Position Objective:</u></h3><p>' . nl2br(htmlspecialchars($objectifPoste)) . '</p>';
+            $html .= '<h3><u>Position Brief:</u></h3><ul>' . $briefHtml . '</ul>';
+
+            $html .= '<h3><u>Working Hours</u></h3>'
+                . '<p>Your working hours will be Monday to Friday: 9:00 AM to 1:00 PM // 2:00 PM to 6:00 PM, equivalent to 40 hours per week (+ 4 hours as needed).<br>'
+                . 'N.B.: our company generally grants two days off per week, Saturday and Sunday. However, you may be required to work certain Saturdays '
+                . '(half-day) based on the company\'s exceptional needs, as stipulated by the Labor Code.</p>';
+
+            $html .= '<h3><u>Company Policies</u></h3>'
+                . '<p>You will be required to comply with the company\'s current policies relevant to your position, as well as any additional policies that may be introduced during your employment. '
+                . 'These policies will be communicated to you during your probationary period.</p>';
+
+            $html .= '<h3><u>Confidentiality and Intellectual Property</u></h3>'
+                . '<p>The employer undertakes to take all necessary measures to preserve the confidentiality of the information covered by this agreement, in particular with regard to its employees, '
+                . 'representatives, agents, successors, heirs, or assigns.</p>';
+
+            $html .= '<p>We hope you will find your role at <strong>' . htmlspecialchars($nomAgence) . '</strong> to be a stimulating and rewarding challenge, and we wish you great success in your new position.</p>';
+            $html .= '<p>If you accept the terms above, please sign, date, and return this letter by email to the Human Resources department by <strong>' . $dateLimite . '</strong>.</p>';
+            $html .= '<p>Please do not hesitate to contact us if you have any questions or need assistance before starting your position.</p>';
+            $html .= '<p>Sincerely,</p>';
+            $html .= '<p><strong>' . htmlspecialchars($nomAgence) . '</strong><br>Represented by its ' . ($gerantPluriel ? 'Managers' : 'Manager') . '<br>' . htmlspecialchars($gerants) . '</p>';
+            $html .= '<p style="margin-top:40px;">&nbsp;</p><p>' . htmlspecialchars($nomComplet) . '</p>';
+            $html .= '</div>';
+
+            return $html;
+        }
+
         $remuneration = '<p>Votre période d\'essai et de formation aura une durée de <strong>' . htmlspecialchars($periodeEssai) . '</strong>.</p>';
         if ($salaire !== '' && $salaire !== null) {
             $remuneration .= '<p>Durant cette période, votre rémunération sera de <strong>' . number_format((float) $salaire, 2, ',', ' ') . ' DH</strong>'
@@ -56,11 +116,6 @@ class joboffer
         }
         $remuneration .= '<p>Une fois la période d\'essai et de formation validée, votre situation salariale sera réévaluée en fonction de votre rendement.</p>';
 
-        // Pas d'en-tête/pied de page société ici : sur le vrai document (impression/téléchargement,
-        // voir telechargerOffrePDF()) ils sont générés par mPDF comme en-tête/pied RÉPÉTÉ SUR CHAQUE
-        // PAGE (mpdfHeaderFooterBlock() ci-dessous), exactement comme le modèle de référence fourni
-        // par l'utilisateur - les inclure ici en HTML statique les aurait rendus non répétés et
-        // mélangés avec le corps modifiable dans le WYSIWYG.
         $html = '<div style="font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.5;">';
         $html .= '<h2 style="text-align:center;">LETTRE D\'OFFRE D\'EMPLOI</h2>';
         $html .= '<p><strong>PERSONNEL ET CONFIDENTIEL</strong><br><strong>' . htmlspecialchars($nomComplet) . '</strong></p>';

@@ -407,7 +407,7 @@ function generateClientSummary($data)
     }
 
     try {
-        $recap = aiClientSummary::generate($client);
+        $recap = aiClientSummary::generate($client, $_SESSION['langue']);
     } catch (Exception $e) {
         echo json_encode(array('icon' => 'error', 'message' => $e->getMessage()));
         return;
@@ -439,7 +439,7 @@ function chatServiceAssistant($data)
     }
 
     try {
-        $interpretation = aiServiceAssistant::interpretRequest($message, $titreActuel, $descriptionActuelle);
+        $interpretation = aiServiceAssistant::interpretRequest($message, $titreActuel, $descriptionActuelle, $_SESSION['langue']);
     } catch (Exception $e) {
         echo json_encode(array('success' => 0, 'message' => $e->getMessage()));
         return;
