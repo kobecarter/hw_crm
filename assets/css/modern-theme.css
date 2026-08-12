@@ -2579,6 +2579,15 @@ label {
 	background: linear-gradient(180deg, rgba(99, 102, 241, 0.045), rgba(99, 102, 241, 0) 60%), #fff;
 	border-top: 3px solid var(--brand-2);
 	margin-bottom: 1.5rem;
+	/* Sur les pages ".glass-page", ".glass-page .card" (donc ce panneau lui-même) reçoit déjà
+	   "isolation: isolate", qui crée un nouveau contexte d'empilement CSS - sans z-index positif
+	   ici, ce panneau (et le popup du datepicker qu'il contient) peint alors AVANT son frère
+	   ".table-responsive" suivant dans le DOM, qui passe donc visuellement par-dessus dès qu'ils
+	   se chevauchent (même mécanisme que le popup de modale corrigé plus haut, ici sans modale
+	   pour servir de point d'exclusion puisque le widget du datepicker n'existe qu'une fois
+	   ouvert). */
+	position: relative;
+	z-index: 2;
 }
 /* Quand ce panneau se trouve imbriqué dans un .card-table (ex. onglet Clients de
    la page Facturation), "card-table .card-body { padding: 0; }" de style.css

@@ -176,7 +176,7 @@
 					<div class="card-body">
 						<div class="col-sm-12 msgbox"></div>
 						<!-- Search Filter -->
-                        <div id="filter_inputs_charge" class="card filter-card px-4">
+                        <div id="filter_inputs_charge" class="card filter-card px-4 m-4">
                             <div class="card-body pb-0">
                                 <form method="post" action="" id="filterCharges">
                                     <div class="row">
@@ -196,8 +196,9 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="col-sm-6 col-md-4">
-                                            <a href="javascript:void(0)" class="btn btn-primary exportCharges" style="margin-top: 32px;"><span class="fa fa-download spinner-border-sm mr-2"></span> Exporter</a>
+                                        <div class="col-sm-6 col-md-4" style="margin-top: 32px;">
+                                            <a href="javascript:void(0)" class="btn btn-white filterCharges mr-2"><span class="fa fa-filter mr-2"></span> Filtrer</a>
+                                            <a href="javascript:void(0)" class="btn btn-primary exportCharges"><span class="fa fa-download spinner-border-sm mr-2"></span> Exporter</a>
                                         </div>
                                     </div>
                                 </form>
@@ -378,9 +379,42 @@ $(function () {
 	// Table dédiée (classe distincte de ".datatable" utilisée globalement ailleurs dans
 	// l'app) : la colonne 8 (Actions) n'est pas triable, tri initial par date de charge
 	// décroissante (colonne 6, triée sur son data-sort en timestamp, pas le texte affiché).
-	$('.datatable-charges').DataTable({
+	var chargesTable = $('.datatable-charges').DataTable({
 		order: [[6, 'desc']],
 		columnDefs: [{ orderable: false, targets: [8] }]
+	});
+
+	// Filtre "Date début"/"Date fin" : filtrage client (mêmes champs que l'export, qui lui
+	// interroge le serveur) sur le data-sort en timestamp de la colonne "Date charge", pas le
+	// texte affiché - évite tout souci de format de date lors de la comparaison.
+	$.fn.dataTable.ext.search.push(function(settings, data, dataIndex, rowData, counter) {
+		if (settings.nTable !== chargesTable.table().node()) {
+			return true;
+		}
+		var from = $("#from").val();
+		var to = $("#to").val();
+		if (!from && !to) {
+			return true;
+		}
+		var dateCharge = chargesTable.cell(dataIndex, 6).render('sort');
+		if (from) {
+			var fromTs = new Date(from.split('/').reverse().join('-')).getTime() / 1000;
+			if (dateCharge < fromTs) {
+				return false;
+			}
+		}
+		if (to) {
+			var toTs = new Date(to.split('/').reverse().join('-')).getTime() / 1000 + 86399;
+			if (dateCharge > toTs) {
+				return false;
+			}
+		}
+		return true;
+	});
+
+	$(document).on("click", ".filterCharges", function(event) {
+		event.preventDefault();
+		chargesTable.draw();
 	});
 
 	// Compteurs animés des cartes KPI (GSAP si disponible, sinon affichage statique immédiat).
