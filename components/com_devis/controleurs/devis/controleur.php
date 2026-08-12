@@ -71,6 +71,9 @@ if (isset($task) && !empty($task)) {
         case 'slackEventWebhook':
             slackEventWebhook();
             break;
+        case 'cronVerifierValidationDevisSlack':
+            cronVerifierValidationDevisSlackEndpoint();
+            break;
     }
 }
 
@@ -710,8 +713,13 @@ function sendSlackDevis($data)
         return;
     }
 
-    $statu = markDevisEnvoyeSiBrouillon($devis);
-    echo json_encode(array('success' => 1, 'statu' => $statu));
+    // "Envoyer sur Slack" n'est qu'une notification interne pour relecture/validation par
+    // l'équipe - ce n'est PAS un envoi au client, donc le statut reste en Brouillon tant que la
+    // validation n'a pas eu lieu (message "je valide le devis <numéro>" dans commercial-hw, voir
+    // cronVerifierValidationDevisSlackEndpoint()) ou que le statut n'est pas changé manuellement
+    // depuis le CRM. Avant cette correction, cliquer ce bouton faisait passer le devis en Envoyé
+    // immédiatement, avant même toute validation - ce qui ne reflétait pas la réalité.
+    echo json_encode(array('success' => 1, 'statu' => $devis->getStatu()));
 }
 
 function sendEmailDevis($data)
@@ -1872,4 +1880,153 @@ function sendDevisAcceptedEmailToClient($devis)
     } catch (\Exception $e) {
         return $mail->ErrorInfo;
     }
+}
+
+// Validation d'un devis depuis Slack, en INTERROGEANT nous-mêmes l'API Slack (polling) plutôt
+// qu'en attendant que Slack nous appelle (voir slackEventWebhook() ci-dessus) : ce dernier utilise
+// l'Events API, qui exige que Slack puisse atteindre notre serveur en HTTPS public - impossible
+// depuis ce déploiement local (http://localhost/hw_crm/), donc ce webhook ne se déclenche jamais
+// ici en pratique. Ce cron reproduit le même principe que
+// com_resourcehumaine/controleurs/joboffer/controleur.php::cronVerifierValidationSlackEndpoint() -
+// appelé périodiquement par un service externe (cron-job.org), il va lui-même chercher l'historique
+// du canal, ce qui fonctionne même en local puisque c'est le CRM qui initie la connexion sortante.
+// Réutilise volontairement la même reconnaissance (numéro à 10 chiffres) et le même effet
+// (statut Envoyé + sendDevisPdfEmailToClient()) que slackEventWebhook(), pour rester cohérent avec
+// ce qui existait déjà - seule la détection du déclencheur change (polling vs push).
+function cronVerifierValidationDevisSlackEndpoint()
+{
+    header('Content-Type: application/json');
+    $provided = isset($_GET['secret']) ? $_GET['secret'] : (isset($_SERVER['HTTP_X_WEBHOOK_SECRET']) ? $_SERVER['HTTP_X_WEBHOOK_SECRET'] : '');
+    if (!defined('DEVIS_VALIDATION_CRON_SECRET') || DEVIS_VALIDATION_CRON_SECRET === '' || !hash_equals(DEVIS_VALIDATION_CRON_SECRET, (string) $provided)) {
+        error_log('cronVerifierValidationDevisSlackEndpoint - tentative non autorisée depuis ' . (isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'inconnue'));
+        http_response_code(403);
+        echo json_encode(array('error' => 'forbidden'));
+        return;
+    }
+
+    // Aucune session utilisateur active dans ce contexte (appel externe direct) - nécessaire pour
+    // les find()/edit() ci-dessous, qui lisent $_SESSION['user']/$_SESSION['agence']. L'agence est
+    // ensuite corrigée automatiquement à la bonne valeur par devis::findByNumero() une fois le
+    // devis trouvé (il la déduit du client propriétaire), donc "1" ici n'est qu'un point de départ.
+    bootstrapSystemSession(RELANCE_CRON_ACTING_USER_ID, 1, 'fr');
+    $_SESSION['user'] = user::find(defined('SLACK_BOT_ACTING_USER_ID') ? SLACK_BOT_ACTING_USER_ID : RELANCE_CRON_ACTING_USER_ID);
+
+    $resume = array('traites' => 0, 'deja_traites' => 0, 'introuvables' => 0, 'details' => array());
+
+    $nomCanal = defined('SLACK_CHANNEL_COMMERCIAL') ? SLACK_CHANNEL_COMMERCIAL : 'commercial-hw';
+    $channelId = devisSlackResolveChannelId($nomCanal);
+    if (!$channelId) {
+        echo json_encode(array('error' => 'Canal Slack "' . $nomCanal . '" introuvable ou bot absent du canal'));
+        return;
+    }
+
+    foreach (devisSlackFetchHistory($channelId, 50) as $msg) {
+        if (empty($msg['text']) || !empty($msg['bot_id'])) {
+            continue;
+        }
+        $texteMsg = trim($msg['text']);
+
+        // "je ne valide pas .../je refuse ..." vérifié en premier pour ne jamais déclencher une
+        // validation sur un message qui contient pourtant le mot "valide" par la négative.
+        if (preg_match('/je\s+(?:ne\s+valide\s+pas|refuse)\s+le\s+devis/iu', $texteMsg)) {
+            continue;
+        }
+        if (!preg_match('/je\s+valide\s+le\s+devis\D{0,15}(\d{10})/iu', $texteMsg, $m)) {
+            continue;
+        }
+        $numero = $m[1];
+
+        $devis = devis::findByNumero($numero);
+        if (!$devis->getId()) {
+            $resume['introuvables']++;
+            $resume['details'][] = array('numero' => $numero, 'action' => 'introuvable');
+            continue;
+        }
+
+        // Retrouvé "à neuf" juste avant d'agir : si son statut a déjà avancé (déjà traité par un
+        // run précédent du cron - le même message reste dans les 50 derniers un moment - ou changé
+        // manuellement entre-temps), on ne repasse jamais dessus, jamais de second envoi.
+        if ($devis->getStatu() != 0) {
+            $resume['deja_traites']++;
+            continue;
+        }
+
+        $devis->setUserEdited($_SESSION['user']);
+        $devis->setLastEdit(date('Y-m-d H:i:s'));
+        $devis->setStatu(1);
+        $devis->edit();
+
+        $mailResult = sendDevisPdfEmailToClient($devis);
+        $threadTs = isset($msg['ts']) ? $msg['ts'] : null;
+        if ($mailResult === true) {
+            slackPostMessage($channelId, ":email: Devis N°" . $numero . " validé (statut *Envoyé*) et le PDF a été envoyé par email à " . $devis->getClient()->getEmail() . ".", $threadTs);
+        } else {
+            slackPostMessage($channelId, ":warning: Devis N°" . $numero . " marqué *Envoyé*, mais l'email n'a pas pu être envoyé : " . $mailResult, $threadTs);
+        }
+
+        $resume['traites']++;
+        $resume['details'][] = array('numero' => $numero, 'action' => 'envoye', 'email_ok' => $mailResult === true);
+    }
+
+    echo json_encode($resume);
+}
+
+// Résout le nom d'un canal Slack (ex: "commercial-hw") vers son ID (ex: "C0123456789") -
+// conversations.history exige l'ID, contrairement à chat.postMessage qui accepte un nom brut.
+// Copié depuis com_resourcehumaine::joboffreSlackResolveChannelId() (même convention dans ce
+// codebase : chaque module garde ses propres copies locales des helpers Slack plutôt qu'un
+// fichier partagé).
+function devisSlackResolveChannelId($nomCanal)
+{
+    if (!defined('SLACK_BOT_TOKEN') || SLACK_BOT_TOKEN == '') {
+        return null;
+    }
+    $nomCanal = ltrim($nomCanal, '#');
+    $cursor = '';
+    for ($page = 0; $page < 5; $page++) {
+        $url = 'https://slack.com/api/conversations.list?types=public_channel,private_channel&limit=200' . ($cursor ? '&cursor=' . urlencode($cursor) : '');
+        $ch = curl_init($url);
+        curl_setopt_array($ch, array(
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => array('Authorization: Bearer ' . SLACK_BOT_TOKEN),
+            CURLOPT_TIMEOUT => 15
+        ));
+        $response = curl_exec($ch);
+        curl_close($ch);
+        $decoded = json_decode($response, true);
+        if (!is_array($decoded) || empty($decoded['ok']) || empty($decoded['channels'])) {
+            return null;
+        }
+        foreach ($decoded['channels'] as $c) {
+            if (strcasecmp($c['name'], $nomCanal) === 0) {
+                return $c['id'];
+            }
+        }
+        $cursor = isset($decoded['response_metadata']['next_cursor']) ? $decoded['response_metadata']['next_cursor'] : '';
+        if (!$cursor) {
+            break;
+        }
+    }
+    return null;
+}
+
+// Copié depuis com_resourcehumaine::joboffreSlackFetchHistory() - mêmes raisons (voir ci-dessus).
+function devisSlackFetchHistory($channelId, $limit = 50)
+{
+    if (!defined('SLACK_BOT_TOKEN') || SLACK_BOT_TOKEN == '') {
+        return array();
+    }
+    $ch = curl_init('https://slack.com/api/conversations.history?channel=' . urlencode($channelId) . '&limit=' . intval($limit));
+    curl_setopt_array($ch, array(
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => array('Authorization: Bearer ' . SLACK_BOT_TOKEN),
+        CURLOPT_TIMEOUT => 15
+    ));
+    $response = curl_exec($ch);
+    curl_close($ch);
+    $decoded = json_decode($response, true);
+    if (!is_array($decoded) || empty($decoded['ok'])) {
+        return array();
+    }
+    return isset($decoded['messages']) ? $decoded['messages'] : array();
 }
