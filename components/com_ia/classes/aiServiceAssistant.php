@@ -24,16 +24,19 @@ class aiServiceAssistant
         return $data;
     }
 
-    public static function interpretRequest($message, $currentTitre, $currentDescription)
+    public static function interpretRequest($message, $currentTitre, $currentDescription, $langue = 'fr')
     {
+        $nomLangue = aiClaudeClient::nomLangue($langue);
+        $instructionLangue = aiClaudeClient::instructionLangue($langue);
         $schema = '{"intent":"update_description|scan_website|unknown","proposed_description":"","url":""}';
-        $systemPrompt = "Tu es un assistant intégré à un CRM qui aide à gérer une fiche 'service' (une prestation du catalogue). "
+        $systemPrompt = $instructionLangue . " (ceci s'applique uniquement au contenu du champ 'proposed_description', pas aux clés JSON ni à 'url'.) "
+            . "Tu es un assistant intégré à un CRM qui aide à gérer une fiche 'service' (une prestation du catalogue). "
             . "Réponds UNIQUEMENT avec un objet JSON valide respectant ce schéma: " . $schema . ". "
             . "Règles: "
-            . "- Si l'utilisateur demande de modifier/améliorer/réécrire la description du service, mets intent='update_description' et rédige dans 'proposed_description' une nouvelle description tenant compte de la demande et du contexte actuel (titre: '" . addslashes($currentTitre) . "', description actuelle: '" . addslashes($currentDescription) . "'). Format obligatoire : une liste à puces (chaque ligne commence par '- ' suivi de '<br>' à la fin), PAS un paragraphe de texte continu. "
+            . "- Si l'utilisateur demande de modifier/améliorer/réécrire la description du service, mets intent='update_description' et rédige dans 'proposed_description' une nouvelle description tenant compte de la demande et du contexte actuel (titre: '" . addslashes($currentTitre) . "', description actuelle: '" . addslashes($currentDescription) . "'). Rédige cette description en " . $nomLangue . ", quelle que soit la langue du message de l'utilisateur, du titre ou de la description actuelle. Format obligatoire : une liste à puces (chaque ligne commence par '- ' suivi de '<br>' à la fin), PAS un paragraphe de texte continu. "
             . "- Si l'utilisateur demande de scanner/analyser un site web pour en lister les pages, mets intent='scan_website' et extrait l'URL mentionnée dans 'url' (avec https:// si absent). Si aucune URL n'est trouvée dans le message, laisse 'url' vide. "
             . "- Si la demande ne correspond à aucun de ces deux cas, mets intent='unknown'. "
-            . "Ne mets jamais autre chose que du JSON dans ta réponse.";
+            . "Ne mets jamais autre chose que du JSON dans ta réponse. " . $instructionLangue;
 
         return self::callClaude($systemPrompt, $message);
     }

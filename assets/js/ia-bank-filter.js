@@ -55,6 +55,47 @@ function appliquerReglePersoBanque() {
     }
 }
 
+// Sens inverse de appliquerReglePersoBanque() : cocher "Proforma" à la main (avant même d'avoir
+// choisi une banque) ne doit proposer que les comptes perso dans le select, puisque c'est la seule
+// catégorie de compte éligible au proforma. Filtrage purement local (jamais d'appel réseau, jamais
+// de refreshBankSelect() ici) : appelée aussi bien après un refreshBankSelect() classique qu'au
+// chargement initial, un appel réseau depuis cette fonction rebouclerait sur bankSelectRefreshed
+// qui la rappelle elle-même - boucle infinie si "Proforma" n'est pas coché à ce moment-là. Ne fait
+// rien si la case n'est pas cochée ; restaurer la liste complète est géré par le handler de clic
+// sur la case elle-même, plus bas.
+function filtrerBanquesSurProforma() {
+    var $bankSelect = $('.bank-select');
+    var $proforma = $('input[name="proforma"]');
+    if (!$bankSelect.length || !$proforma.length || !$proforma.is(':checked')) {
+        return;
+    }
+
+    var $persoOptions = $bankSelect.find('option[data-perso="1"]');
+    if (!$persoOptions.length) {
+        return; // aucun compte perso disponible pour cette agence : rien à filtrer
+    }
+
+    var currentBankId = $bankSelect.val() || '';
+    var currentEstPerso = $bankSelect.find('option:selected').data('perso') == 1;
+
+    // Options reconstruites à partir de zéro (plutôt que détacher/ré-attacher les <option>
+    // existantes) : un <option> détaché qui garde selected=true côté DOM ferait sinon basculer la
+    // sélection dessus dès qu'il est ré-inséré, même si l'utilisateur n'a rien choisi.
+    var optionsHtml = '<option value="" selected disabled>Sélectionner</option>';
+    $persoOptions.each(function () {
+        optionsHtml += '<option value="' + $(this).val() + '" data-perso="1">' + $(this).text() + '</option>';
+    });
+
+    if ($bankSelect.data('select2')) {
+        $bankSelect.select2('destroy');
+    }
+    $bankSelect.html(optionsHtml);
+    if (currentEstPerso && currentBankId) {
+        $bankSelect.val(currentBankId);
+    }
+    $bankSelect.select2();
+}
+
 $(function () {
     $(document).on('change', '.client-select', function () {
         refreshBankSelect();
@@ -69,10 +110,19 @@ $(function () {
     $(document).on('change', '.bank-select', function () {
         appliquerReglePersoBanque();
     });
-    // Après le rafraîchissement AJAX des options (changement de client) et au chargement initial
-    // d'une page d'édition où un compte perso était déjà enregistré.
+    // Après le rafraîchissement AJAX des options (changement de client ou d'agence) : ne garde que
+    // les comptes perso si "Proforma" est déjà coché à ce moment-là (no-op sinon).
     $(document).on('bankSelectRefreshed', function () {
         appliquerReglePersoBanque();
+        filtrerBanquesSurProforma();
+    });
+    $(document).on('change', 'input[name="proforma"]', function () {
+        if ($(this).is(':checked')) {
+            filtrerBanquesSurProforma();
+        } else {
+            refreshBankSelect();
+        }
     });
     appliquerReglePersoBanque();
+    filtrerBanquesSurProforma();
 });

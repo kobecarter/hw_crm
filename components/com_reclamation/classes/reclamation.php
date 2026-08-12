@@ -372,8 +372,7 @@ class reclamation
         if (!$client || !$client->getEmail()) {
             return false;
         }
-        global $hwaURL;
-        $espaceUrl = isset($hwaURL) ? rtrim($hwaURL, '/') . '/client-space/' : '';
+        $espaceUrl = espaceClientLink($_SESSION['agence']);
         $nomClient = trim((string) $client->getRaisonSocial()) !== '' ? $client->getRaisonSocial() : trim($client->getPrenom() . ' ' . $client->getNom());
         $sujet = "Réponse à votre réclamation : " . $this->getSujet();
         $corps = "Bonjour " . htmlspecialchars($nomClient) . ",<br><br>"
