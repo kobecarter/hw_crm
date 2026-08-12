@@ -94,7 +94,7 @@
 		}
 		?>
 
-		<div class="row">
+		<div class="row mb-4">
 			<div class="col-xl-4 col-sm-6 col-12 d-flex">
 				<div class="card flex-fill mb-0">
 					<div class="card-body">
@@ -136,7 +136,7 @@
 			</div>
 		</div>
 
-		<div class="row">
+		<div class="row mb-4">
 			<div class="col-md-12">
 				<div class="card charge-chart-card mb-0">
 					<div class="card-body">
@@ -376,9 +376,10 @@ $(function () {
 	})();
 
 	// Table dédiée (classe distincte de ".datatable" utilisée globalement ailleurs dans
-	// l'app) : la colonne 8 (Actions) n'est pas triable, tri initial par ID décroissant.
+	// l'app) : la colonne 8 (Actions) n'est pas triable, tri initial par date de charge
+	// décroissante (colonne 6, triée sur son data-sort en timestamp, pas le texte affiché).
 	$('.datatable-charges').DataTable({
-		order: [[0, 'desc']],
+		order: [[6, 'desc']],
 		columnDefs: [{ orderable: false, targets: [8] }]
 	});
 

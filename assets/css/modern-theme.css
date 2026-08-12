@@ -1310,7 +1310,12 @@ label {
 		radial-gradient(circle at 50% 95%, rgba(236, 72, 153, 0.08), transparent 45%);
 	pointer-events: none;
 }
-.glass-page .card:not(:has(.dash-widget-icon)) {
+/* :not(:has(.modal)) : "backdrop-filter" crée lui aussi un nouveau contexte d'empilement CSS (au
+   même titre que le "will-change" documenté plus bas) - une carte contenant une modale Bootstrap
+   (ex: la carte à onglets Devis/Factures/Paiements de la fiche client) piégerait sinon le z-index
+   de cette modale, qui ne pourrait alors plus jamais dépasser ".modal-backdrop" : popup affiché
+   mais inutilisable, un clic sur ses champs retombant sur l'overlay. */
+.glass-page .card:not(:has(.dash-widget-icon)):not(:has(.modal)) {
 	background: rgba(255, 255, 255, 0.6);
 	backdrop-filter: blur(18px) saturate(180%);
 	-webkit-backdrop-filter: blur(18px) saturate(180%);
@@ -4522,8 +4527,13 @@ table.table td h2.table-avatar span.avatar-sleep-badge {
    rogner les menus déroulants qui débordent de leur déclencheur. Liste de
    sélecteurs partagée avec assets/js/modern-theme.js (GLASS_SHINE_SELECTOR) -
    modifier les deux ensemble. */
+/* .glass-page .card:not(:has(.modal)) : "isolation: isolate" a pour seul effet de forcer un
+   nouveau contexte d'empilement CSS - une carte contenant une modale Bootstrap (ex: la carte à
+   onglets Devis/Factures/Paiements de la fiche client) piégerait sinon le z-index de cette modale
+   au même titre que le "backdrop-filter" exclu plus haut : popup affiché mais inutilisable, un
+   clic sur ses champs retombant sur l'overlay. */
 .header-left,
-.glass-page .card,
+.glass-page .card:not(:has(.modal)),
 .alert-center-modal .modal-content,
 .global-search-panel,
 .login-wrapper .loginbox,
@@ -4532,7 +4542,7 @@ table.table td h2.table-avatar span.avatar-sleep-badge {
 	isolation: isolate;
 }
 .header-left::after,
-.glass-page .card::after,
+.glass-page .card:not(:has(.modal))::after,
 .alert-center-modal .modal-content::after,
 .global-search-panel::after,
 .login-wrapper .loginbox::after,
@@ -4549,7 +4559,7 @@ table.table td h2.table-avatar span.avatar-sleep-badge {
 	border-radius: inherit;
 }
 .header-left:hover::after,
-.glass-page .card:hover::after,
+.glass-page .card:not(:has(.modal)):hover::after,
 .alert-center-modal .modal-content:hover::after,
 .global-search-panel:hover::after,
 .login-wrapper .loginbox:hover::after,
