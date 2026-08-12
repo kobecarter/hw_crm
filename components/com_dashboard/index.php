@@ -196,8 +196,13 @@ switch ($task) {
     
                 $lastFactures = facture::findAll(false, false, false, true, 5,false,$_SESSION['agence']);
                 $lastDevis = devis::findAll(false, true, 5, $_SESSION['agence']);
+
+                $isCommercial = $_SESSION['user']->getProfil()->getProfil() == "Commercial";
+                if ($isCommercial) {
+                    $commercialStats = commercialCAEtCommission($_SESSION['user'], date('Y'), $_SESSION['agence']);
+                }
             }
-			
+
 			include_once("components/com_dashboard/views/dashboard/list.php");
 		}
 		break;

@@ -261,8 +261,8 @@
 						<span><?php echo $_SESSION['user']->getName(); ?></span>
 					</a>
 					<div class="dropdown-menu">
-						<?php if ($_SESSION['user']->hasDroit('view', 'com_user')) : ?>
-							<a class="dropdown-item" href="index.php?option=com_users&task=edit&id=<?php echo $_SESSION['user']->getId(); ?>"><i data-feather="user" class="mr-1"></i> Profile</a>
+						<?php if (!$_SESSION['user']->isResourceHumaine()) : ?>
+							<a class="dropdown-item" href="index.php?option=com_users&task=myProfile"><i data-feather="user" class="mr-1"></i> Profile</a>
 						<?php endif; ?>
 						<?php if ($_SESSION['user']->hasDroit('view', 'com_config')) : ?>
 							<a class="dropdown-item" href="index.php?option=com_config"><i data-feather="settings" class="mr-1"></i> Paramètres</a>

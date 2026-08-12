@@ -1270,6 +1270,30 @@ function tauxConversionDH($devise)
     return isset($taux[$devise]) ? $taux[$devise] : 1;
 }
 
+// Chiffre d'affaires encaissé (dashboard, card "Chiffre d'affaire" du profil Commercial) et
+// commission qui en découle, pour une année et une agence données. Basé sur payment::total()
+// - pas payment::getReglementbyDate(), qui filtre sur A.id_user_added, une colonne qui n'existe
+// pas sur crm_payment - déjà scopé sur l'utilisateur connecté par le filtrage id_user_added
+// (sur crm_facture, via jointure) intégré à payment::total() pour tout non-superuser.
+function commercialCAEtCommission($user, $year, $agence)
+{
+    $devises = array('DH', '€', '£', '$', 'AED');
+    $parDevise = array();
+    $totalDH = 0;
+    foreach ($devises as $devise) {
+        $montant = payment::total($year, false, $devise, $agence);
+        $parDevise[$devise] = $montant;
+        $totalDH += $montant * tauxConversionDH($devise);
+    }
+    $taux = $user->getTauxCommission();
+    return array(
+        'par_devise' => $parDevise,
+        'total_dh' => $totalDH,
+        'taux_commission' => $taux,
+        'commission_dh' => $totalDH * ($taux / 100),
+    );
+}
+
 // Agrégats comptables d'une période (toutes devises confondues, converties en DH) pour une agence
 // donnée ou toutes agences (false) : chiffre d'affaires, encaissé, charges, créances (impayé),
 // marge et les deux taux qui donnent vraiment un sens de pilotage à ces chiffres (taux de marge,

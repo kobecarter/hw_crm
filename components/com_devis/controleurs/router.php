@@ -116,6 +116,12 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
             // utilisateur active, donc pas de hasDroit() ici (comme pdfDevisApi).
             include_once("devis/controleur.php");
         break;
+        case 'cronVerifierValidationDevisSlack':
+            // Endpoint public (pas de cron serveur disponible, et l'Events API ci-dessus ne peut
+            // pas atteindre ce déploiement local) : appelé toutes les 5-10 min par un service
+            // externe planifié (cron-job.org), protégé par ?secret= plutôt que par une session.
+            include_once("devis/controleur.php");
+        break;
 
     }
 }
