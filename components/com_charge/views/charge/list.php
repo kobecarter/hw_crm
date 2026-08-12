@@ -235,7 +235,7 @@
 												<strong><?php echo $charge->getTitre(); ?></strong>
 											</div>
 											<span class="badge charge-type-badge <?php echo $charge->getType(); ?>"><?php echo $typeLabel; ?></span>
-											<small class="text-muted d-block mt-1">Payé par <?php echo $payePar; ?></small>
+											<small class="text-muted d-block mt-1">Saisi par <?php echo $payePar; ?></small>
 											<?php $serviceLabelsCharge = array('domaine' => 'Nom de domaine', 'hosting' => 'Hébergement web', 'ssl' => 'Certificat SSL'); ?>
 											<?php if ($charge->getServiceConcerne() !== '' && isset($serviceLabelsCharge[$charge->getServiceConcerne()])) : ?>
 												<span class="badge bg-info-light d-inline-block mt-1"><i class="fa fa-sync-alt mr-1"></i><?= $serviceLabelsCharge[$charge->getServiceConcerne()] ?><?= $charge->getClient() ? ' — ' . htmlspecialchars(trim($charge->getClient()->getRaisonSocial()) !== '' ? $charge->getClient()->getRaisonSocial() : $charge->getClient()->getNom()) : '' ?></span>
