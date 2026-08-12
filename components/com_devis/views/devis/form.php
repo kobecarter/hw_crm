@@ -561,7 +561,7 @@ $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFa
 		<?php endif; ?>
 	</div>
 	
-	<?php if(!isset($devis) || $devis->getFacture()->getId() == 0): ?>
+	<?php if(!isset($devis) || $devis->getFacture()->getId() == 0 || $devis->getStatu() != 4): ?>
 	<div class="text-right mt-4">
 		<button type="submit" name="<?= $submitName; ?>" class="btn btn-primary submit"><span class="spinner-border spinner-border-sm mr-2 loading"></span> <?php echo $submitValue; ?></button>
 	</div>
