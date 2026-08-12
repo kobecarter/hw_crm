@@ -602,13 +602,23 @@ function editDevis($data)
             }
 
             // Statut qui passe à "Accepté" : email automatique de remerciement au client (montant,
-            // conditions de paiement, contrat à signer si applicable), dans la langue du devis
+            // conditions de paiement, contrat à signer si applicable), dans la langue du devis, et
+            // création de la facture liée si elle n'existe pas encore (nécessaire pour la demande
+            // d'acompte proposée en popup juste après l'enregistrement).
+            $accFactureId = '';
             if ($oldStatu != 2 && $data['statu'] == 2) {
                 require_once '../../../vendor/autoload.php';
-                sendDevisAcceptedEmailToClient(devis::find($data['id'], $_SESSION['agence']));
+                $acceptedDevis = devis::find($data['id'], $_SESSION['agence']);
+                sendDevisAcceptedEmailToClient($acceptedDevis);
+
+                $accFacture = facture::findByDevis($acceptedDevis->getId(), $_SESSION['agence']);
+                if (!$accFacture || !$accFacture->getId()) {
+                    $accFacture = createInvoiceFromDevis($acceptedDevis);
+                }
+                $accFactureId = $accFacture ? $accFacture->getId() : '';
             }
 
-            echo "1";
+            echo "1" . ($accFactureId !== '' ? "|" . $accFactureId : "");
         } else {
             echo "2";
         }
@@ -1754,9 +1764,7 @@ function sendDevisPdfEmailToClient($devis)
         $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
         $mail->CharSet = 'UTF-8';
 
-        global $siteURL;
-        $baseUrl = (defined('PUBLIC_SITE_URL') && PUBLIC_SITE_URL) ? PUBLIC_SITE_URL : $siteURL;
-        $espaceClientLink = $baseUrl . "index.php?option=com_elogin";
+        $espaceClientLink = espaceClientLink($_SESSION['agence']);
 
         $mail->setFrom(SMTP_USERNAME, 'Hello World');
         $mail->addAddress($client->getEmail(), trim($client->getPrenom() . ' ' . $client->getNom()));
@@ -1808,9 +1816,7 @@ function sendDevisAcceptedEmailToClient($devis)
 
     require_once '../../../vendor/autoload.php';
 
-    global $siteURL;
-    $baseUrl = (defined('PUBLIC_SITE_URL') && PUBLIC_SITE_URL) ? PUBLIC_SITE_URL : $siteURL;
-    $espaceClientLink = $baseUrl . "index.php?option=com_elogin";
+    $espaceClientLink = espaceClientLink($_SESSION['agence']);
     $isEn = ($devis->getLangue() == 'en');
 
     $conditions = $devis->getConditions();
