@@ -391,7 +391,7 @@ function genererContratDepuisDevis($data)
     // depuis la page devis), mais l'étape 1 de l'assistant "Ajouter un contrat"
     // (com_contract&task=add) permet de les personnaliser avant génération - on les reprend donc
     // si fournis, sans jamais rendre ces champs obligatoires côté client.
-    $titre = isset($data['titre_contract']) && trim($data['titre_contract']) !== '' ? trim($data['titre_contract']) : 'Contrat de prestation — Devis N°' . $devis->getNumero();
+    $titre = isset($data['titre_contract']) && trim($data['titre_contract']) !== '' ? trim($data['titre_contract']) : 'Contrat de prestation - Devis N°' . $devis->getNumero();
     $duration = isset($data['duration_contract']) && trim($data['duration_contract']) !== '' ? trim($data['duration_contract']) : '12 mois';
     $garantie = isset($data['garantie_contract']) ? trim($data['garantie_contract']) : '';
     $villeContrat = isset($data['ville_contract']) && trim($data['ville_contract']) !== '' ? trim($data['ville_contract']) : $ville;
@@ -474,6 +474,7 @@ function enregistrerCorpsContrat($data)
         return;
     }
     $corps = isset($data['corps_genere']) ? $data['corps_genere'] : '';
+    $corps = contractGenerator::versLatin1Safe($corps);
     $contract->setCorpsGenere($corps);
     // Garde "texte" synchronisé avec corps_genere (cf. genererContratDepuisDevis()) pour que
     // l'ancien formulaire com_contract&task=edit continue d'afficher le même contenu.
