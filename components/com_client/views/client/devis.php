@@ -61,7 +61,7 @@
 							<?php endif; ?>
 						</td>
 						<td><?php echo $statu; ?></td>
-						<td><a onclick="return confirm('Êtes-vous sûr de vouloir envoyer ce fichier?')" href="components/com_devis/controleurs/router.php?task=sendViaMailDevis&id=<?php echo $devis->getId(); ?>" class="btn btn-sm btn-white text-info mr-2 sendMail" data-toggle="tooltip" data-placement="top" data-original-title="Envoi de devis via Mail" data-id="<?= $devis->getId(); ?>" target="_blank"><i class="far fa-paper-plane"></i></td>
+						<td><a href="javascript:void(0);" onclick="return confirm('Êtes-vous sûr de vouloir envoyer ce fichier?')" class="btn btn-sm btn-white text-info mr-2 send-email-devis" data-toggle="tooltip" data-placement="top" data-original-title="Envoi de devis via Mail" data-id="<?= $devis->getId(); ?>"><i class="far fa-paper-plane"></i></td>
 						<td><a href="javascript:void(0);" class="btn btn-sm btn-white text-primary" data-toggle="tooltip" data-placement="top" data-original-title="<?php echo $activity; ?>"><i class="fa fa-user"></i></a> </td>
 						<td class="text-right">
 							<div class="dropdown dropdown-action">

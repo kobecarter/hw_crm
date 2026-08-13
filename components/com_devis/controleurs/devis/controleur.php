@@ -1803,6 +1803,7 @@ function sendDevisPdfEmailToClient($devis)
         }
 
         $mail->send();
+        copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
         return true;
     } catch (\Exception $e) {
         return $mail->ErrorInfo;
@@ -1882,6 +1883,7 @@ function sendDevisAcceptedEmailToClient($devis)
         }
 
         $mail->send();
+        copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
         return true;
     } catch (\Exception $e) {
         return $mail->ErrorInfo;

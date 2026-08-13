@@ -110,7 +110,7 @@
                                                         <?php endif; ?>
                                                     </td>
                                                     <td><?php echo $statu; ?></td>
-                                                    <td><a onclick="return confirm('Êtes-vous sûr de vouloir envoyer ce fichier?')" href="components/com_devis/controleurs/router.php?task=sendViaMailDevis&id=<?php echo $devis->getId(); ?>" class="btn btn-sm btn-white text-info mr-2 sendMail" data-toggle="tooltip" data-placement="top" data-original-title="Envoi de devis via Mail" data-id="<?= $devis->getId(); ?>" target="_blank"><i class="far fa-paper-plane"></i></td>
+                                                    <td><a href="javascript:void(0);" onclick="return confirm('Êtes-vous sûr de vouloir envoyer ce fichier?')" class="btn btn-sm btn-white text-info mr-2 send-email-devis" data-toggle="tooltip" data-placement="top" data-original-title="Envoi de devis via Mail" data-id="<?= $devis->getId(); ?>"><i class="far fa-paper-plane"></i></td>
                                                     <td><a href="javascript:void(0);" class="btn btn-sm btn-white text-primary" data-toggle="tooltip" data-placement="top" data-original-title="<?php echo $activity; ?>"><i class="fa fa-user"></i></a> </td>
                                                     <td class="text-right">
                                                         <div class="dropdown dropdown-action">
@@ -861,6 +861,23 @@ $(function () {
                     }
                 });
             }
+        })
+
+        $(document).on("click", ".send-email-devis", function () {
+            var $btn = $(this);
+            var id = $btn.data("id");
+            $btn.prop("disabled", true);
+            $.post("components/com_devis/controleurs/router.php?task=sendEmailDevis", { id: id }, function (response) {
+                $btn.prop("disabled", false);
+                if (response.success) {
+                    $('.msgbox').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><strong>Success!</strong> Devis envoyé par email avec succès<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+                } else {
+                    $('.msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> ' + (response.message || "Erreur lors de l'envoi de l'email") + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+                }
+            }, "json").fail(function () {
+                $btn.prop("disabled", false);
+                $('.msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> Erreur réseau lors de l\'envoi de l\'email<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+            });
         })
 
         /*

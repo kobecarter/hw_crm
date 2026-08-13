@@ -587,7 +587,11 @@ function envoyerEmailOffreValideeAuCandidat($offer, $token)
         $mail->AltBody = "Votre offre d'emploi chez " . $nomAgence . " a été validée. Consultez-la et acceptez-la ici : " . $lienAcceptation
             . ". Documents à fournir : " . implode(', ', $documents);
 
-        return $mail->send();
+        $sent = $mail->send();
+        if ($sent) {
+            copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
+        }
+        return $sent;
     } catch (\Exception $e) {
         return false;
     }

@@ -184,6 +184,7 @@ function sendPaymentConfirmationEmail($facture, $montant)
         }
 
         $mail->send();
+        copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
     } catch (\Exception $e) {
         // Le paiement est déjà enregistré : un échec d'envoi d'email ne doit pas faire échouer l'opération.
     }
@@ -274,6 +275,7 @@ function sendPaymentRequestPdf($data)
         }
 
         $mail->send();
+        copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
         @unlink($filePath);
         echo "1";
     } catch (\Throwable $e) {

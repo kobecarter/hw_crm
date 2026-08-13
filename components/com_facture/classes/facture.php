@@ -1323,6 +1323,16 @@ mpdf-->
         global $db, $siteURL;
         $config = new config($db);
         $mail = new PHPMailer();
+        // Authentifié en SMTP (au lieu du relais local mail() par défaut) pour que ce mail soit
+        // réellement envoyé depuis la boîte sales@ - condition nécessaire pour pouvoir ensuite en
+        // déposer une copie dans son dossier "Envoyés" (cf. copierEmailEnvoyeVersDossierEnvoyes()).
+        $mail->isSMTP();
+        $mail->Host = SMTP_HOST;
+        $mail->SMTPAuth = true;
+        $mail->Username = SMTP_USERNAME;
+        $mail->Password = SMTP_PASSWORD;
+        $mail->SMTPSecure = 'tls';
+        $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
         $client = $this->getClient();
         $mailBody = '<html>
     <body>
@@ -1388,6 +1398,7 @@ mpdf-->
         if ($file_name != '') $mail->addAttachment('../../../uploads/' . $file_name);
 
         if ($mail->send()) {
+            copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
             echo "success";
         } else {
             echo "Error: " . $mail->ErrorInfo;

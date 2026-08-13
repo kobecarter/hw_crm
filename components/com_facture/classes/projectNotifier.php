@@ -193,6 +193,7 @@ class projectNotifier
             $mail->AltBody = "Nouveau client à prendre en considération dans le planning : " . $nomClient . ($eventLabel ? ' - ' . $eventLabel : '') . ($driveLink ? ' - ' . $driveLink : '') . " - Pour plus de details, merci de contacter le departement commercial.";
 
             $mail->send();
+            copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
         } catch (\Throwable $e) {
             error_log('projectNotifier::emailSupport exception - ' . $e->getMessage());
         }

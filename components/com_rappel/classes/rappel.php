@@ -463,6 +463,7 @@ class rappel
         $mail->Body = $corps;
         $mail->AltBody = strip_tags($corps);
         $mail->send();
+        copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
 
         return $corps;
     }

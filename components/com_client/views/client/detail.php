@@ -528,5 +528,22 @@
 				$('#iaRecapContent').html('<p class="text-danger mb-0">Erreur de connexion, merci de réessayer.</p>');
 			});
 		});
+
+		$(document).on("click", ".send-email-devis", function () {
+			var $btn = $(this);
+			var id = $btn.data("id");
+			$btn.prop("disabled", true);
+			$.post("components/com_devis/controleurs/router.php?task=sendEmailDevis", { id: id }, function (response) {
+				$btn.prop("disabled", false);
+				if (response.success) {
+					$('.msgbox').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><strong>Success!</strong> Devis envoyé par email avec succès<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+				} else {
+					$('.msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> ' + (response.message || "Erreur lors de l'envoi de l'email") + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+				}
+			}, "json").fail(function () {
+				$btn.prop("disabled", false);
+				$('.msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> Erreur réseau lors de l\'envoi de l\'email<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+			});
+		});
 	});
 </script>

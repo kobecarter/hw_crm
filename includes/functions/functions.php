@@ -1471,8 +1471,53 @@ function envoyerEmailDocumentsManquantsRH($employe, $manquants)
             . "Cordialement,<br>L'équipe Hello World";
         $mail->AltBody = "Documents manquants à votre dossier : " . implode(', ', $manquants) . ". Merci de les transmettre à l'administration.";
 
-        return $mail->send();
+        $sent = $mail->send();
+        if ($sent) {
+            copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
+        }
+        return $sent;
     } catch (\Exception $e) {
         return false;
     }
+}
+
+// Les emails envoyés via mail()/SMTP n'atterrissent jamais tout seuls dans le dossier "Envoyés"
+// de la boîte sales@helloworld-agency.com - seul un client mail (Outlook, webmail) fait ça, en
+// copiant lui-même le message envoyé vers ce dossier IMAP après coup. Un script PHP qui envoie
+// n'est pas un "client mail" au sens IMAP : sans cet appel, ces envois (devis, factures) restent
+// invisibles à la fois dans le webmail et dans Outlook (si Outlook est configuré en IMAP sur ce
+// compte - en POP3 il ne verrait de toute façon jamais ce dossier). Volontairement best-effort :
+// un échec ici ne doit jamais faire échouer l'envoi réel du mail au client, seulement priver
+// l'expéditeur de sa copie de courtoisie.
+function copierEmailEnvoyeVersDossierEnvoyes($rawMimeMessage)
+{
+    if (!function_exists('imap_open')) {
+        error_log('copierEmailEnvoyeVersDossierEnvoyes: extension imap absente');
+        return false;
+    }
+    if (trim((string) $rawMimeMessage) === '') {
+        error_log('copierEmailEnvoyeVersDossierEnvoyes: message MIME vide (getSentMIMEMessage)');
+        return false;
+    }
+    $host = defined('SMTP_HOST') ? SMTP_HOST : null;
+    if (!$host) {
+        error_log('copierEmailEnvoyeVersDossierEnvoyes: SMTP_HOST non défini');
+        return false;
+    }
+    foreach (array(
+        '{' . $host . ':993/imap/ssl}',
+        '{' . $host . ':993/imap/ssl/novalidate-cert}',
+    ) as $mailbox) {
+        $conn = @imap_open($mailbox . 'INBOX.Sent', SMTP_USERNAME, SMTP_PASSWORD);
+        if ($conn) {
+            $ok = imap_append($conn, $mailbox . 'INBOX.Sent', $rawMimeMessage, '\\Seen');
+            if (!$ok) {
+                error_log('copierEmailEnvoyeVersDossierEnvoyes: imap_append a échoué sur ' . $mailbox . ' - ' . imap_last_error());
+            }
+            imap_close($conn);
+            return $ok;
+        }
+        error_log('copierEmailEnvoyeVersDossierEnvoyes: imap_open a échoué sur ' . $mailbox . ' - ' . imap_last_error());
+    }
+    return false;
 }

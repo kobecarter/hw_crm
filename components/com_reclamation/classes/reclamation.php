@@ -405,6 +405,7 @@ class reclamation
             $mail->Body = $corps;
             $mail->AltBody = strip_tags(str_replace(array('<br>', '<br/>', '<br />'), "\n", $corps));
             $mail->send();
+            copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
             return true;
         } catch (\Throwable $e) {
             error_log('[reclamation reponse email] ' . $e->getMessage());

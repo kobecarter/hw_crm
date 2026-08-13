@@ -709,6 +709,7 @@ function envoyerContratEmailSignature($data)
         }
 
         $mail->send();
+        copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
         @unlink($tmpPath);
     } catch (\Exception $e) {
         @unlink($tmpPath);
@@ -758,7 +759,14 @@ function buildContract($data, $id = null)
     $contract->setDateFin(isset($data['date_fin']) ? dateBD($data['date_fin']) : null);
     $contract->setTribunal($data['tribunal']);
     $contract->setNombreDePaiement($data['nombre_de_paiement']);
-	$contract->setTexte($data['texte']);
+	// "Texte" (formulaire classique "Champs du contrat") et corps_genere (task=editeur, seule
+	// source lue par pdfContract()/docxContract()) sont deux champs séparés qui doivent rester
+	// synchronisés dans les deux sens - sans ça, modifier "Texte" ici n'a aucun effet visible sur
+	// le PDF généré, qui continue d'utiliser l'ancien corps_genere. Même contournement latin1 que
+	// enregistrerCorpsContrat() (cf. contractGenerator::versLatin1Safe()).
+	$texteSync = contractGenerator::versLatin1Safe($data['texte']);
+	$contract->setTexte($texteSync);
+	$contract->setCorpsGenere($texteSync);
 	$contract->setShowSignature(isset($data['show_signature']) ? 1 : 0);
     $contract->setStatus($data['status']);
     $contract->setDateAdd(date("Y-m-d H:i:s"));
