@@ -212,7 +212,7 @@
 									<tbody>
 										<?php foreach ($lignesLot as $l) :?>
 										<?php $infos = $l->getDonneesMatchingArray(); ?>
-										<tr data-id="<?= $l->getId() ?>" data-libelle="<?= htmlspecialchars($l->getLibelle(), ENT_QUOTES, 'UTF-8') ?>" data-debit="<?= $l->getDebit() ?>" data-match-type="<?= isset($infos['type']) ? htmlspecialchars($infos['type']) : '' ?>" data-employe-suggere='<?= isset($infos['employe_suggere']) && $infos['employe_suggere'] ? htmlspecialchars(json_encode($infos['employe_suggere']), ENT_QUOTES, "UTF-8") : '' ?>'>
+										<tr data-id="<?= $l->getId() ?>" data-libelle="<?= htmlspecialchars($l->getLibelle(), ENT_QUOTES, 'UTF-8') ?>" data-debit="<?= $l->getDebit() ?>" data-match-type="<?= isset($infos['type']) ? htmlspecialchars($infos['type']) : '' ?>" data-employe-suggere='<?= isset($infos['employe_suggere']) && $infos['employe_suggere'] ? htmlspecialchars(json_encode($infos['employe_suggere']), ENT_QUOTES, "UTF-8") : '' ?>' data-fournisseur-suggere='<?= isset($infos['fournisseur_suggere']) && $infos['fournisseur_suggere'] ? htmlspecialchars(json_encode($infos['fournisseur_suggere']), ENT_QUOTES, "UTF-8") : '' ?>'>
 											<td><?= date('d/m/Y', strtotime($l->getDateOperation())) ?></td>
 											<td><?= htmlspecialchars($l->getLibelle()) ?></td>
 											<td><?= $l->getDebit() ? number_format($l->getDebit(), 2, ',', ' ') . ' DH' : '' ?></td>
@@ -259,7 +259,24 @@
 														<button type="button" class="btn btn-white btn-sm rapprochement-ignorer" data-toggle="tooltip" title="Ignorer"><i class="fa fa-times"></i></button>
 													<?php else :?>
 														<?php if (isset($infos['type']) && $infos['type'] === 'credit_ambigu') :?>
-															<?php $idsCandidats = array_column($infos['candidats'], 'id_facture');?>
+															<?php
+															$idsCandidats = array_column($infos['candidats'], 'id_facture');
+															// Mise en avant : parmi TOUTES les factures (payées comprises, cf. objectif "lier un
+															// paiement à une facture"), celles dont le montant TOTAL correspond exactement au
+															// crédit de cette ligne sortent dans un groupe séparé en tête de liste - même une
+															// facture déjà soldée reste un candidat plausible (double règlement, etc.).
+															$montantCredit = round((float) $l->getCredit(), 2);
+															$facturesMontantCorrespondant = array();
+															foreach ($facturesOuvertes as $fCandidatMontant) {
+																if (in_array($fCandidatMontant->getId(), $idsCandidats)) {
+																	continue;
+																}
+																if (abs(round((float) $fCandidatMontant->getTotal(), 2) - $montantCredit) < 0.01) {
+																	$facturesMontantCorrespondant[] = $fCandidatMontant;
+																}
+															}
+															$idsMontantCorrespondant = array_map(function ($fMap) { return $fMap->getId(); }, $facturesMontantCorrespondant);
+															?>
 															<!-- Simple porteur de valeur - la sélection se fait dans la fenêtre #affecterModal (même
 															     habillage que les autres fenêtres du module), jamais dans ce <select> caché. -->
 															<select class="rapprochement-facture-select d-none">
@@ -271,15 +288,24 @@
 																	<?php endforeach;?>
 																</optgroup>
 																<?php endif;?>
-																<optgroup label="Toutes les factures ouvertes">
-																	<?php foreach ($facturesOuvertes as $f) :?>
-																		<?php if (in_array($f->getId(), $idsCandidats)) { continue; }?>
+																<?php if (!empty($facturesMontantCorrespondant)) :?>
+																<optgroup label="⭐ Montant correspondant (<?= number_format($montantCredit, 2, ',', ' ') ?> DH)" data-groupe="montant-correspondant">
+																	<?php foreach ($facturesMontantCorrespondant as $f) :?>
 																		<?php $client = $f->getClient(); $nomClient = $client ? (trim((string) $client->getRaisonSocial()) !== '' ? $client->getRaisonSocial() : trim($client->getPrenom() . ' ' . $client->getNom())) : '';?>
-																	<option value="<?= $f->getId() ?>">N°<?= htmlspecialchars($f->getNumero()) ?> — <?= htmlspecialchars($nomClient) ?> (reste <?= number_format($f->getReste(), 2, ',', ' ') ?> DH)</option>
+																	<option value="<?= $f->getId() ?>" data-client="<?= $client ? $client->getId() : '' ?>">⭐ N°<?= htmlspecialchars($f->getNumero()) ?> — <?= htmlspecialchars($nomClient) ?> (Total : <?= number_format($f->getTotal(), 2, ',', ' ') ?> DH<?= $f->getReste() <= 0 ? ', payée' : '' ?>)</option>
+																	<?php endforeach;?>
+																</optgroup>
+																<?php endif;?>
+																<optgroup label="Toutes les factures (payées comprises)">
+																	<?php foreach ($facturesOuvertes as $f) :?>
+																		<?php if (in_array($f->getId(), $idsCandidats) || in_array($f->getId(), $idsMontantCorrespondant)) { continue; }?>
+																		<?php $client = $f->getClient(); $nomClient = $client ? (trim((string) $client->getRaisonSocial()) !== '' ? $client->getRaisonSocial() : trim($client->getPrenom() . ' ' . $client->getNom())) : '';?>
+																		<?php $resteAffiche = $f->getReste() > 0 ? 'reste ' . number_format($f->getReste(), 2, ',', ' ') . ' DH' : 'payée';?>
+																	<option value="<?= $f->getId() ?>" data-client="<?= $client ? $client->getId() : '' ?>">N°<?= htmlspecialchars($f->getNumero()) ?> — <?= htmlspecialchars($nomClient) ?> (Total : <?= number_format($f->getTotal(), 2, ',', ' ') ?> DH, <?= $resteAffiche ?>)</option>
 																	<?php endforeach;?>
 																</optgroup>
 															</select>
-															<button type="button" class="btn btn-white btn-sm rapprochement-choisir" data-toggle="tooltip" title="Choisir la facture" data-affecter-type="facture"><i class="fa fa-search mr-1"></i>Choisir</button>
+															<button type="button" class="btn btn-white btn-sm rapprochement-choisir" data-toggle="tooltip" title="Choisir la facture" data-affecter-type="facture" data-candidats-facture="<?= count($infos['candidats']) ?>"><i class="fa fa-search mr-1"></i>Choisir</button>
 														<?php elseif (isset($infos['type']) && $infos['type'] === 'debit_charge_existante') :?>
 															<?php $idsCandidatsCharge = array_column($infos['candidats'], 'id');?>
 															<select class="rapprochement-charge-select d-none">
@@ -295,6 +321,13 @@
 																	<option value="<?= $c->getId() ?>"><?= htmlspecialchars($c->getTitre()) ?> — <?= $c->getDateCharge() ? date('d/m/Y', strtotime($c->getDateCharge())) : '' ?> (<?= number_format($c->getTotal(), 2, ',', ' ') ?> <?= htmlspecialchars($c->getDevise()) ?>)</option>
 																	<?php endforeach;?>
 																</optgroup>
+																<?php if (!empty($chargesDejaAffectees)) :?>
+																<optgroup label="⚠ Charges déjà affectées (réaffectation possible)">
+																	<?php foreach ($chargesDejaAffectees as $c) :?>
+																	<option value="<?= $c->getId() ?>">⚠ <?= htmlspecialchars($c->getTitre()) ?> — <?= $c->getDateCharge() ? date('d/m/Y', strtotime($c->getDateCharge())) : '' ?> (<?= number_format($c->getTotal(), 2, ',', ' ') ?> <?= htmlspecialchars($c->getDevise()) ?>)</option>
+																	<?php endforeach;?>
+																</optgroup>
+																<?php endif;?>
 															</select>
 															<button type="button" class="btn btn-white btn-sm rapprochement-choisir" data-toggle="tooltip" title="Choisir la charge" data-affecter-type="charge"><i class="fa fa-search mr-1"></i>Choisir</button>
 														<?php elseif (isset($infos['type']) && $infos['type'] === 'debit_reconnu') :?>
@@ -308,6 +341,13 @@
 																	<option value="<?= $c->getId() ?>"><?= htmlspecialchars($c->getTitre()) ?> — <?= $c->getDateCharge() ? date('d/m/Y', strtotime($c->getDateCharge())) : '' ?> (<?= number_format($c->getTotal(), 2, ',', ' ') ?> <?= htmlspecialchars($c->getDevise()) ?>)</option>
 																	<?php endforeach;?>
 																</optgroup>
+																<?php if (!empty($chargesDejaAffectees)) :?>
+																<optgroup label="⚠ Charges déjà affectées (réaffectation possible)">
+																	<?php foreach ($chargesDejaAffectees as $c) :?>
+																	<option value="<?= $c->getId() ?>">⚠ <?= htmlspecialchars($c->getTitre()) ?> — <?= $c->getDateCharge() ? date('d/m/Y', strtotime($c->getDateCharge())) : '' ?> (<?= number_format($c->getTotal(), 2, ',', ' ') ?> <?= htmlspecialchars($c->getDevise()) ?>)</option>
+																	<?php endforeach;?>
+																</optgroup>
+																<?php endif;?>
 															</select>
 															<button type="button" class="btn btn-white btn-sm rapprochement-choisir" data-toggle="tooltip" title="Choisir une charge déjà existante" data-affecter-type="charge"><i class="fa fa-search mr-1"></i>Choisir</button>
 														<?php endif;?>
@@ -317,6 +357,11 @@
 												<?php elseif ($l->getStatut() === 'sans_justificatif') :?>
 													<button type="button" class="btn btn-danger btn-sm rapprochement-justificatif-manuel" data-toggle="tooltip" title="Insérer le justificatif"><i class="fa fa-paperclip"></i></button>
 													<button type="button" class="btn btn-white btn-sm rapprochement-ignorer" data-toggle="tooltip" title="Ignorer"><i class="fa fa-times"></i></button>
+												<?php elseif ($l->getStatut() === 'matched_charge' && $l->getIdCharge()) :?>
+													<!-- La charge (créée ou liée depuis ce relevé) reste modifiable sans quitter la page -
+													     titre/montant/type/remarque erronés ou à compléter après coup, sans repasser par la
+													     liste complète des charges pour la retrouver. -->
+													<a href="index.php?option=com_charge&task=edit&id=<?= $l->getIdCharge() ?>" target="_blank" class="btn btn-white btn-sm" data-toggle="tooltip" title="Modifier la charge affectée"><i class="fa fa-edit"></i></a>
 												<?php else :?>
 													—
 												<?php endif;?>
@@ -463,9 +508,16 @@
 					<label>Montant (DH)</label>
 					<input type="text" class="form-control" id="justificatifMontant">
 				</div>
-				<div class="form-group mb-0">
+				<div class="form-group">
 					<label>Justificatif (optionnel — sinon le relevé bancaire du lot est utilisé)</label>
 					<input type="file" class="form-control" id="justificatifFichier" accept=".jpg,.jpeg,.png,.gif,.pdf">
+				</div>
+				<!-- Commune aux 3 modes (charge simple, bulletin de paie, fournisseur) - pas de zone
+				     dédiée à un mode en particulier. Exportée telle quelle dans le dossier comptable
+				     Excel (onglet "Tous les achats-charges", cf. exportTvaComptable()). -->
+				<div class="form-group mb-0">
+					<label>Remarque (optionnel)</label>
+					<textarea class="form-control" id="justificatifRemarque" rows="2"></textarea>
 				</div>
 			</div>
 			<div class="modal-footer">
@@ -506,7 +558,7 @@
 
 <!-- Popup "Choisir la facture / la charge" — même habillage que les autres fenêtres du module
      (au lieu d'un <select> cramponné dans la cellule du tableau) : recherche parmi les candidats
-     détectés automatiquement ET l'ensemble des factures ouvertes / charges disponibles de
+     détectés automatiquement ET l'ensemble des factures (payées comprises) / charges disponibles de
      l'agence, pour ne jamais bloquer l'utilisateur au seul auto-matching. -->
 <div id="affecterModal" class="modal custom-modal fade" role="dialog">
 	<div class="modal-dialog modal-dialog-centered" role="document">
@@ -518,7 +570,23 @@
 				<h5 class="modal-title" id="affecterModalTitre">Choisir la facture correspondante</h5>
 			</div>
 			<div class="modal-body">
-				<div class="form-group mb-0">
+				<!-- Ne s'affiche que pour une facture quand AUCUN client n'a été détecté automatiquement
+				     dans le libellé du crédit (0 candidat) : plutôt que de noyer l'utilisateur dans la
+				     liste complète de toutes les factures de l'agence, on cherche d'abord le
+				     client par nom, puis seules SES factures (payées comprises) alimentent le select ci-dessous. -->
+				<div id="affecterClientZone" class="form-group d-none">
+					<label>Rechercher le client</label>
+					<select id="affecterClientSelect" class="form-control" style="width:100%;">
+						<option value="">Tapez le nom du client...</option>
+						<?php foreach ($clientsPourRapprochement as $cli) :?>
+							<?php $nomCli = trim((string) $cli->getRaisonSocial()) !== '' ? $cli->getRaisonSocial() : trim($cli->getPrenom() . ' ' . $cli->getNom());?>
+						<option value="<?= $cli->getId() ?>"><?= htmlspecialchars($nomCli) ?></option>
+						<?php endforeach;?>
+					</select>
+					<p class="text-muted mb-0 mt-2" id="affecterClientVide" style="font-size:0.8rem;">Aucun client détecté automatiquement pour ce libellé — cherchez-le ci-dessus pour afficher toutes ses factures.</p>
+				</div>
+
+				<div class="form-group mb-0" id="affecterSelectZone">
 					<select id="affecterSelect" class="form-control" style="width:100%;"></select>
 				</div>
 
@@ -548,6 +616,35 @@
 			<div class="modal-footer">
 				<button type="button" class="btn btn-white" data-dismiss="modal">Annuler</button>
 				<button type="button" class="btn btn-primary" id="affecterConfirmerBtn"><i class="fa fa-check mr-1"></i> Confirmer</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Popup "Réaffectation" (sécurité anti-doublon) — la charge (ou le bulletin de paie) choisi est
+     déjà rattaché à une AUTRE ligne de relevé bancaire : bloque la validation immédiate et montre
+     l'ancienne affectation avant de laisser l'utilisateur écraser le lien ou annuler. Même
+     habillage que les autres popups d'avertissement (.tva-confirm-modal + .charge-doublon-icon,
+     déjà utilisée par la dropzone Charges pour "Doublon détecté"). -->
+<div id="reaffectationModal" class="modal custom-modal tva-confirm-modal fade" role="dialog">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+				<div class="charge-doublon-icon"><i class="fa fa-exclamation-triangle"></i></div>
+				<h5 class="modal-title mt-3">Cette charge est déjà affectée</h5>
+			</div>
+			<div class="modal-body">
+				<p class="text-center mb-3" style="font-size:0.9rem;">
+					Êtes-vous sûr de vouloir la réaffecter ? L'ancienne liaison ci-dessous sera écrasée.
+				</p>
+				<div id="reaffectationAncienneInfo" class="rapprochement-suppression-resume"></div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-white" data-dismiss="modal">Ignorer</button>
+				<button type="button" class="btn btn-danger" id="reaffectationConfirmerBtn"><i class="fa fa-exchange-alt mr-1"></i> Valider la réaffectation</button>
 			</div>
 		</div>
 	</div>
@@ -636,6 +733,37 @@ $(function () {
 		var p = iso.split('-');
 		return p.length === 3 ? (p[2] + '/' + p[1] + '/' + p[0]) : iso;
 	}
+
+	// ---- Sécurité anti-doublon (réaffectation) : la charge/le bulletin choisi est déjà rattaché
+	// à une AUTRE ligne de relevé - le serveur bloque et renvoie needs_confirmation=1 au lieu
+	// d'agir. Cette popup montre l'ancienne affectation puis rejoue l'appel avec force=1 si
+	// l'utilisateur confirme vouloir écraser le lien existant. Retourne true si la réponse a été
+	// interceptée (l'appelant ne doit alors PAS afficher son propre message d'erreur générique).
+	var reaffectationRenvoyer = null;
+	function gererBesoinConfirmation(response, renvoyerAvecForce) {
+		if (!response || !response.needs_confirmation) {
+			return false;
+		}
+		var a = response.ancienne_affectation || {};
+		var html = '<ul class="mb-0">';
+		html += '<li><strong>Compte :</strong> ' + escHtml(a.compte || '—') + '</li>';
+		html += '<li><strong>Date :</strong> ' + escHtml(a.date_operation || '—') + '</li>';
+		html += '<li><strong>Libellé :</strong> ' + escHtml(a.libelle || '—') + '</li>';
+		html += '<li><strong>Montant :</strong> ' + fmtMontant(a.montant) + ' DH</li>';
+		html += '</ul>';
+		$('#reaffectationAncienneInfo').html(html);
+		reaffectationRenvoyer = renvoyerAvecForce;
+		$('#reaffectationModal').modal('show');
+		return true;
+	}
+	$('#reaffectationConfirmerBtn').on('click', function () {
+		$('#reaffectationModal').modal('hide');
+		if (reaffectationRenvoyer) {
+			var callback = reaffectationRenvoyer;
+			reaffectationRenvoyer = null;
+			callback();
+		}
+	});
 
 	// Filtres rapides (Tous / À valider / Sans justificatif / À jour) : masque/affiche les cartes
 	// de lot directement (pas de DataTables ici, chaque lot est une carte indépendante avec sa
@@ -948,6 +1076,7 @@ $(function () {
 	// module, plutôt qu'un <select> cramponné dans la cellule du tableau. ----------------------
 	var affecterLigneCourante = null;
 	var affecterTypeCourant = null;
+	var affecterFactureHtmlComplet = '';
 
 	function affecterBasculerZoneNouvelleCharge(estNouvelleCharge) {
 		$('#affecterNouvelleChargeZone').toggleClass('d-none', !estNouvelleCharge);
@@ -966,13 +1095,35 @@ $(function () {
 		if ($affecterSelect.hasClass('select2-hidden-accessible')) {
 			$affecterSelect.select2('destroy');
 		}
+		if ($('#affecterClientSelect').hasClass('select2-hidden-accessible')) {
+			$('#affecterClientSelect').select2('destroy');
+		}
 		var html = $selectSource.html();
 		// Rien de la liste ne correspond forcément à un débit fourre-tout (ex: virement à un
 		// employé pour tout autre chose que la charge suggérée par montant/date) - jamais bloquant.
 		if (type === 'charge') {
 			html = '<option value="__nouvelle__">+ Créer une nouvelle charge</option>' + html;
 		}
-		$affecterSelect.html(html).val($selectSource.val());
+		affecterFactureHtmlComplet = html;
+
+		// Aucun client détecté automatiquement dans le libellé de ce crédit (0 candidat) :
+		// recherche du client d'abord (fenêtre dédiée), la liste des factures ne s'affiche qu'une
+		// fois le client choisi, plutôt que de noyer l'utilisateur dans toutes les factures
+		// ouvertes de l'agence dès l'ouverture.
+		var candidatsFacture = type === 'facture'
+			? (parseInt($tr.find('.rapprochement-choisir[data-affecter-type="facture"]').data('candidats-facture'), 10) || 0)
+			: 0;
+		var rechercheClientActive = type === 'facture' && candidatsFacture === 0;
+
+		$('#affecterClientZone').toggleClass('d-none', !rechercheClientActive);
+		if (rechercheClientActive) {
+			$('#affecterClientSelect').val(null);
+			$affecterSelect.html('<option value="">Choisir la facture...</option>');
+			$('#affecterSelectZone').addClass('d-none');
+		} else {
+			$affecterSelect.html(html).val($selectSource.val());
+			$('#affecterSelectZone').removeClass('d-none');
+		}
 		affecterBasculerZoneNouvelleCharge(false);
 
 		if (type === 'charge') {
@@ -982,8 +1133,59 @@ $(function () {
 		}
 
 		$('#affecterModal').modal('show');
+		// select2 doit s'initialiser une fois la modale visible (sinon calcul de largeur à 0px,
+		// piège Select2 classique sur un élément encore display:none) - d'où l'appel APRÈS
+		// modal('show') aussi bien ici que dans affecterAppliquerFiltreClient() ci-dessous.
+		if (rechercheClientActive) {
+			affecterAppliquerFiltreClient('');
+			$('#affecterClientSelect').select2({ dropdownParent: $('#affecterModal'), width: '100%', placeholder: 'Tapez le nom du client...' });
+		} else {
+			$affecterSelect.select2({ dropdownParent: $('#affecterModal'), width: '100%' });
+		}
+	}
+
+	// Filtre la liste des factures par client choisi (attribut data-client déjà posé sur chaque
+	// <option>, aucun nouvel aller-retour AJAX - la liste complète est déjà chargée dans
+	// affecterFactureHtmlComplet). Sans client choisi (idClient vide), seul le raccourci "⭐ Montant
+	// correspondant" reste visible (toutes agences confondues) - un moyen rapide de retrouver la
+	// bonne facture sans même avoir à chercher le client, si son montant total suffit à l'identifier.
+	function affecterAppliquerFiltreClient(idClient) {
+		var $affecterSelect = $('#affecterSelect');
+		if ($affecterSelect.hasClass('select2-hidden-accessible')) {
+			$affecterSelect.select2('destroy');
+		}
+		var $toutes = $('<div>').html(affecterFactureHtmlComplet);
+
+		if (!idClient) {
+			var $groupeMontant = $toutes.find('optgroup[data-groupe="montant-correspondant"]').clone();
+			if ($groupeMontant.length) {
+				$affecterSelect.html('<option value="">Choisir la facture...</option>' + $('<div>').append($groupeMontant).html());
+				$('#affecterSelectZone').removeClass('d-none');
+			} else {
+				$affecterSelect.html('<option value="">Choisir la facture...</option>');
+				$('#affecterSelectZone').addClass('d-none');
+			}
+			$affecterSelect.select2({ dropdownParent: $('#affecterModal'), width: '100%' });
+			return;
+		}
+
+		var $optionsClient = $toutes.find('option[data-client="' + idClient + '"]');
+		if ($optionsClient.length === 0) {
+			$affecterSelect.html('<option value="">Aucune facture pour ce client</option>');
+		} else {
+			var $selectNew = $('<select><option value="">Choisir la facture...</option></select>');
+			$optionsClient.each(function () {
+				$selectNew.append($(this).clone());
+			});
+			$affecterSelect.html($selectNew.html());
+		}
+		$('#affecterSelectZone').removeClass('d-none');
 		$affecterSelect.select2({ dropdownParent: $('#affecterModal'), width: '100%' });
 	}
+
+	$(document).on('change', '#affecterClientSelect', function () {
+		affecterAppliquerFiltreClient($(this).val());
+	});
 
 	$(document).on('click', '.rapprochement-choisir', function () {
 		var $tr = $(this).closest('tr');
@@ -1129,21 +1331,34 @@ $(function () {
 			return;
 		}
 
-		$.post('components/com_rapprochement/controleurs/router.php?task=validerLigne', { id: id, id_facture: idFacture, id_charge_existante: idChargeExistante }, function (response) {
-			if (response.success) {
-				window.location.reload();
-			} else {
-				alert(response.message || 'Erreur lors de la validation');
+		function envoyerValiderDirect(force) {
+			var payload = { id: id, id_facture: idFacture, id_charge_existante: idChargeExistante };
+			if (force) {
+				payload.force_reaffectation = 1;
 			}
-		});
+			$.post('components/com_rapprochement/controleurs/router.php?task=validerLigne', payload, function (response) {
+				if (response.success) {
+					window.location.reload();
+					return;
+				}
+				if (gererBesoinConfirmation(response, function () { envoyerValiderDirect(true); })) {
+					return;
+				}
+				alert(response.message || 'Erreur lors de la validation');
+			});
+		}
+		envoyerValiderDirect(false);
 	});
 
-	$('#validerJustificatifConfirmerBtn').on('click', function () {
-		var $btn = $(this).prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Confirmation...');
+	function envoyerValiderJustificatif(force) {
+		var $btn = $('#validerJustificatifConfirmerBtn').prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Confirmation...');
 		var formData = new FormData();
 		formData.append('id', validerLigneCourante);
 		if (validerIdChargeExistanteCourant) {
 			formData.append('id_charge_existante', validerIdChargeExistanteCourant);
+		}
+		if (force) {
+			formData.append('force_reaffectation', '1');
 		}
 		var fichier = $('#validerJustificatifFichier')[0].files[0];
 		if (fichier) {
@@ -1158,16 +1373,24 @@ $(function () {
 			success: function (response) {
 				if (response.success) {
 					window.location.reload();
-				} else {
-					alert(response.message || 'Erreur lors de la validation');
-					$btn.prop('disabled', false).html('<i class="fa fa-check mr-1"></i> Confirmer');
+					return;
 				}
+				if (gererBesoinConfirmation(response, function () { envoyerValiderJustificatif(true); })) {
+					$btn.prop('disabled', false).html('<i class="fa fa-check mr-1"></i> Confirmer');
+					return;
+				}
+				alert(response.message || 'Erreur lors de la validation');
+				$btn.prop('disabled', false).html('<i class="fa fa-check mr-1"></i> Confirmer');
 			},
 			error: function () {
 				alert('Erreur lors de la validation');
 				$btn.prop('disabled', false).html('<i class="fa fa-check mr-1"></i> Confirmer');
 			}
 		});
+	}
+
+	$('#validerJustificatifConfirmerBtn').on('click', function () {
+		envoyerValiderJustificatif(false);
 	});
 
 	// Le badge de statut lui-même est cliquable : il déclenche exactement la même action que le
@@ -1278,12 +1501,22 @@ $(function () {
 		}
 		$zone.removeClass('d-none');
 		$.post('components/com_rapprochement/controleurs/router.php?task=listerBulletinsPaie', { id_resourcehumaine: idResourcehumaine }, function (response) {
-			if (!response.success || !response.bulletins.length) {
+			if (!response.success) {
 				return;
 			}
-			response.bulletins.forEach(function (b) {
+			(response.bulletins || []).forEach(function (b) {
 				$select.append('<option value="' + b.id_charge + '">' + escHtml(b.title) + '</option>');
 			});
+			// Règle 4 (listes distinctes) : les bulletins déjà rattachés à une AUTRE ligne de relevé
+			// restent proposés (pas cachés) dans un second groupe visuellement marqué - les
+			// sélectionner déclenche la fenêtre de réaffectation (voir gererBesoinConfirmation()).
+			if (response.bulletins_deja_affectes && response.bulletins_deja_affectes.length) {
+				var $optgroup = $('<optgroup label="⚠ Bulletins déjà affectés (réaffectation possible)"></optgroup>');
+				response.bulletins_deja_affectes.forEach(function (b) {
+					$optgroup.append('<option value="' + b.id_charge + '">⚠ ' + escHtml(b.title) + '</option>');
+				});
+				$select.append($optgroup);
+			}
 		});
 	}
 
@@ -1308,6 +1541,7 @@ $(function () {
 		$('#justificatifFichier').val('');
 		$('#justificatifResourcehumaine').val('');
 		$('#justificatifFournisseur').val('');
+		$('#justificatifRemarque').val('');
 		$('#justificatifSuggestionEmploye').addClass('d-none').empty();
 
 		// Pré-remplit mois/année du bulletin depuis la date de l'opération (JJ/MM/AAAA affichée).
@@ -1319,6 +1553,13 @@ $(function () {
 		var employeSuggere = null;
 		try { employeSuggere = employeSuggereRaw ? JSON.parse(employeSuggereRaw) : null; } catch (e) { employeSuggere = null; }
 
+		var fournisseurSuggereRaw = $tr.attr('data-fournisseur-suggere');
+		var fournisseurSuggere = null;
+		try { fournisseurSuggere = fournisseurSuggereRaw ? JSON.parse(fournisseurSuggereRaw) : null; } catch (e) { fournisseurSuggere = null; }
+
+		// L'employé (salaire) est toujours prioritaire sur un fournisseur détecté - un même
+		// virement ne correspond jamais aux deux à la fois en pratique (voir matcherDebit() côté
+		// serveur, qui ne cherche même un fournisseur que si aucun employé n'a matché).
 		if (employeSuggere && employeSuggere.id) {
 			$('#justificatifResourcehumaine').val(employeSuggere.id);
 			$('#justificatifSuggestionEmploye').removeClass('d-none').html(
@@ -1327,6 +1568,14 @@ $(function () {
 			$('input[name=justificatifMode][value=payslip]').prop('checked', true);
 			justificatifAfficherMode('payslip');
 			chargerBulletinsExistants(employeSuggere.id);
+		} else if (fournisseurSuggere && fournisseurSuggere.id) {
+			$('#justificatifFournisseur').val(fournisseurSuggere.id);
+			$('#justificatifSuggestionEmploye').removeClass('d-none').html(
+				'<i class="fa fa-lightbulb mr-1"></i>Ce libellé ressemble à un virement vers <strong>' + escHtml(fournisseurSuggere.nom_complet) + '</strong> — fournisseur pré-rempli.'
+			);
+			$('input[name=justificatifMode][value=fournisseur]').prop('checked', true);
+			justificatifAfficherMode('fournisseur');
+			chargerBulletinsExistants(null);
 		} else {
 			$('input[name=justificatifMode][value=charge]').prop('checked', true);
 			justificatifAfficherMode('charge');
@@ -1336,15 +1585,21 @@ $(function () {
 		$('#justificatifManuelModal').modal('show');
 	});
 
-	$('#justificatifConfirmerBtn').on('click', function () {
-		var $btn = $(this);
-		var libelleBoutonInitial = $btn.html();
+	var justificatifLibelleBoutonCourant = '<i class="fa fa-check mr-1"></i> Créer la charge';
+
+	function envoyerJustificatifManuel(force) {
+		var $btn = $('#justificatifConfirmerBtn');
+		if (!force) {
+			justificatifLibelleBoutonCourant = $btn.html();
+		}
+		var libelleBoutonInitial = justificatifLibelleBoutonCourant;
 		$btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Enregistrement...');
 		var mode = $('input[name=justificatifMode]:checked').val();
 		var formData = new FormData();
 		formData.append('id', justificatifLigneCourante);
 		formData.append('mode', mode);
 		formData.append('montant', $('#justificatifMontant').val());
+		formData.append('remarque', $('#justificatifRemarque').val());
 
 		if (mode === 'payslip') {
 			formData.append('id_resourcehumaine', $('#justificatifResourcehumaine').val());
@@ -1362,6 +1617,10 @@ $(function () {
 			formData.append('titre', $('#justificatifTitre').val());
 		}
 
+		if (force) {
+			formData.append('force_reaffectation', '1');
+		}
+
 		var fichier = $('#justificatifFichier')[0].files[0];
 		if (fichier) {
 			formData.append('justificatif[]', fichier);
@@ -1375,16 +1634,24 @@ $(function () {
 			success: function (response) {
 				if (response.success) {
 					window.location.reload();
-				} else {
-					alert(response.message || "Erreur lors de l'enregistrement");
-					$btn.prop('disabled', false).html(libelleBoutonInitial);
+					return;
 				}
+				if (gererBesoinConfirmation(response, function () { envoyerJustificatifManuel(true); })) {
+					$btn.prop('disabled', false).html(libelleBoutonInitial);
+					return;
+				}
+				alert(response.message || "Erreur lors de l'enregistrement");
+				$btn.prop('disabled', false).html(libelleBoutonInitial);
 			},
 			error: function () {
 				alert("Erreur lors de l'enregistrement");
 				$btn.prop('disabled', false).html(libelleBoutonInitial);
 			}
 		});
+	}
+
+	$('#justificatifConfirmerBtn').on('click', function () {
+		envoyerJustificatifManuel(false);
 	});
 
 	// Redesign checklist "Comptes bancaires" + entrée en cascade des cartes de lot au chargement

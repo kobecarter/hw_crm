@@ -7,7 +7,7 @@ switch ($task) {
             $agence = agence::find($_SESSION['agence'],$_SESSION['langue']);
             $services = service::findAll($_SESSION['langue'], true);
             $clients = client::findAll(true,false,$_SESSION['agence']);
-            $banks = bank::findAll($_SESSION['agence']);
+            $banks = bank::findAllPourFormulaire($_SESSION['agence']);
             $action = "components/com_devis/controleurs/router.php?task=addDevis";
             $submitName = "add";
             $submitValue = "Ajouter devis";
@@ -23,7 +23,7 @@ switch ($task) {
                 $devis = devis::find($id, $_SESSION['agence']);
                 $clients = client::findAll(true,false,$_SESSION['agence']);
                 $services = service::findAll($_SESSION['langue'], true);
-                $banks = bank::findAll($_SESSION['agence']);
+                $banks = bank::findAllPourFormulaire($_SESSION['agence']);
                 $action = "components/com_devis/controleurs/router.php?task=editDevis";
                 $submitName = "edit";
                 $submitValue = "Modifier devis";

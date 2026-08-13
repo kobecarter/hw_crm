@@ -785,25 +785,29 @@ function listerBulletinsPaie($data)
         return strtotime($b->getDate()) <=> strtotime($a->getDate());
     });
 
-    // Un bulletin déjà lié à une AUTRE ligne de relevé n'est jamais proposé à nouveau ici (même
-    // exclusion que pour les charges existantes) - éviter qu'une même charge de salaire ne se
-    // retrouve rattachée à deux virements différents.
+    // Règle 4 (listes distinctes) : un bulletin déjà lié à une AUTRE ligne de relevé reste proposé
+    // (jamais caché), mais séparément des bulletins disponibles - le sélectionner déclenche la
+    // fenêtre de réaffectation côté client (voir verifierReaffectationCharge() côté serveur, qui
+    // bloque tant que la confirmation n'est pas explicite).
     $idsChargeDejaLies = releveLigne::findAllIdChargeLies();
 
-    $liste = array();
+    $disponibles = array();
+    $dejaAffectes = array();
     foreach ($bulletins as $b) {
-        if ($b->getIdCharge() && in_array($b->getIdCharge(), $idsChargeDejaLies)) {
-            continue;
-        }
-        $liste[] = array(
+        $entree = array(
             'id' => $b->getId(),
             'title' => $b->getTitle(),
             'date' => $b->getDate(),
             'id_charge' => $b->getIdCharge()
         );
+        if ($b->getIdCharge() && in_array($b->getIdCharge(), $idsChargeDejaLies)) {
+            $dejaAffectes[] = $entree;
+        } else {
+            $disponibles[] = $entree;
+        }
     }
 
-    echo json_encode(array('success' => 1, 'bulletins' => $liste));
+    echo json_encode(array('success' => 1, 'bulletins' => $disponibles, 'bulletins_deja_affectes' => $dejaAffectes));
 }
 
 // Fenêtre "insérer le justificatif" : pour une ligne sans_justificatif, 3 façons de la résoudre -
@@ -832,6 +836,9 @@ function creerJustificatifManuel($data, $files)
     $mode = isset($data['mode']) ? $data['mode'] : 'charge';
     $titre = isset($data['titre']) && trim($data['titre']) !== '' ? trim($data['titre']) : $ligne->getLibelle();
     $montant = isset($data['montant']) && $data['montant'] !== '' ? (float) str_replace(',', '.', $data['montant']) : $ligne->getDebit();
+    // Commune aux 3 modes (charge simple, bulletin de paie, fournisseur) - jamais spécifique à un
+    // seul, exportée telle quelle dans le dossier comptable Excel (cf. exportTvaComptable()).
+    $remarque = isset($data['remarque']) && trim($data['remarque']) !== '' ? trim($data['remarque']) : null;
 
     if ($mode === 'payslip') {
         if (!isset($data['id_resourcehumaine']) || empty($data['id_resourcehumaine'])) {
@@ -852,6 +859,15 @@ function creerJustificatifManuel($data, $files)
             if (!$chargeExistante || !$chargeExistante->getId()) {
                 echo json_encode(array('success' => 0, 'message' => 'Bulletin introuvable'));
                 return;
+            }
+            $conflit = verifierReaffectationCharge($chargeExistante->getId(), $ligne, !empty($data['force_reaffectation']));
+            if ($conflit !== null) {
+                echo json_encode($conflit);
+                return;
+            }
+            if ($remarque !== null) {
+                $chargeExistante->setRemarque($remarque);
+                $chargeExistante->edit();
             }
             $ligne->setIdCharge($chargeExistante->getId());
             $ligne->setStatut('matched_charge');
@@ -877,6 +893,7 @@ function creerJustificatifManuel($data, $files)
         $charge->setType('fixe');
         $charge->setTitre('Bulletin de paie ' . $nomMois . ' ' . $annee . ' — ' . $resourcehumaine->getFullName());
         $charge->setDescription('Charge créée depuis BANK STATEMENT — salaire rapproché au relevé bancaire.');
+        $charge->setRemarque($remarque);
         $charge->setTotal($montant);
         $charge->setDevise('DH');
         $charge->setTvaTaux(null);
@@ -955,6 +972,7 @@ function creerJustificatifManuel($data, $files)
         $charge->setType('variable');
         $charge->setTitre($titreFournisseur);
         $charge->setDescription('Charge créée depuis BANK STATEMENT — fournisseur : ' . $nomFournisseur . '.');
+        $charge->setRemarque($remarque);
         $charge->setTotal($montant);
         $charge->setDevise('DH');
         $charge->setTvaTaux(null);
@@ -992,6 +1010,7 @@ function creerJustificatifManuel($data, $files)
     $charge->setType('variable');
     $charge->setTitre($titre);
     $charge->setDescription('Charge créée depuis BANK STATEMENT — justificatif inséré manuellement (relevé bancaire).');
+    $charge->setRemarque($remarque);
     $charge->setTotal($montant);
     $charge->setDevise('DH');
     $charge->setTvaTaux(null);
@@ -1016,6 +1035,43 @@ function creerJustificatifManuel($data, $files)
     $ligne->edit();
 
     echo json_encode(array('success' => 1, 'action' => 'charge_creee', 'id_charge' => $idCharge));
+}
+
+// Sécurité anti-doublon (réaffectation) : avant de lier une charge existante (ou le bulletin de
+// paie qui la porte) à une ligne de relevé, vérifie qu'elle n'est pas déjà rattachée à une AUTRE
+// ligne. Sans confirmation explicite ($force), retourne le tableau à renvoyer tel quel en JSON
+// (la fenêtre de confirmation côté client s'ouvre alors avec le détail de l'ancienne affectation).
+// Avec $force, défait l'ancienne liaison (cette ligne d'origine repasse "à valider" - elle garde
+// ses donnees_matching d'import, jamais modifiées depuis, donc sa suggestion d'origine réapparaît
+// telle quelle si on veut la retraiter plus tard) et retourne null pour laisser l'appelant
+// poursuivre la nouvelle liaison.
+function verifierReaffectationCharge($idCharge, releveLigne $ligneCourante, $force)
+{
+    $ancienneLigne = releveLigne::findLigneParCharge($idCharge, $ligneCourante->getId());
+    if (!$ancienneLigne) {
+        return null;
+    }
+    if (!$force) {
+        $banqueAncienne = $ancienneLigne->getBank();
+        return array(
+            'success' => 0,
+            'needs_confirmation' => 1,
+            'message' => "Cette charge est déjà affectée à un enregistrement. Êtes-vous sûr de vouloir la réaffecter ?",
+            'ancienne_affectation' => array(
+                'id_ligne' => $ancienneLigne->getId(),
+                'date_operation' => $ancienneLigne->getDateOperation() ? date('d/m/Y', strtotime($ancienneLigne->getDateOperation())) : '',
+                'libelle' => $ancienneLigne->getLibelle(),
+                'montant' => $ancienneLigne->getDebit() ? $ancienneLigne->getDebit() : $ancienneLigne->getCredit(),
+                'compte' => $banqueAncienne ? nomAfficheCompte($banqueAncienne) : ''
+            )
+        );
+    }
+
+    $ancienneLigne->setIdCharge(null);
+    $ancienneLigne->setStatut('a_valider');
+    $ancienneLigne->setLastEdit(date('Y-m-d H:i:s'));
+    $ancienneLigne->edit();
+    return null;
 }
 
 function validerLigne($data, $files = array())
@@ -1055,6 +1111,11 @@ function validerLigne($data, $files = array())
             echo json_encode(array('success' => 0, 'message' => 'Charge introuvable'));
             return;
         }
+        $conflit = verifierReaffectationCharge($chargeExistante->getId(), $ligne, !empty($data['force_reaffectation']));
+        if ($conflit !== null) {
+            echo json_encode($conflit);
+            return;
+        }
         if (isset($files['justificatif_valider']['name'][0]) && !empty($files['justificatif_valider']['name'][0])) {
             $uploades = uploadFiles('justificatif_valider', '../../../images/charges/', array('jpg', 'jpeg', 'gif', 'png', 'pdf', 'JPG', 'JPEG', 'GIF', 'PNG', 'PDF'));
             if (!empty($uploades[0])) {
@@ -1080,6 +1141,11 @@ function validerLigne($data, $files = array())
             $chargeExistante = charge::find(intval($data['id_charge_existante']), $ligne->getAgence()->getId());
             if (!$chargeExistante || !$chargeExistante->getId()) {
                 echo json_encode(array('success' => 0, 'message' => 'Charge introuvable'));
+                return;
+            }
+            $conflit = verifierReaffectationCharge($chargeExistante->getId(), $ligne, !empty($data['force_reaffectation']));
+            if ($conflit !== null) {
+                echo json_encode($conflit);
                 return;
             }
             $ligne->setIdCharge($chargeExistante->getId());

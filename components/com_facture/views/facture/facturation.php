@@ -196,6 +196,7 @@
                                                         <?php endif; ?>
                                                         <?php if ($_SESSION['user']->hasDroit('view', 'com_contract')) : ?>
                                                             <a href="components/com_contract/controleurs/router.php?task=pdfContract&id=<?= $contract->getId(); ?>" class="btn btn-sm btn-white text-primary mr-2" data-toggle="tooltip" data-placement="top" data-original-title="PDF"><i class="fa fa-file"></i></a>
+                                                            <a href="components/com_contract/controleurs/router.php?task=docxContract&id=<?= $contract->getId(); ?>" class="btn btn-sm btn-white text-info mr-2" data-toggle="tooltip" data-placement="top" data-original-title="Télécharger en Word"><i class="fa fa-file-word"></i></a>
                                                         <?php endif; ?>
                                                         <?php if ($_SESSION['user']->hasDroit('delete', 'com_contract')) : ?>
                                                             <a href="javascript:void(0);" class="btn btn-sm btn-white text-danger mr-2 deleteContract" data-toggle="tooltip" data-placement="top" data-original-title="Supprimer" data-id="<?= $contract->getId(); ?>"><i class="far fa-trash-alt"></i></a>

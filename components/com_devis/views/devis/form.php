@@ -112,11 +112,15 @@ $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFa
 		<div class="col-md-3">
 			<div class="form-group">
 				<label>Statu <span id="devis-status-badge" class="badge"></span></label>
+				<?php $devisAContrat = isset($devis) && $devis->hasContrat(); ?>
 				<select class="select" name="statu" id="status-select">
 					<option value="0" <?php if (isset($devis) && $devis->getStatu() == 0) echo "selected"; ?>>Brouillon</option>
 					<option value="1" <?php if (isset($devis) && $devis->getStatu() == 1) echo "selected"; ?>>Envoyé</option>
 					<option value="2" <?php if (isset($devis) && $devis->getStatu() == 2) echo "selected"; ?>>Accepté</option>
+					<?php if ($devisAContrat) :?>
 					<option value="3" <?php if (isset($devis) && $devis->getStatu() == 3) echo "selected"; ?>>Contrat en attente de signature</option>
+					<option value="6" <?php if (isset($devis) && $devis->getStatu() == 6) echo "selected"; ?>>Contrat signé</option>
+					<?php endif;?>
 					<option value="4" <?php if (isset($devis) && $devis->getStatu() == 4) echo "selected"; ?>>Paiement effectué</option>
 					<option value="5" <?php if (isset($devis) && $devis->getStatu() == 5) echo "selected"; ?>>Devis Refusé</option>
 				</select>
@@ -458,102 +462,25 @@ $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFa
 		<div class="col-12">
 			<hr/>
 		</div>
-		<!-- Toggle Switch -->
-		<div class="col-md-12">
-			<label class="row form-group toggle-switch">
-				<span class="col-12 toggle-switch-content ml-0">
-					<span class="d-block text-dark">Etes-vous sûr de vouloir générer un contrat pour ce devis ?</span>
-				</span>
-				<span class="col-12">
-					<input type="checkbox" name="generate_contract" class="toggle-switch-input" value="1">
-					<span class="toggle-switch-label mr-auto mt-2">
-						<span class="toggle-switch-indicator"></span>
-					</span>
-				</span>
-			</label>
+		<?php if (isset($devis) && $_SESSION['user']->hasDroit('add', 'com_contract')) :?>
+		<div class="col-12 mb-3">
+			<button type="button" class="btn btn-primary" id="genererContratAutoBtn"><i class="fa fa-magic mr-1"></i> Générer le contrat</button>
 		</div>
-		<!-- /Toggle Switch -->
-		<div class="selection-contract hidden px-3">
-			<div class="row">
-				<div class="col-12">
-					<h2 >Contract</h2>
-				</div>
-				<div class="col-12">
-						<div class="row">
-							<div class="col-md-4">
-								<div class="form-group">
-									<label>Titre <span class="text-danger titre_contract d-none"> * </span></label>
-									<input type="text" class="form-control" name="titre_contract" value="">
-								</div>
-							</div>
-
-							<div class="col-md-4">
-								<div class="form-group">
-									<label>Duration <span class="text-danger duration_contract d-none"> * </span></label>
-									<input type="text" class="form-control" name="duration_contract" value="">
-								</div>
-							</div>
-
-							<div class="col-md-4">
-								<div class="form-group">
-									<label>Garantie <span class="text-danger garantie_contract d-none"> * </span></label>
-									<input type="text" class="form-control" name="garantie_contract" value="">
-								</div>
-							</div>
-
-							<div class="col-md-4">
-								<div class="form-group">
-									<label>Ville <span class="text-danger ville_contract d-none"> * </span></label>
-									<input type="text" class="form-control" name="ville_contract" value="">
-								</div>
-							</div>
-
-							<div class="col-md-4">
-								<div class="form-group">
-									<label>Date <span class="text-danger date_contract d-none"> * </span></label>
-									<div class="cal-icon">
-										<input type="text" class="form-control datetimepicker" name="date_contract" value="<?php echo date('d/m/Y'); ?>">
-									</div>
-								</div>
-							</div>
-						
-							<div class="col-md-4">
-								<div class="form-group">
-									<label>Tribunal <span class="text-danger tribunal_contract d-none"> * </span></label>
-									<input type="text" class="form-control" name="tribunal_contract" value="">
-								</div>
-							</div>
-
-							<div class="col-md-4">
-								<div class="form-group">
-									<label>Nombre de paiement <span class="text-danger nombre_de_paiement_contract d-none"> * </span></label>
-									<input type="number" min="0" placeholder="0" class="form-control" name="nombre_de_paiement_contract" value="" >
-								</div>
-							</div>
-							
-							<!-- Toggle Switch -->
-                    		<div class="col-md-3">
-                    			<label class="row form-group toggle-switch">
-                    				<span class="col-12 toggle-switch-content ml-0">
-                    					<span class="d-block text-dark">Afficher la signature</span>
-                    				</span>
-                    				<span class="col-12">
-                    					<input type="checkbox" name="show_signature_contract" value="1" class="toggle-switch-input">
-                    					<span class="toggle-switch-label mr-auto mt-2">
-                    						<span class="toggle-switch-indicator"></span>
-                    					</span>
-                    				</span>
-                    			</label>
-                    		</div>
-                    		<!-- /Toggle Switch -->
-						</div>
-				</div>
-			</div>
-		</div>
+		<?php endif;?>
 		<?php endif;?>
 		<?php if($contract->getId()) :?>
 			<div class="col-12">
-				<span class="text-success">Ce devis est déjà associé à un contrat. Veuillez essayer d'y accéder en cliquant sur ce bouton.</span> <a target="_blank" href="components/com_contract/controleurs/router.php?task=pdfContract&id=<?= $contract->getId(); ?>" class="btn btn-primary btn-white mr-2" data-toggle="tooltip" data-placement="top" data-original-title="PDF"><i class="fa fa-file"></i> Contrat</a> 
+				<span class="text-success d-block mb-2">Ce devis est déjà associé à un contrat.</span>
+				<a target="_blank" href="components/com_contract/controleurs/router.php?task=pdfContract&id=<?= $contract->getId(); ?>" class="btn btn-primary btn-white mr-2" data-toggle="tooltip" data-placement="top" data-original-title="PDF"><i class="fa fa-file"></i> Contrat</a>
+				<a href="components/com_contract/controleurs/router.php?task=docxContract&id=<?= $contract->getId(); ?>" class="btn btn-white mr-2" data-toggle="tooltip" data-placement="top" data-original-title="Télécharger en Word"><i class="fa fa-file-word"></i> Word</a>
+				<a href="index.php?option=com_contract&task=editeur&id=<?= $contract->getId(); ?>" class="btn btn-white mr-2" data-toggle="tooltip" data-placement="top" data-original-title="Éditer le texte du contrat"><i class="fa fa-edit"></i> Éditeur</a>
+				<a href="index.php?option=com_contract&task=edit&id=<?= $contract->getId(); ?>" class="btn btn-white mr-2" data-toggle="tooltip" data-placement="top" data-original-title="Modifier les champs du contrat"><i class="fa fa-pencil-alt"></i> Modifier</a>
+				<?php if ($_SESSION['user']->hasDroit('view', 'com_contract')) :?>
+				<button type="button" class="btn btn-white mr-2" id="envoyerContratSlackBtn" data-id-contract="<?= $contract->getId(); ?>" data-toggle="tooltip" data-placement="top" data-original-title="Envoyer par Slack pour validation"><i class="fab fa-slack"></i> Slack</button>
+				<?php endif;?>
+				<?php if ($_SESSION['user']->hasDroit('delete', 'com_contract')) :?>
+				<button type="button" class="btn btn-white text-danger" id="supprimerContratBtn" data-id-contract="<?= $contract->getId(); ?>" data-toggle="tooltip" data-placement="top" data-original-title="Supprimer le contrat"><i class="far fa-trash-alt"></i> Supprimer</button>
+				<?php endif;?>
 			</div>
 		<?php endif;?>
 		<?php if (isset($devis)) : ?>
@@ -696,6 +623,24 @@ $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFa
 </div>
 <!-- /Confirm Create Invoice Modal -->
 
+<!-- Fenêtre de message stylée — remplace alert() natif du navigateur partout sur cette page,
+     même habillage que les autres popups de l'app (.tva-confirm-modal / .charge-doublon-icon
+     pour les messages bloquants). Un seul appel JS (afficherMessageStyle) pour toute la page. -->
+<div id="messageStyleModal" class="modal custom-modal tva-confirm-modal fade" role="dialog">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+				<div class="charge-doublon-icon" id="messageStyleIcone"><i class="fa fa-exclamation-triangle"></i></div>
+				<h5 class="modal-title mt-3" id="messageStyleTitre">Action impossible</h5>
+			</div>
+			<div class="modal-body">
+				<p class="text-center mb-0" id="messageStyleTexte" style="font-size:0.9rem;"></p>
+			</div>
+			<div class="modal-footer justify-content-center">
+				<button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
 <!-- Acompte Popup (Devis Accepté) -->
 <div id="devis-acompte-modal" class="modal custom-modal tva-confirm-modal fade" role="dialog" data-backdrop="static">
 	<div class="modal-dialog modal-dialog-centered" role="document">
@@ -722,6 +667,21 @@ $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFa
 		</div>
 	</div>
 </div>
+<script type="text/javascript">
+function afficherMessageStyle(texte, type) {
+	type = type || 'error';
+	var params = {
+		error: { icone: 'fa-exclamation-triangle', classe: 'charge-doublon-icon', titre: 'Action impossible' },
+		success: { icone: 'fa-check-circle', classe: 'tva-confirm-icon', titre: 'Succès' },
+		info: { icone: 'fa-info-circle', classe: 'tva-confirm-icon', titre: 'Information' }
+	};
+	var p = params[type] || params.error;
+	$('#messageStyleIcone').attr('class', p.classe).html('<i class="fa ' + p.icone + '"></i>');
+	$('#messageStyleTitre').text(p.titre);
+	$('#messageStyleTexte').text(texte);
+	$('#messageStyleModal').modal('show');
+}
+</script>
 <!-- /Acompte Popup -->
 
 <script>
@@ -735,11 +695,11 @@ $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFa
 			$.post("components/com_devis/controleurs/router.php?task=checkContrat", order, function(theResponse) {
 				if (parseInt(theResponse) == 1) {
 					e.preventDefault();
-					alert("Attention! Veuillez signer le contrat");
+					afficherMessageStyle("Attention ! Veuillez signer le contrat.", 'error');
 				}
 				if (parseInt(theResponse) == 2) {
 					e.preventDefault();
-					alert("Ce devis est associé à un contrat signé, vous ne pouvez pas changer son statut");
+					afficherMessageStyle("Ce devis est associé à un contrat signé, vous ne pouvez pas changer son statut.", 'error');
 				}
 			});
 		})
@@ -753,7 +713,8 @@ $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFa
 			'2': { label: 'Accepté', cls: 'bg-success-light' },
 			'3': { label: 'Contrat en attente de signature', cls: 'bg-primary-light' },
 			'4': { label: 'Paiement effectué', cls: 'bg-success text-white' },
-			'5': { label: 'Devis Refusé', cls: 'bg-danger text-white' }
+			'5': { label: 'Devis Refusé', cls: 'bg-danger text-white' },
+			'6': { label: 'Contrat signé', cls: 'bg-success text-white' }
 		};
 		window.updateDevisStatusBadge = function(statu) {
 			var info = devisStatusMap[String(statu)] || devisStatusMap['0'];
@@ -1023,7 +984,7 @@ $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFa
     				})
     			}
 			}else{
-			    alert("Impossible de supprimer le dernier élément");
+			    afficherMessageStyle("Impossible de supprimer le dernier élément.", 'error');
 			}
 		})
 
@@ -1058,31 +1019,6 @@ $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFa
 					$("#dialog-custom .modal-body").html(theResponse);
 				});
 			})
-		})
-
-		$(document).on("change","input[name=generate_contract]",function(){
-			let self = $(this)
-			if(self.is(":checked")){
-				$(".selection-contract").removeClass('hidden')
-				$(".selection-contract").find('input[name="titre_contract"]').prop('required',true)
-				$(".selection-contract").find('input[name="duration_contract"]').prop('required',true)
-				$(".selection-contract").find('input[name="ville_contract"]').prop('required',true)
-				$(".selection-contract").find('input[name="date_contract"]').prop('required',true)
-				$(".selection-contract").find('input[name="tribunal_contract"]').prop('required',true)
-				$(".selection-contract").find('input[name="nombre_de_paiement_contract"]').prop('required',true)
-				$(".selection-contract").find('label span').removeClass('d-none')
-				$(".selection-contract").find('label span.garantie_contract').addClass('d-none')
-			}else{
-				$(".selection-contract").addClass('hidden')
-				$(".selection-contract").find('input[name="titre_contract"]').removeAttr('required')
-				$(".selection-contract").find('input[name="duration_contract"]').removeAttr('required')
-				$(".selection-contract").find('input[name="garantie_contract"]').removeAttr('required')
-				$(".selection-contract").find('input[name="ville_contract"]').removeAttr('required')
-				$(".selection-contract").find('input[name="date_contract"]').removeAttr('required')
-				$(".selection-contract").find('input[name="tribunal_contract"]').removeAttr('required')
-				$(".selection-contract").find('input[name="nombre_de_paiement_contract"]').removeAttr('required')
-				$(".selection-contract").find('label span').addClass('d-none')
-			}
 		})
 
 		$(document).on("click", ".add-row-condition", function() {
@@ -1559,3 +1495,331 @@ $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFa
 
 	})
 </script>
+
+<?php if (isset($devis) && $_SESSION['user']->hasDroit('add', 'com_contract')) :?>
+<!-- Assistant "Générer le contrat" — même stepper (Informations -> Contenu -> Récapitulatif) que
+     com_contract&task=add, mais embarqué directement sur la page devis dans une fenêtre modale
+     (le devis est déjà connu, pas besoin de le choisir dans une liste). Toutes les erreurs
+     passent par messageStyleModal/le bandeau interne de l'étape 1 - jamais alert() natif. -->
+<div id="genererContratWizardModal" class="modal custom-modal fade" role="dialog">
+	<div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+				<h5 class="modal-title">Générer le contrat</h5>
+			</div>
+			<div class="modal-body">
+				<div class="contract-wizard-stepper d-flex justify-content-center mb-4">
+					<div class="contract-wizard-step active" data-step="1">
+						<span class="contract-wizard-step-num">1</span>
+						<span class="contract-wizard-step-label">Informations</span>
+					</div>
+					<div class="contract-wizard-step-line"></div>
+					<div class="contract-wizard-step" data-step="2">
+						<span class="contract-wizard-step-num">2</span>
+						<span class="contract-wizard-step-label">Contenu</span>
+					</div>
+					<div class="contract-wizard-step-line"></div>
+					<div class="contract-wizard-step" data-step="3">
+						<span class="contract-wizard-step-num">3</span>
+						<span class="contract-wizard-step-label">Récapitulatif</span>
+					</div>
+				</div>
+
+				<div class="dwzMsgbox"></div>
+
+				<!-- ÉTAPE 1 -->
+				<div class="contract-wizard-pane" id="dwzEtape1">
+					<p class="text-muted">Génère automatiquement un contrat complet à partir des prestations de ce devis, modifiable ensuite dans l'étape suivante. Laissez les champs vides pour accepter les valeurs par défaut.</p>
+					<div class="row">
+						<div class="col-md-6">
+							<div class="form-group">
+								<label>Titre</label>
+								<input type="text" class="form-control" id="dwzTitre" placeholder="Généré automatiquement si laissé vide">
+							</div>
+						</div>
+						<div class="col-md-6">
+							<div class="form-group">
+								<label>Durée</label>
+								<input type="text" class="form-control" id="dwzDuration" placeholder="12 mois">
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group">
+								<label>Garantie</label>
+								<input type="text" class="form-control" id="dwzGarantie">
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group">
+								<label>Ville</label>
+								<input type="text" class="form-control" id="dwzVille" placeholder="Marrakech">
+							</div>
+						</div>
+						<div class="col-md-4">
+							<div class="form-group">
+								<label>Nombre de paiement</label>
+								<input type="number" min="0" class="form-control" id="dwzNombreDePaiement" value="1">
+							</div>
+						</div>
+						<div class="col-md-6">
+							<div class="form-group">
+								<label>Tribunal compétent</label>
+								<input type="text" class="form-control" id="dwzTribunal" placeholder="Tribunal de Commerce de Marrakech">
+							</div>
+						</div>
+						<div class="col-md-6">
+							<div class="form-group">
+								<label>Date</label>
+								<div class="cal-icon">
+									<input type="text" class="form-control datetimepicker" id="dwzDate" value="<?= date('d/m/Y') ?>">
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="text-right mt-2">
+						<button type="button" class="btn btn-primary" id="dwzEtape1SuivantBtn"><i class="fa fa-magic mr-1"></i> Générer et continuer</button>
+					</div>
+				</div>
+
+				<!-- ÉTAPE 2 -->
+				<div class="contract-wizard-pane d-none" id="dwzEtape2">
+					<p class="text-muted">Contenu généré automatiquement à partir des prestations du devis — modifiable librement ci-dessous.</p>
+					<textarea id="dwzCorpsEditeur"></textarea>
+					<div class="d-flex justify-content-between mt-3">
+						<button type="button" class="btn btn-white" id="dwzEtape2PrecedentBtn"><i class="fa fa-arrow-left mr-1"></i> Précédent</button>
+						<button type="button" class="btn btn-primary" id="dwzEtape2SuivantBtn">Suivant <i class="fa fa-arrow-right ml-1"></i></button>
+					</div>
+				</div>
+
+				<!-- ÉTAPE 3 -->
+				<div class="contract-wizard-pane d-none" id="dwzEtape3">
+					<div class="contract-wizard-recap">
+						<h5 class="mb-3">Récapitulatif</h5>
+						<table class="table table-borderless mb-0">
+							<tr><td class="text-muted" style="width:160px;">Devis</td><td id="dwzRecapDevis">—</td></tr>
+							<tr><td class="text-muted">Client</td><td id="dwzRecapClient">—</td></tr>
+							<tr><td class="text-muted">Titre</td><td id="dwzRecapTitre">—</td></tr>
+							<tr><td class="text-muted">Durée</td><td id="dwzRecapDuration">—</td></tr>
+							<tr><td class="text-muted">Ville / Tribunal</td><td id="dwzRecapVilleTribunal">—</td></tr>
+						</table>
+					</div>
+					<p class="text-muted mt-4 mb-2">Que souhaitez-vous faire de ce contrat ?</p>
+					<div class="d-flex flex-wrap" style="gap:10px;">
+						<button type="button" class="btn btn-success" id="dwzEnvoyerEmailBtn"><i class="fa fa-envelope mr-1"></i> Envoyer au client par email pour signature</button>
+						<button type="button" class="btn btn-primary" id="dwzEnvoyerSlackBtn"><i class="fab fa-slack mr-1"></i> Envoyer par Slack pour validation</button>
+						<button type="button" class="btn btn-white" id="dwzBrouillonBtn"><i class="fa fa-save mr-1"></i> Enregistrer comme brouillon</button>
+					</div>
+					<div class="mt-3">
+						<button type="button" class="btn btn-white" id="dwzEtape3PrecedentBtn"><i class="fa fa-arrow-left mr-1"></i> Précédent</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<style>
+.contract-wizard-stepper { align-items: center; }
+.contract-wizard-step { display: flex; flex-direction: column; align-items: center; opacity: 0.4; }
+.contract-wizard-step.active, .contract-wizard-step.done { opacity: 1; }
+.contract-wizard-step-num { width: 36px; height: 36px; border-radius: 50%; background: var(--brand-grad, #6a35f0); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+.contract-wizard-step:not(.active):not(.done) .contract-wizard-step-num { background: #cbd5e1; }
+.contract-wizard-step-label { font-size: 0.78rem; margin-top: 4px; font-weight: 600; }
+.contract-wizard-step-line { width: 60px; height: 2px; background: #cbd5e1; margin: 0 10px 20px; }
+.contract-wizard-recap { background: #f8f8fc; border-radius: 12px; padding: 1.2rem; }
+</style>
+
+<script type="text/javascript">
+$(function () {
+	var dwzIdContract = null;
+	var dwzRecap = null;
+
+	function dwzAllerEtape(numero) {
+		$('#genererContratWizardModal .contract-wizard-pane').addClass('d-none');
+		$('#dwzEtape' + numero).removeClass('d-none');
+		$('#genererContratWizardModal .contract-wizard-step').each(function () {
+			var s = parseInt($(this).data('step'), 10);
+			$(this).toggleClass('active', s === numero).toggleClass('done', s < numero);
+		});
+	}
+	function dwzErreur(message) {
+		$('.dwzMsgbox').html('<div class="alert alert-danger alert-dismissible fade show p-2" role="alert">' + message + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>');
+	}
+	function dwzSucces(message) {
+		$('.dwzMsgbox').html('<div class="alert alert-success alert-dismissible fade show p-2" role="alert">' + message + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>');
+	}
+
+	$('#genererContratAutoBtn').on('click', function () {
+		dwzIdContract = null;
+		$('.dwzMsgbox').empty();
+		$('#dwzTitre, #dwzDuration, #dwzGarantie, #dwzVille, #dwzTribunal, #dwzNombreDePaiement').val('');
+		$('#dwzNombreDePaiement').val(1);
+		dwzAllerEtape(1);
+		$('#genererContratWizardModal').modal('show');
+	});
+
+	$('#dwzEtape1SuivantBtn').on('click', function () {
+		var $btn = $(this).prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Génération...');
+		$.post('components/com_contract/controleurs/router.php?task=genererContratDepuisDevis', {
+			id_devis: <?= $devis->getId() ?>,
+			titre_contract: $('#dwzTitre').val(),
+			duration_contract: $('#dwzDuration').val(),
+			garantie_contract: $('#dwzGarantie').val(),
+			ville_contract: $('#dwzVille').val(),
+			tribunal_contract: $('#dwzTribunal').val(),
+			date_contract: $('#dwzDate').val(),
+			nombre_de_paiement_contract: $('#dwzNombreDePaiement').val()
+		}, function (response) {
+			$btn.prop('disabled', false).html('<i class="fa fa-magic mr-1"></i> Générer et continuer');
+			if (!response.success) {
+				dwzErreur(response.message || 'Erreur lors de la génération du contrat');
+				return;
+			}
+			dwzIdContract = response.id_contract;
+			dwzRecap = response.recap;
+			if (!CKEDITOR.instances.dwzCorpsEditeur) {
+				$('#dwzCorpsEditeur').val(response.corps_genere);
+				CKEDITOR.replace('dwzCorpsEditeur', { allowedContent: true, height: 400 });
+			} else {
+				CKEDITOR.instances.dwzCorpsEditeur.setData(response.corps_genere);
+			}
+			dwzAllerEtape(2);
+		}, 'json').fail(function () {
+			$btn.prop('disabled', false).html('<i class="fa fa-magic mr-1"></i> Générer et continuer');
+			dwzErreur('Erreur réseau lors de la génération');
+		});
+	});
+
+	$('#dwzEtape2PrecedentBtn').on('click', function () { dwzAllerEtape(1); });
+
+	$('#dwzEtape2SuivantBtn').on('click', function () {
+		var $btn = $(this).prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Enregistrement...');
+		$.post('components/com_contract/controleurs/router.php?task=enregistrerCorpsContrat', {
+			id: dwzIdContract,
+			corps_genere: CKEDITOR.instances.dwzCorpsEditeur.getData()
+		}, function (response) {
+			$btn.prop('disabled', false).html('Suivant <i class="fa fa-arrow-right ml-1"></i>');
+			if (!response.success) {
+				dwzErreur(response.message || "Erreur lors de l'enregistrement");
+				return;
+			}
+			$('#dwzRecapDevis').text('N°<?= htmlspecialchars($devis->getNumero()) ?>');
+			$('#dwzRecapClient').text(dwzRecap.client);
+			$('#dwzRecapTitre').text(dwzRecap.titre);
+			$('#dwzRecapDuration').text(dwzRecap.duration);
+			$('#dwzRecapVilleTribunal').text(dwzRecap.ville + ' / ' + dwzRecap.tribunal);
+			dwzAllerEtape(3);
+		}, 'json');
+	});
+
+	$('#dwzEtape3PrecedentBtn').on('click', function () { dwzAllerEtape(2); });
+
+	$('#dwzEnvoyerEmailBtn, #dwzEnvoyerSlackBtn, #dwzBrouillonBtn').on('click', function () {
+		var $btn = $(this);
+		var idBtn = $btn.attr('id');
+		var task = idBtn === 'dwzEnvoyerEmailBtn' ? 'envoyerContratEmailSignature'
+			: (idBtn === 'dwzEnvoyerSlackBtn' ? 'envoyerContratSlack' : null);
+
+		if (!task) {
+			window.location.href = 'index.php?option=com_contract&task=editeur&id=' + dwzIdContract;
+			return;
+		}
+
+		var libelleInitial = $btn.html();
+		$btn.prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Envoi...');
+		$.post('components/com_contract/controleurs/router.php?task=' + task, {
+			id: dwzIdContract
+		}, function (response) {
+			$btn.prop('disabled', false).html(libelleInitial);
+			if (!response.success) {
+				dwzErreur(response.message || "Erreur lors de l'envoi");
+				return;
+			}
+			if (idBtn === 'dwzEnvoyerSlackBtn') {
+				// Simple notification à l'équipe commerciale - on reste sur la fiche devis, pas
+				// de redirection vers l'éditeur du contrat. On recharge juste la page pour faire
+				// apparaître le bloc "contrat existant" (absent au chargement initial, puisque
+				// le contrat vient d'être créé dans cet assistant).
+				dwzSucces('Contrat envoyé sur Slack avec succès.');
+				setTimeout(function () {
+					location.reload();
+				}, 1200);
+				return;
+			}
+			dwzSucces('Contrat envoyé avec succès.');
+			setTimeout(function () {
+				window.location.href = 'index.php?option=com_contract&task=editeur&id=' + dwzIdContract;
+			}, 1200);
+		}, 'json');
+	});
+});
+</script>
+<?php endif;?>
+
+<?php if (isset($devis) && $contract->getId()) :?>
+<!-- Popup "Supprimer le contrat" — même habillage que les autres popups de confirmation destructive
+     de l'app (.tva-confirm-modal + variante rouge "charge-doublon-icon"). -->
+<div id="supprimerContratModal" class="modal custom-modal tva-confirm-modal fade" role="dialog">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+				<div class="charge-doublon-icon"><i class="fa fa-trash"></i></div>
+				<h5 class="modal-title mt-3">Supprimer ce contrat ?</h5>
+			</div>
+			<div class="modal-body">
+				<p class="text-center mb-0" style="font-size:0.9rem;">Cette action est irréversible. Le devis retrouvera la possibilité d'en générer un nouveau.</p>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-white" data-dismiss="modal">Annuler</button>
+				<button type="button" class="btn btn-danger" id="supprimerContratConfirmerBtn"><i class="fa fa-trash mr-1"></i> Supprimer</button>
+			</div>
+		</div>
+	</div>
+</div>
+<script type="text/javascript">
+$(function () {
+	$('#supprimerContratBtn').on('click', function () {
+		$('#supprimerContratModal').modal('show');
+	});
+	$('#supprimerContratConfirmerBtn').on('click', function () {
+		var $btn = $(this).prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Suppression...');
+		$.post('components/com_contract/controleurs/router.php?task=deleteContract', {
+			id: <?= $contract->getId() ?>
+		}, function (response) {
+			if (response == '1') {
+				window.location.reload();
+			} else {
+				afficherMessageStyle('Erreur lors de la suppression du contrat.', 'error');
+				$btn.prop('disabled', false).html('<i class="fa fa-trash mr-1"></i> Supprimer');
+				$('#supprimerContratModal').modal('hide');
+			}
+		});
+	});
+
+	$('#envoyerContratSlackBtn').on('click', function () {
+		var $btn = $(this).prop('disabled', true);
+		var libelleInitial = $btn.html();
+		var idContract = <?= $contract->getId() ?>;
+		$btn.html('<i class="fa fa-spinner fa-spin mr-1"></i> Envoi...');
+		$.post('components/com_contract/controleurs/router.php?task=envoyerContratSlack', {
+			id: idContract
+		}, function (response) {
+			$btn.prop('disabled', false).html(libelleInitial);
+			if (response.success) {
+				// Simple notification à l'équipe commerciale - on reste sur la fiche devis,
+				// pas de redirection vers l'éditeur du contrat.
+				afficherMessageStyle('Contrat envoyé sur Slack avec succès.', 'success');
+				return;
+			}
+			afficherMessageStyle(response.message || "Erreur lors de l'envoi Slack.", 'error');
+		}, 'json');
+	});
+});
+</script>
+<?php endif;?>

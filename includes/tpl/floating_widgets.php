@@ -348,12 +348,33 @@ if (!$_SESSION['user']->isResourceHumaine()) :
 			$('#holiday-cal-days').html(html);
 		}
 
+		// Persistance légère (localStorage, pas de colonne base pour ça) :
+		//  - holidayToastDismissed : le message d'alerte a déjà été fermu au moins une fois pour
+		//    la situation urgente en cours - ne plus le rouvrir tout seul à chaque chargement de
+		//    page tant que ce n'est pas remis à zéro (voir openWidget() : ouvrir le calendrier
+		//    "acquitte" et permet au message de se représenter si une NOUVELLE urgence survient).
+		//  - holidayWidgetOpened : le panneau a déjà été ouvert au moins une fois, un jour - sert
+		//    uniquement à ne plus jamais réafficher l'info-bulle au survol (elle n'a plus d'utilité
+		//    une fois que l'utilisateur sait ce que fait l'icône).
+		var LS_TOAST_DISMISSED = 'holidayToastDismissed';
+		var LS_WIDGET_OPENED = 'holidayWidgetOpened';
+
+		function supprimerTooltipDefinitivement() {
+			var $tab = $('#holiday-widget-tab');
+			$tab.removeAttr('title').removeAttr('data-original-title');
+			try { $tab.tooltip('dispose'); } catch (e) { /* pas encore initialisée, rien à faire */ }
+		}
+
 		// Ouverture/fermeture pilotée uniquement par la classe .open (transition CSS déjà
 		// définie sur .holiday-widget-panel) : ne pas mélanger avec une animation GSAP qui
 		// poserait des styles inline (transform/opacity) et empêcherait la fermeture au
 		// clic suivant, la classe CSS ne pouvant plus reprendre la main dessus.
 		function openWidget() {
 			$('#holiday-widget').addClass('open');
+			$('#holiday-widget-tab').removeClass('urgent-unread');
+			try { localStorage.removeItem(LS_TOAST_DISMISSED); } catch (e) {}
+			try { localStorage.setItem(LS_WIDGET_OPENED, '1'); } catch (e) {}
+			supprimerTooltipDefinitivement();
 		}
 
 		function closeWidget() {
@@ -368,6 +389,8 @@ if (!$_SESSION['user']->isResourceHumaine()) :
 
 		function hideHolidayToast() {
 			$('#holiday-widget-toast').removeClass('show');
+			$('#holiday-widget-tab').addClass('urgent-unread');
+			try { localStorage.setItem(LS_TOAST_DISMISSED, '1'); } catch (e) {}
 		}
 
 		$(document).on('click', '#holiday-cal-prev', function () {
@@ -406,9 +429,27 @@ if (!$_SESSION['user']->isResourceHumaine()) :
 
 		// Le calendrier ne s'ouvre plus tout seul : seul le message d'alerte apparaît
 		// (et reste visible jusqu'à fermeture manuelle), l'ouverture du panneau reste
-		// entièrement au clic de l'utilisateur sur l'icône.
+		// entièrement au clic de l'utilisateur sur l'icône. Le message ne se réaffiche plus à
+		// chaque chargement de page une fois fermé une première fois (LS_TOAST_DISMISSED) -
+		// l'icône reprend le relais en rouge clignotant à la place, jusqu'à ce que le calendrier
+		// soit réellement ouvert (openWidget() remet alors LS_TOAST_DISMISSED à zéro).
+		var dejaFerme = false;
+		try { dejaFerme = localStorage.getItem(LS_TOAST_DISMISSED) === '1'; } catch (e) {}
 		if (holidayWidgetHasUrgent) {
-			setTimeout(showHolidayToast, 900);
+			if (dejaFerme) {
+				$('#holiday-widget-tab').addClass('urgent-unread');
+			} else {
+				setTimeout(showHolidayToast, 900);
+			}
+		}
+
+		// Info-bulle au survol : plus jamais montrée une fois que le panneau a été ouvert au
+		// moins une fois (n'importe quand, pas seulement cette session) - l'utilisateur sait déjà
+		// ce que fait l'icône.
+		var dejaOuvert = false;
+		try { dejaOuvert = localStorage.getItem(LS_WIDGET_OPENED) === '1'; } catch (e) {}
+		if (dejaOuvert) {
+			supprimerTooltipDefinitivement();
 		}
 	})();
 </script>

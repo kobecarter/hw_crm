@@ -43,6 +43,11 @@ function appliquerReglePersoBanque() {
         $proforma.prop('checked', true).attr('title', 'Compte personnel : facture automatiquement en proforma, non modifiable');
         $proforma.on('click.reglePerso', function (e) {
             e.preventDefault();
+            // afficherMessageStyle() est définie par page (com_devis/com_facture form.php) - ce
+            // fichier JS étant chargé globalement (includes/tpl/bottom.php), on protège l'appel.
+            if (typeof afficherMessageStyle === 'function') {
+                afficherMessageStyle('Veuillez changer le compte affecté : il ne doit pas être un compte personnel.', 'error');
+            }
         });
         if ($tva.length) {
             $tva.val(0).prop('readonly', true).attr('title', 'Compte personnel : jamais de TVA');

@@ -79,7 +79,8 @@
 											    <a href="index.php?option=com_contract&task=edit&id=<?= $contract->getId(); ?>" class="btn btn-sm btn-white text-warning mr-2" data-toggle="tooltip" data-placement="top" data-original-title="Modifier"><i class="fa fa-pencil-alt"></i></a> 
 											<?php endif;?>
 											<?php if ($_SESSION['user']->hasDroit('view', 'com_contract')) :?>
-											    <a href="components/com_contract/controleurs/router.php?task=pdfContract&id=<?= $contract->getId(); ?>" class="btn btn-sm btn-white text-primary mr-2" data-toggle="tooltip" data-placement="top" data-original-title="PDF"><i class="fa fa-file"></i></a> 
+											    <a href="components/com_contract/controleurs/router.php?task=pdfContract&id=<?= $contract->getId(); ?>" class="btn btn-sm btn-white text-primary mr-2" data-toggle="tooltip" data-placement="top" data-original-title="PDF"><i class="fa fa-file"></i></a>
+											    <a href="components/com_contract/controleurs/router.php?task=docxContract&id=<?= $contract->getId(); ?>" class="btn btn-sm btn-white text-info mr-2" data-toggle="tooltip" data-placement="top" data-original-title="Télécharger en Word"><i class="fa fa-file-word"></i></a>
 											<?php endif;?>
 											<?php if ($_SESSION['user']->hasDroit('delete', 'com_contract')) :?>
 											    <a href="javascript:void(0);" class="btn btn-sm btn-white text-danger mr-2 delete" data-toggle="tooltip" data-placement="top" data-original-title="Supprimer" data-id="<?= $contract->getId(); ?>"><i class="far fa-trash-alt"></i></a>
@@ -97,31 +98,63 @@
 	</div>			
 </div>
 <!-- /Page Wrapper -->
+
+<!-- Popup "Supprimer ce contrat" — même habillage que les autres popups de confirmation
+     destructive de l'app (.tva-confirm-modal + variante rouge "charge-doublon-icon"), remplace le
+     confirm() natif du navigateur qui s'affichait ici auparavant. -->
+<div id="supprimerContratListeModal" class="modal custom-modal tva-confirm-modal fade" role="dialog">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+				<div class="charge-doublon-icon"><i class="fa fa-trash"></i></div>
+				<h5 class="modal-title mt-3">Supprimer ce contrat ?</h5>
+			</div>
+			<div class="modal-body">
+				<p class="text-center mb-0" style="font-size:0.9rem;">Cette action est irréversible.</p>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-white" data-dismiss="modal">Annuler</button>
+				<button type="button" class="btn btn-danger" id="supprimerContratListeConfirmerBtn"><i class="fa fa-trash mr-1"></i> Supprimer</button>
+			</div>
+		</div>
+	</div>
+</div>
+
 <script type="text/javascript">
 $(function () {
-	
+
 	var msgsucces = "Contrat supprimé avec succès";
-	
+	var $ligneASupprimer = null;
+
 	$(document).on( "click", ".delete", function() {
-		var $btn = $(this);
-		if (confirm("Etes-vous sure !")) {
-			var id = $(this).attr("data-id");
-			var order = 'id=' + id;
-			$.post("components/com_contract/controleurs/router.php?task=deleteContract", order, function (theResponse) {
-				if (parseInt(theResponse) == 1) {
-					
-					$btn.parent().parent().addClass("table-danger");
-					setTimeout(function () {
-						$btn.parent().parent().remove()
-					}, 1000);
-					
-					$('.msgbox').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><strong>Success!</strong> ' + msgsucces + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
-				}
-				else {
-					$('.msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> Erreur lors de la suppression<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
-				}
-			});
-		}
-	})
+		$ligneASupprimer = $(this);
+		$('#supprimerContratListeModal').modal('show');
+	});
+
+	$('#supprimerContratListeConfirmerBtn').on('click', function () {
+		var $confirmerBtn = $(this).prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Suppression...');
+		var $btn = $ligneASupprimer;
+		var id = $btn.attr("data-id");
+		var order = 'id=' + id;
+		$.post("components/com_contract/controleurs/router.php?task=deleteContract", order, function (theResponse) {
+			$confirmerBtn.prop('disabled', false).html('<i class="fa fa-trash mr-1"></i> Supprimer');
+			$('#supprimerContratListeModal').modal('hide');
+			if (parseInt(theResponse) == 1) {
+
+				$btn.parent().parent().addClass("table-danger");
+				setTimeout(function () {
+					$btn.parent().parent().remove()
+				}, 1000);
+
+				$('.msgbox').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><strong>Success!</strong> ' + msgsucces + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+			}
+			else {
+				$('.msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> Erreur lors de la suppression<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+			}
+		});
+	});
 });
 </script>

@@ -8,6 +8,18 @@ class devis
     static $table5 =  __prefixe_db__ . "client";
     static $tableCondition =  __prefixe_db__ . "condition";
 
+    // Valeurs de statu déjà en usage (jamais formalisées en constantes avant - juste des <option
+    // value="X"> dupliquées entre views/devis/form.php, son miroir JS devisStatusMap, et
+    // views/devis/list.php). STATU_CONTRAT_SIGNE est la seule valeur réellement nouvelle : les 5
+    // autres existaient déjà, y compris STATU_CONTRAT_EN_ATTENTE.
+    const STATU_BROUILLON = 0;
+    const STATU_ENVOYE = 1;
+    const STATU_ACCEPTE = 2;
+    const STATU_CONTRAT_EN_ATTENTE = 3;
+    const STATU_PAIEMENT_EFFECTUE = 4;
+    const STATU_REFUSE = 5;
+    const STATU_CONTRAT_SIGNE = 6;
+
     private $id;
     private $user_added;
     private $user_edited;
@@ -92,6 +104,15 @@ class devis
     public function getStatu()
     {
         return $this->statu;
+    }
+
+    // Le module Contrat est-il "activé" pour ce devis ? Détermine si les statuts liés au contrat
+    // (STATU_CONTRAT_EN_ATTENTE / STATU_CONTRAT_SIGNE) doivent apparaître dans le <select> statut
+    // (views/devis/form.php) - jamais de statut "contrat" proposé tant qu'aucun contrat n'existe.
+    public function hasContrat()
+    {
+        $contrat = contract::findByDevis($this->id, $_SESSION['agence'], $this->langue);
+        return $contrat->getId() > 0;
     }
 
     public function getDevise()

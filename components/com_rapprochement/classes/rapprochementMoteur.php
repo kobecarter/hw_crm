@@ -211,11 +211,20 @@ class rapprochementMoteur
         // Débit non reconnu, et aucune charge existante ne correspond : l'alerte rouge du spec
         // ("Débit détecté de X DH le [Date] - Facture manquante") - aucune création, l'utilisateur
         // doit fournir le justificatif. Un virement vers un particulier est souvent un salaire :
-        // on suggère un employé (jamais lié automatiquement) pour accélérer la fenêtre de
-        // justificatif manuel, qui proposera alors de créer un bulletin de paie plutôt qu'une
-        // charge générique.
+        // on suggère un employé/stagiaire/période d'essai (jamais lié automatiquement) pour
+        // accélérer la fenêtre de justificatif manuel, qui proposera alors de créer un bulletin de
+        // paie plutôt qu'une charge générique. Si aucun employé ne correspond, on tente ensuite un
+        // fournisseur connu (table Fournisseurs, pas seulement les mots-clés fixes ci-dessus) pour
+        // pré-remplir l'onglet "Fournisseur" de la même façon - l'employé reste prioritaire, un
+        // virement ne correspondant jamais aux deux à la fois en pratique.
+        $employeSuggere = self::matcherEmploye($ligne->getLibelle());
+        $fournisseurSuggere = $employeSuggere ? null : self::matcherFournisseur($ligne->getLibelle());
         $ligne->setStatut('sans_justificatif');
-        $ligne->setDonneesMatchingArray(array('type' => 'debit_inconnu', 'employe_suggere' => self::matcherEmploye($ligne->getLibelle())));
+        $ligne->setDonneesMatchingArray(array(
+            'type' => 'debit_inconnu',
+            'employe_suggere' => $employeSuggere,
+            'fournisseur_suggere' => $fournisseurSuggere
+        ));
     }
 
     // Suggestion d'employé à partir d'un libellé bancaire bruyant ("VIR. INSTANTANE EN FAVEUR DE
@@ -263,6 +272,47 @@ class rapprochementMoteur
 
         if ($meilleurEmploye && $meilleurScore >= $seuilSuggestion) {
             return array('id' => $meilleurEmploye->getId(), 'nom_complet' => $meilleurEmploye->getFullName(), 'score' => round($meilleurScore, 1));
+        }
+        return null;
+    }
+
+    // Même principe que matcherEmploye() ci-dessus, mais contre la table Fournisseurs (raison
+    // sociale ou nom/prénom pour un fournisseur particulier) plutôt que la liste fixe
+    // $fournisseursReconnus - reconnaît n'importe quel fournisseur réellement enregistré dans
+    // l'agence, pas seulement la poignée de noms codés en dur. Ne renvoie qu'une SUGGESTION -
+    // jamais de liaison automatique.
+    public static function matcherFournisseur($libelle)
+    {
+        $libelleNormalise = self::normaliserPourComparaisonNom($libelle);
+        $libelleMin = mb_strtolower((string) $libelle, 'UTF-8');
+        $seuilSuggestion = 65;
+        $meilleurScore = 0;
+        $meilleurFournisseur = null;
+        $meilleurNomAffiche = '';
+
+        foreach (fournisseur::findAll(true) as $four) {
+            $raisonSocial = trim((string) $four->getRaisonSocial());
+            $nomAffiche = $raisonSocial !== '' ? $raisonSocial : trim($four->getPrenom() . ' ' . $four->getNom());
+            if ($nomAffiche === '') {
+                continue;
+            }
+
+            $concatNom = self::normaliserPourComparaisonNom($nomAffiche);
+            if ($libelleNormalise !== '' && mb_strlen($concatNom) >= 4 && mb_strpos($libelleNormalise, $concatNom) !== false) {
+                return array('id' => $four->getId(), 'nom_complet' => $nomAffiche, 'score' => 100.0);
+            }
+
+            $score = 0;
+            similar_text(mb_strtolower($nomAffiche, 'UTF-8'), $libelleMin, $score);
+            if ($score > $meilleurScore) {
+                $meilleurScore = $score;
+                $meilleurFournisseur = $four;
+                $meilleurNomAffiche = $nomAffiche;
+            }
+        }
+
+        if ($meilleurFournisseur && $meilleurScore >= $seuilSuggestion) {
+            return array('id' => $meilleurFournisseur->getId(), 'nom_complet' => $meilleurNomAffiche, 'score' => round($meilleurScore, 1));
         }
         return null;
     }

@@ -303,6 +303,43 @@ class bank
         return $items;
     }
 
+    // Liste des comptes utilisables pour une agence donnée sur un formulaire devis/facture - mêmes
+    // règles strictes par agence que com_bank/controleurs/bank/controleur.php::getBanksByAgence()
+    // (le rafraîchissement AJAX déclenché au changement de client), pour que la liste affichée dès
+    // le premier chargement de la page soit identique à celle après rafraîchissement. Avant ce
+    // partage, com_devis/index.php et com_facture/index.php utilisaient un simple
+    // bank::findAll($agence) qui ne connaissait pas ces règles : un compte perso (Hamid/Zakaria)
+    // ou pooled assigné à un devis/une facture d'une agence différente de celle du compte
+    // n'apparaissait alors PAS dans la liste au premier chargement - aucune option ne portait donc
+    // "selected", et enregistrer sans toucher au champ effaçait silencieusement le compte déjà
+    // choisi.
+    public static function findAllPourFormulaire($idAgence)
+    {
+        $reglesParAgence = array(
+            3 => array(1, 11, 7),
+            1 => array(6, 12, 10, 11, 7),
+            2 => array(2),
+        );
+
+        if (isset($reglesParAgence[$idAgence])) {
+            $idsAutorises = $reglesParAgence[$idAgence];
+            $banks = array();
+            foreach (self::findAll(false) as $b) {
+                if (in_array($b->getId(), $idsAutorises)) {
+                    $banks[] = $b;
+                }
+            }
+            usort($banks, function ($a, $b) use ($idsAutorises) {
+                return array_search($a->getId(), $idsAutorises) <=> array_search($b->getId(), $idsAutorises);
+            });
+            return $banks;
+        }
+
+        $groupeMaroc = array(1, 3, 25);
+        $agencesARechercher = in_array($idAgence, $groupeMaroc) ? $groupeMaroc : $idAgence;
+        return $idAgence ? self::findAll($agencesARechercher) : array();
+    }
+
     public static function build($data){
         global $db;
         $bank = new bank();

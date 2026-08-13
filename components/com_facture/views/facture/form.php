@@ -481,6 +481,43 @@
 </div>
 <!-- /IA Review Modal -->
 
+<!-- Fenêtre de message stylée — remplace alert() natif du navigateur (même composant que
+     com_devis/views/devis/form.php, dupliqué ici car chaque page charge son propre JS). -->
+<div id="messageStyleModal" class="modal custom-modal tva-confirm-modal fade" role="dialog">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+				<div class="charge-doublon-icon" id="messageStyleIcone"><i class="fa fa-exclamation-triangle"></i></div>
+				<h5 class="modal-title mt-3" id="messageStyleTitre">Action impossible</h5>
+			</div>
+			<div class="modal-body">
+				<p class="text-center mb-0" id="messageStyleTexte" style="font-size:0.9rem;"></p>
+			</div>
+			<div class="modal-footer justify-content-center">
+				<button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+			</div>
+		</div>
+	</div>
+</div>
+<script type="text/javascript">
+function afficherMessageStyle(texte, type) {
+	type = type || 'error';
+	var params = {
+		error: { icone: 'fa-exclamation-triangle', classe: 'charge-doublon-icon', titre: 'Action impossible' },
+		success: { icone: 'fa-check-circle', classe: 'tva-confirm-icon', titre: 'Succès' },
+		info: { icone: 'fa-info-circle', classe: 'tva-confirm-icon', titre: 'Information' }
+	};
+	var p = params[type] || params.error;
+	$('#messageStyleIcone').attr('class', p.classe).html('<i class="fa ' + p.icone + '"></i>');
+	$('#messageStyleTitre').text(p.titre);
+	$('#messageStyleTexte').text(texte);
+	$('#messageStyleModal').modal('show');
+}
+</script>
+
 <script>
 	$(function() {
 

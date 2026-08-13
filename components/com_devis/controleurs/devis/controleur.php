@@ -690,7 +690,7 @@ function sendSlackDevis($data)
     }
 
     global $siteURL;
-    $pdfLink = $siteURL . "components/com_devis/controleurs/router.php?task=pdfDevisApi&id=" . $devis->getId();
+    $pdfLink = $siteURL . "components/com_devis/controleurs/router.php?task=pdfDevisTexte&id=" . $devis->getId();
     $client = $devis->getClient();
 
     $texte = ":page_facing_up: *Nouveau devis à valider* — N°" . $devis->getNumero() . "\n"

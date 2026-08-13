@@ -15,7 +15,7 @@ switch ($task) {
             $services = service::findAll($_SESSION['langue'], true);
             $clients = client::findAll(true,false,$_SESSION['agence']);
             $agence = agence::find($_SESSION['agence'],$_SESSION['langue']);
-            $banks = bank::findAll($_SESSION['agence']);
+            $banks = bank::findAllPourFormulaire($_SESSION['agence']);
             $action = "components/com_facture/controleurs/router.php?task=addFacture";
             $submitName = "add";
             $submitValue = "Ajouter facture";
@@ -32,7 +32,7 @@ switch ($task) {
                 $clients = client::findAll(true,false,$_SESSION['agence']);
                 $services = service::findAll($_SESSION['langue'], true);
                 $agence = agence::find($_SESSION['agence'],$_SESSION['langue']);
-                $banks = bank::findAll($_SESSION['agence']);
+                $banks = bank::findAllPourFormulaire($_SESSION['agence']);
                 $action = "components/com_facture/controleurs/router.php?task=editFacture";
                 $submitName = "edit";
                 $submitValue = "Modifier facture";
@@ -48,7 +48,7 @@ switch ($task) {
                 $factureavoir = $facture;
                 $clients = client::findAll(true,false,$_SESSION['agence']);
                 $services = service::findAll($_SESSION['langue'], true);
-                $banks = bank::findAll($_SESSION['agence']);
+                $banks = bank::findAllPourFormulaire($_SESSION['agence']);
                 $action = "components/com_facture/controleurs/router.php?task=addFactureAvoir";
                 $submitName = "avoir";
                 $submitValue = "Ajouter facture avoir";

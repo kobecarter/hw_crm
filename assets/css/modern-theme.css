@@ -1559,7 +1559,7 @@ label {
    opacity:0) pousse la hauteur du conteneur et fausse le centrage vertical. */
 .holiday-widget {
 	position: fixed;
-	top: 45%;
+	top: 20%;
 	right: 0;
 	transform: translateY(-50%);
 	z-index: 1060;
@@ -1584,6 +1584,20 @@ label {
 }
 .holiday-widget-tab:hover {
 	filter: brightness(1.08);
+}
+/* Icône rouge clignotante tant que le message d'alerte a été fermé sans que le calendrier ait été
+   ouvert (voir floating_widgets.php) - même esprit que .bell-urgent-blink du bandeau haut, mais
+   avec un fond rouge en plus du clignotement (pas juste une pulsation de l'icône violette). */
+@keyframes holidayWidgetUrgentBlink {
+	0%, 100% { box-shadow: -6px 6px 18px rgba(220, 38, 38, 0.45); }
+	50% { box-shadow: -6px 6px 26px rgba(220, 38, 38, 0.9); }
+}
+.holiday-widget-tab.urgent-unread {
+	background: linear-gradient(135deg, #ef4444, #b91c1c);
+	animation: holidayWidgetUrgentBlink 1.3s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+	.holiday-widget-tab.urgent-unread { animation: none; }
 }
 .holiday-widget-panel {
 	position: absolute;
@@ -1735,7 +1749,7 @@ label {
    (pas de disparition automatique, pilotée uniquement par la classe .show). */
 .holiday-widget-toast {
 	position: fixed;
-	top: calc(45% - 90px);
+	top: calc(20% - 90px);
 	right: 60px;
 	max-width: 270px;
 	background: linear-gradient(135deg, #ef4444, #b91c1c);
@@ -1789,7 +1803,7 @@ label {
    un mini-formulaire d'ajout rapide directement dans le panneau. ---------------------------- */
 .assistant-float-widget {
 	position: fixed;
-	top: calc(45% + 58px);
+	top: calc(20% + 58px);
 	right: 0;
 	transform: translateY(-50%);
 	z-index: 1060;
