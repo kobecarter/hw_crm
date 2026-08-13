@@ -22,9 +22,16 @@ class contract
     private $show_signature;
     private $status;
     private $contrat_pdf;
+    private $corps_genere;
+    private $signed_at;
     private $langue;
     private $date_add;
     private $last_edit;
+
+    const STATUT_PREPARATION = 1;
+    const STATUT_ATTENTE_SIGNATURE = 2;
+    const STATUT_SIGNE = 3;
+    const STATUT_REFUSE = 4;
 
     public function __construct()
     {
@@ -116,6 +123,22 @@ class contract
         return $this->contrat_pdf;
     }
 
+    // Corps HTML complet du contrat, figé au moment de "Générer le contrat" depuis un devis
+    // (contractGenerator::genererCorpsContrat()) puis modifiable dans l'éditeur WYSIWYG - une fois
+    // rempli, pdfContract()/docxContract() l'utilisent tel quel au lieu de régénérer à chaque appel
+    // (sinon les modifications manuelles de l'utilisateur seraient perdues). Reste NULL pour les
+    // anciens contrats (créés avant cette fonctionnalité) et pour ceux créés via l'ancien
+    // formulaire manuel - ceux-là continuent de se régénérer dynamiquement à chaque export.
+    public function getCorpsGenere()
+    {
+        return $this->corps_genere;
+    }
+
+    public function getSignedAt()
+    {
+        return $this->signed_at;
+    }
+
     public function getDateAdd()
     {
         return $this->date_add;
@@ -205,6 +228,16 @@ class contract
         $this->contrat_pdf = $contrat_pdf;
     }
 
+    public function setCorpsGenere($corps_genere)
+    {
+        $this->corps_genere = $corps_genere;
+    }
+
+    public function setSignedAt($signed_at)
+    {
+        $this->signed_at = $signed_at;
+    }
+
     public function setDateAdd($date_add)
     {
         $this->date_add = $date_add;
@@ -219,7 +252,7 @@ class contract
     {
         global $db;
 
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_devis, type, date, date_fin, nombre_de_paiement, show_signature, status, contrat_pdf, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_devis, type, date, date_fin, nombre_de_paiement, show_signature, status, contrat_pdf, corps_genere, signed_at, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
 			GetSQLValueString($this->devis->getId(), "id"),
             GetSQLValueString($this->type, "text"),
             GetSQLValueString($this->date, "date"),
@@ -228,6 +261,8 @@ class contract
             GetSQLValueString($this->show_signature, "int"),
             GetSQLValueString($this->status, "int"),
             GetSQLValueString($this->contrat_pdf, "text"),
+            GetSQLValueString($this->corps_genere, "text"),
+            GetSQLValueString($this->signed_at, "date"),
             GetSQLValueString($this->date_add, "date"),
             GetSQLValueString($this->last_edit, "date")
         );
@@ -259,7 +294,7 @@ class contract
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  id_devis = %s, type = %s, date = %s, date_fin = %s, nombre_de_paiement = %s, show_signature = %s, status = %s, contrat_pdf = %s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  id_devis = %s, type = %s, date = %s, date_fin = %s, nombre_de_paiement = %s, show_signature = %s, status = %s, contrat_pdf = %s, corps_genere = %s, signed_at = %s, last_edit = %s WHERE id = %s",
 			GetSQLValueString($this->devis->getId(), "int"),
             GetSQLValueString($this->type, "text"),
             GetSQLValueString($this->date, "date"),
@@ -268,6 +303,8 @@ class contract
             GetSQLValueString($this->show_signature, "int"),
             GetSQLValueString($this->status, "int"),
             GetSQLValueString($this->contrat_pdf, "text"),
+            GetSQLValueString($this->corps_genere, "text"),
+            GetSQLValueString($this->signed_at, "date"),
             GetSQLValueString($this->last_edit, "date"),
             GetSQLValueString($this->id, "int")
         );
@@ -318,11 +355,9 @@ class contract
 		$SQLdelete = sprintf("DELETE FROM " . static::$table . " WHERE id = %s",
             GetSQLValueString($this->getId(), "int")
         );
-        echo $SQLdelete;
         $SQLdelete2 = sprintf("DELETE FROM " . static::$table2 . " WHERE id_contract = %s",
             GetSQLValueString($this->getId(), "int")
         );
-        echo $SQLdelete2;
         if(!$db->query($SQLdelete) && !$db->query($SQLdelete2)){
             return 1;
         } else {
@@ -419,6 +454,8 @@ class contract
         $contract->setShowSignature($data['show_signature']);
         $contract->setStatus($data['status']);
         $contract->setContratPDF($data['contrat_pdf']);
+        $contract->setCorpsGenere(isset($data['corps_genere']) ? $data['corps_genere'] : null);
+        $contract->setSignedAt(isset($data['signed_at']) ? $data['signed_at'] : null);
         $contract->setDateAdd($data['date_add']);
         $contract->setLastEdit($data['last_edit']);
         $contract->setLangue($data['langue']);

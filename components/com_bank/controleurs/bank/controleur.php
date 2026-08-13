@@ -118,41 +118,10 @@ function getBanksByAgence($data)
     $id_agence = isset($data['id_agence']) ? intval($data['id_agence']) : 0;
     $currentBankId = isset($data['id_bank_actuel']) ? intval($data['id_bank_actuel']) : 0;
 
-    // Règle stricte par agence (demandée explicitement, remplace l'ancien "pool Maroc" pour CES
-    // 3 agences précises - ids de crm_bank en dur, voir mémoire projet pour le mapping complet) :
-    //   - Verse Concept (agence 3)  : compte Verse Concept + comptes perso Hamid/Zakaria
-    //   - HW Label (agence 1)      : les 2 comptes HW Label (BMCE + BP) + HW Label Devise + comptes perso Hamid/Zakaria
-    //   - Dubai (agence 2)         : uniquement le compte HELLOWORLDLABEL - FZCO
-    // Toute AUTRE agence (25 "HELLO WORLD", 26 "Ina & Co", ou une future agence) garde l'ancien
-    // comportement inchangé (pool Maroc pour 25, filtre strict sur sa propre id sinon) - ces deux-là
-    // n'étaient pas couvertes par la nouvelle règle, on ne leur change rien.
-    $reglesParAgence = array(
-        3 => array(1, 11, 7),
-        1 => array(6, 12, 10, 11, 7),
-        2 => array(2),
-    );
-
-    if (isset($reglesParAgence[$id_agence])) {
-        $idsAutorises = $reglesParAgence[$id_agence];
-        $banks = array();
-        foreach (bank::findAll(false) as $b) {
-            if (in_array($b->getId(), $idsAutorises)) {
-                $banks[] = $b;
-            }
-        }
-        // Conserve l'ordre déclaré dans $idsAutorises plutôt que l'ordre SQL, plus lisible dans le select.
-        usort($banks, function ($a, $b) use ($idsAutorises) {
-            return array_search($a->getId(), $idsAutorises) <=> array_search($b->getId(), $idsAutorises);
-        });
-    } else {
-        // ces agences facturent toutes depuis le Maroc et partagent le même pool de comptes bancaires :
-        // choisir l'une d'elles doit proposer les banques de tout le groupe, pas seulement celles
-        // strictement rattachées à cette agence précise.
-        $groupeMaroc = array(1, 3, 25); // HW LABEL SARL, VERSE CONCEPT, HELLO WORLD
-        $agencesARechercher = in_array($id_agence, $groupeMaroc) ? $groupeMaroc : $id_agence;
-
-        $banks = $id_agence ? bank::findAll($agencesARechercher) : array();
-    }
+    // Règle stricte par agence + repli pool Maroc - voir bank::findAllPourFormulaire() (partagée
+    // avec le premier chargement PHP de com_devis/com_facture, pour que la liste y soit identique
+    // dès le départ plutôt que seulement après ce rafraîchissement AJAX).
+    $banks = bank::findAllPourFormulaire($id_agence);
 
     // en édition, on garde la banque déjà assignée visible même si elle ne correspond plus à l'agence
     if ($currentBankId && !in_array($currentBankId, array_map(function ($b) { return $b->getId(); }, $banks))) {

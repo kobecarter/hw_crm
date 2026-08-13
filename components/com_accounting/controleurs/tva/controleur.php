@@ -307,12 +307,13 @@ function exportTvaComptable($data)
             $c['paid'] == 1 ? 'Oui' : 'Non',
             $c['tva_taux'] !== null ? $c['tva_taux'] : '',
             $c['tva_deductible'] == 1 ? 'Oui' : 'Non',
+            isset($c['remarque']) ? $c['remarque'] : '',
         );
     }
     tvaExportEcrireTableau(
         $sheetAchatsToutes,
         'Tous les achats/charges ajoutés — ' . $periodeTexte . ' (toutes devises)',
-        array('Libellé', 'Type', 'Date charge', 'Date paiement', 'Devise', 'Montant', 'Payée', 'Taux TVA (%)', 'Déductible TVA'),
+        array('Libellé', 'Type', 'Date charge', 'Date paiement', 'Devise', 'Montant', 'Payée', 'Taux TVA (%)', 'Déductible TVA', 'Remarque'),
         $rows,
         null,
         array(5),

@@ -15,6 +15,7 @@ class charge
 	private $fournisseurs_ids;
     private $titre;
     private $description;
+    private $remarque;
     private $total;
 	private $devise;
 	private $tva_taux;
@@ -105,6 +106,11 @@ class charge
     public function getDescription()
     {
         return $this->description;
+    }
+
+    public function getRemarque()
+    {
+        return $this->remarque;
     }
 
     public function getTotal()
@@ -242,6 +248,11 @@ class charge
         $this->description = $description;
     }
 
+    public function setRemarque($remarque)
+    {
+        $this->remarque = $remarque;
+    }
+
     public function setTotal($total)
     {
         $this->total = $total;
@@ -310,7 +321,7 @@ class charge
     public function add()
     {
         global $db;
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence,paid_by,id_user,id_client,type,service_concerne,fournisseurs_ids, titre, description, total, devise, tva_taux, tva_deductible, paid, facture, refunded, date_charge, date_payment, mode_payment, photo, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence,paid_by,id_user,id_client,type,service_concerne,fournisseurs_ids, titre, description, remarque, total, devise, tva_taux, tva_deductible, paid, facture, refunded, date_charge, date_payment, mode_payment, photo, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->agence->getId(), "int"),
             GetSQLValueString($this->paid_by->getId(), "int"),
             GetSQLValueString($this->user->getId(), "int"),
@@ -320,6 +331,7 @@ class charge
             GetSQLValueString(!empty($this->getFournisseursIds()) ? json_encode($this->getFournisseursIds()) : null, "text"),
 			GetSQLValueString($this->titre, "text"),
             GetSQLValueString($this->description, "text"),
+            GetSQLValueString($this->remarque, "text"),
             GetSQLValueString($this->total, "double"),
 			GetSQLValueString($this->devise, "text"),
 			GetSQLValueString($this->tva_taux, "double"),
@@ -344,7 +356,7 @@ class charge
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET id_agence = %s, paid_by = %s, id_user = %s, id_client = %s, type = %s, service_concerne = %s, fournisseurs_ids = %s, titre = %s, description = %s, total = %s, devise = %s, tva_taux = %s, tva_deductible = %s, paid = %s, facture = %s, refunded = %s, date_charge = %s, date_payment = %s, mode_payment = %s, photo = %s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET id_agence = %s, paid_by = %s, id_user = %s, id_client = %s, type = %s, service_concerne = %s, fournisseurs_ids = %s, titre = %s, description = %s, remarque = %s, total = %s, devise = %s, tva_taux = %s, tva_deductible = %s, paid = %s, facture = %s, refunded = %s, date_charge = %s, date_payment = %s, mode_payment = %s, photo = %s, last_edit = %s WHERE id = %s",
             GetSQLValueString($this->agence->getId(), "int"),
             GetSQLValueString($this->paid_by->getId(), "int"),
             GetSQLValueString($this->user->getId(), "int"),
@@ -354,6 +366,7 @@ class charge
             GetSQLValueString(!empty($this->getFournisseursIds()) ? json_encode($this->getFournisseursIds()) : null, "text"),
             GetSQLValueString($this->titre, "text"),
             GetSQLValueString($this->description, "text"),
+            GetSQLValueString($this->remarque, "text"),
             GetSQLValueString($this->total, "double"),
 			GetSQLValueString($this->devise, "text"),
 			GetSQLValueString($this->tva_taux, "double"),
@@ -451,6 +464,7 @@ class charge
 		$charge->setFournisseursIds(!empty($data['fournisseurs_ids']) ? json_decode($data['fournisseurs_ids'], true) : array());
         $charge->setTitre($data['titre']);
         $charge->setDescription($data['description']);
+        $charge->setRemarque(isset($data['remarque']) ? $data['remarque'] : null);
         $charge->setTotal($data['total']);
 		$charge->setDevise($data['devise']);
 		$charge->setTvaTaux(isset($data['tva_taux']) ? $data['tva_taux'] : null);
@@ -608,7 +622,7 @@ class charge
     public static function findAllByDate($from = false, $to = false, $agence = 1)
     {
         global $db;
-        $SQLselect = "SELECT A.id, A.titre, A.type, A.date_charge, A.date_payment, A.devise, A.total, A.paid, A.tva_taux, A.tva_deductible
+        $SQLselect = "SELECT A.id, A.titre, A.type, A.date_charge, A.date_payment, A.devise, A.total, A.paid, A.tva_taux, A.tva_deductible, A.remarque
             FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id
             WHERE B.id = " . GetSQLValueString($agence, "int");
         if ($_SESSION['user']->isSuperUser() == false) {

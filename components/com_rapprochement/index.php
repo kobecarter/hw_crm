@@ -65,13 +65,29 @@ if ($_SESSION['user']->hasDroit('view', 'com_rapprochement')) {
 
     // Assignation manuelle (crédit -> facture, débit -> charge existante) : la détection
     // automatique (montant exact + nom/date proches) ne trouve pas toujours le bon candidat -
-    // l'utilisateur doit pouvoir choisir n'importe quelle facture ouverte ou charge existante de
-    // l'agence, pas seulement celles proposées automatiquement (jamais de choix imposé : ces
-    // listes complètes alimentent un second niveau de sélection, en plus des candidats détectés).
-    $facturesOuvertes = facture::findAll(-1, false, false, false, false, false, $_SESSION['agence']);
+    // l'utilisateur doit pouvoir choisir n'importe quelle facture ou charge existante de l'agence,
+    // pas seulement celles proposées automatiquement (jamais de choix imposé : ces listes
+    // complètes alimentent un second niveau de sélection, en plus des candidats détectés). Toutes
+    // les factures sont incluses, MÊME déjà payées (pas de filtre statu=-1) : l'objectif ici est de
+    // lier un paiement à une facture, pas de suivre les impayés - une facture déjà soldée reste un
+    // choix valide (double règlement à rapprocher, correction, etc.).
+    $facturesOuvertes = facture::findAll(false, false, false, false, false, false, $_SESSION['agence']);
+    // Fenêtre "Rechercher le client" (fenêtre "Choisir la facture", quand aucun client n'a été
+    // détecté automatiquement dans le libellé du crédit) - liste complète des clients actifs de
+    // l'agence pour une recherche par nom, puis filtrage des factures ci-dessus par client choisi
+    // (tout en JS, aucun aller-retour AJAX supplémentaire nécessaire).
+    $clientsPourRapprochement = client::findAll(true, false, $_SESSION['agence']);
     $idsChargeDejaLies = releveLigne::findAllIdChargeLies();
-    $chargesDisponibles = array_values(array_filter(charge::findAll(true, $_SESSION['agence']), function ($c) use ($idsChargeDejaLies) {
+    $toutesLesChargesRapprochement = charge::findAll(true, $_SESSION['agence']);
+    $chargesDisponibles = array_values(array_filter($toutesLesChargesRapprochement, function ($c) use ($idsChargeDejaLies) {
         return !in_array($c->getId(), $idsChargeDejaLies);
+    }));
+    // Règle 4 (listes distinctes) : les charges déjà rattachées à une AUTRE ligne de relevé restent
+    // visibles (pas cachées comme avant) mais dans un second groupe distinct du <select> - la
+    // sécurité anti-doublon (verifierReaffectationCharge() côté controleur) bloque leur sélection
+    // tant que l'utilisateur n'a pas confirmé la réaffectation dans la fenêtre dédiée.
+    $chargesDejaAffectees = array_values(array_filter($toutesLesChargesRapprochement, function ($c) use ($idsChargeDejaLies) {
+        return in_array($c->getId(), $idsChargeDejaLies);
     }));
 
     include_once ("components/com_rapprochement/views/rapprochement/list.php");

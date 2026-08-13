@@ -321,6 +321,32 @@ class releveLigne
         return $ids;
     }
 
+    // Sécurité anti-doublon (réaffectation) : cette charge est-elle déjà rattachée à une AUTRE
+    // ligne de relevé ? Utilisé avant de lier une charge/un bulletin existant à une nouvelle ligne
+    // (validerLigne(), creerJustificatifManuel()) pour bloquer et demander confirmation plutôt que
+    // de laisser une même charge se retrouver rattachée à deux virements différents en silence.
+    public static function findLigneParCharge($idCharge, $excludeLigneId = null)
+    {
+        global $db;
+        if (empty($idCharge)) {
+            return null;
+        }
+        $SQLselect = sprintf(
+            "SELECT * FROM " . static::$table . " WHERE id_charge = %s AND statut = 'matched_charge'",
+            GetSQLValueString($idCharge, "int")
+        );
+        if (!empty($excludeLigneId)) {
+            $SQLselect .= sprintf(" AND id != %s", GetSQLValueString($excludeLigneId, "int"));
+        }
+        $SQLselect .= " LIMIT 1";
+        $result = $db->query($SQLselect);
+        if ($db->num_rows($result) == 1) {
+            $data = $db->fetch_assoc($result);
+            return static::build($data);
+        }
+        return null;
+    }
+
     // Identifie le lot le plus récemment importé pour une agence - utilisé pour afficher par
     // défaut le résultat du dernier import à l'ouverture de la page.
     public static function findDernierLot($agence)
