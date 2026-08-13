@@ -117,6 +117,27 @@ class contractGenerator
         return $html;
     }
 
+    // Toute catégorie de service en dehors de Dev/SEO/Social (ex: Sponsoring/Ads, id 3) n'a de
+    // section dédiée dans AUCUN modèle ci-dessous - sans ce filet, ces prestations, pourtant
+    // vendues dans le devis, disparaissaient purement et simplement du contrat généré (cf. bug
+    // "une seule prestation affichée" alors que le devis en contient plusieurs).
+    private static function sectionAutresPrestations($parCategorie)
+    {
+        $connues = array(self::CATEGORIE_DEV, self::CATEGORIE_SEO, self::CATEGORIE_SOCIAL);
+        $autres = array();
+        foreach ($parCategorie as $idCategorie => $items) {
+            if (!in_array($idCategorie, $connues)) {
+                $autres = array_merge($autres, $items);
+            }
+        }
+        if (empty($autres)) {
+            return '';
+        }
+        return '<h3 style="margin-top:15px"><u>Autres prestations</u></h3>
+        <p>Le Prestataire assure également, dans le cadre du présent contrat, les prestations complémentaires suivantes prévues au devis :</p>'
+        . self::listeItemsHtml($autres);
+    }
+
     private static function nomClient(client $client)
     {
         return trim((string) $client->getRaisonSocial()) !== '' ? $client->getRaisonSocial() : trim($client->getPrenom() . ' ' . $client->getNom());
@@ -179,6 +200,7 @@ class contractGenerator
         . '<h3 style="margin-top:15px"><u>2.3. Gestion des Réseaux Sociaux</u></h3>
         <p>Le Prestataire assure la gestion sur les plateformes convenues (Facebook, Instagram, LinkedIn, TikTok, etc.) :</p>'
         . self::listeItemsHtml($parCategorie[self::CATEGORIE_SOCIAL])
+        . self::sectionAutresPrestations($parCategorie)
         . '<h2 style="margin-top:30px"><u>ARTICLE 3 - ENGAGEMENTS ET PROTECTION DU PRESTATAIRE</u></h2>
         <h3 style="margin-top:15px"><u>3.1. Normes Techniques et Éthique</u></h3>
         <p style="margin-top:15px"><b>Pour le Développement Web</b> : Le Prestataire s\'engage à appliquer les meilleures pratiques de l\'industrie (Clean Code), incluant le respect des standards W3C pour le HTML/CSS, l\'optimisation des performances (vitesse de chargement) et la mise en œuvre de protocoles de sécurité rigoureux. Le code sera structuré pour garantir sa pérennité et une compatibilité optimale avec les navigateurs modernes et les différents terminaux (Responsive Design).</p>
@@ -252,6 +274,7 @@ class contractGenerator
         <h2 style="margin-top:30px"><u>ARTICLE 2 - DÉTAIL DES PRESTATIONS</u></h2>
         <p>Le Prestataire s\'engage à réaliser les missions suivantes selon le périmètre du devis :</p>'
         . self::listeItemsHtml($parCategorie[self::CATEGORIE_DEV])
+        . self::sectionAutresPrestations($parCategorie)
         . '<h2 style="margin-top:30px"><u>ARTICLE 3 - ENGAGEMENTS ET PROTECTION DU PRESTATAIRE</u></h2>
         <p style="margin-top:15px">3.1. <b>Respect des standards et méthodes de développement</b> : Le Prestataire s\'engage à appliquer les meilleures pratiques de l\'industrie (Clean Code), incluant le respect des standards W3C pour le HTML/CSS, l\'optimisation des performances (vitesse de chargement) et la mise en œuvre de protocoles de sécurité rigoureux. Le code sera structuré pour garantir sa pérennité et une compatibilité optimale avec les navigateurs modernes et les différents terminaux (Responsive Design).</p>
         <p style="margin-top:15px">3.2. <b>Ponctualité et respect du planning</b> : Le Prestataire s\'engage à respecter le calendrier de livraison par étapes déterminé dans l\'annexe du présent contrat. Toutefois, ce respect des délais est strictement conditionné par la coopération et la réactivité du Client. En conséquence, le Prestataire ne pourra être tenu pour responsable de tout décalage ou retard dans le planning si le Client prend un temps anormal à valider les étapes intermédiaires ou à communiquer les éléments nécessaires.</p>
@@ -298,6 +321,7 @@ class contractGenerator
         <h2 style="margin-top:30px"><u>ARTICLE 2 - NATURE DES PRESTATIONS</u></h2>
         <p>Les prestations comprennent notamment, sans que cette liste soit limitative :</p>'
         . self::listeItemsHtml($parCategorie[self::CATEGORIE_SOCIAL])
+        . self::sectionAutresPrestations($parCategorie)
         . '<p>Toute prestation non expressément mentionnée fera l\'objet d\'un accord complémentaire écrit.</p>
         <h2 style="margin-top:30px"><u>ARTICLE 3 - OBLIGATIONS DU CLIENT</u></h2>
         <p>Le Client s\'engage à :</p>
@@ -391,7 +415,13 @@ class contractGenerator
         }
         if ($variante === 'seo_seul') {
             $prestations .= self::listeItemsHtml($parCategorie[self::CATEGORIE_SEO]);
+            // Atteignable dès que SEO est présent sans Dev, y compris SEO+Social - sans ce bloc,
+            // le Social disparaissait silencieusement (aucune autre variante ne le couvre).
+            if (!empty($parCategorie[self::CATEGORIE_SOCIAL])) {
+                $prestations .= '<h3 style="margin-top:15px"><u>Gestion des Réseaux Sociaux</u></h3>' . self::listeItemsHtml($parCategorie[self::CATEGORIE_SOCIAL]);
+            }
         }
+        $prestations .= self::sectionAutresPrestations($parCategorie);
 
         $html = '<h1 style="text-align:center">' . $titres[$variante] . '</h1>
         <h2 style="margin-top:70px"><u>ENTRE LES SOUSSIGNÉS</u></h2>'
