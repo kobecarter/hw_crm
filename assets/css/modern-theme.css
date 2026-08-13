@@ -4967,3 +4967,6 @@ table.table td h2.table-avatar span.avatar-sleep-badge {
 .privacy-mode .money-sensitive:hover {
 	filter: blur(2px) !important;
 }
+#devis-acompte-montant{
+	border-radius: var(--radius-sm) 0 0 var(--radius-sm) !important;
+}

@@ -146,6 +146,23 @@
 		// Transition d'entrée douce des modals Bootstrap (en plus du fade natif)
 		if (window.jQuery) {
 			jQuery(document).on('show.bs.modal', '.modal', function () {
+				// Une modale écrite en profondeur dans le HTML (ex: dans un formulaire com_devis,
+				// lui-même dans .card > .content > .page-wrapper) reste à cet endroit du DOM même
+				// une fois "affichée" - Bootstrap ne fait que basculer des classes, il ne déplace
+				// jamais l'élément. Si UN SEUL ancêtre crée un nouveau contexte d'empilement CSS
+				// (transform, filter, backdrop-filter, isolation, will-change, opacity<1...), le
+				// z-index de la modale reste piégé sous tout ce qui est hors de cet ancêtre - dont
+				// le ".modal-backdrop", lui ajouté directement à <body> par Bootstrap : overlay
+				// visible, popup invisible ou injoignable au clic. Trois cas connus de ce piège ont
+				// déjà été corrigés au cas par cas dans ce fichier/modern-theme.css
+				// (.glass-page .card + backdrop-filter/isolation, .page-wrapper + will-change) ;
+				// plutôt que d'en corriger un quatrième au cas par cas, on supprime la classe de
+				// bug entière une fois pour toutes en sortant SYSTÉMATIQUEMENT toute modale de son
+				// emplacement d'origine vers un enfant direct de <body> avant son ouverture - elle
+				// ne peut alors plus jamais être piégée par un ancêtre, quel qu'il soit.
+				if (this.parentNode !== document.body) {
+					document.body.appendChild(this);
+				}
 				var content = this.querySelector('.modal-content');
 				if (content) {
 					gsap.fromTo(content, { opacity: 0, y: 12, scale: 0.98 }, { opacity: 1, y: 0, scale: 1, duration: 0.3, ease: 'power2.out', clearProps: 'all' });
