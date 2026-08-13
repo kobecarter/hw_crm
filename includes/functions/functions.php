@@ -1048,6 +1048,16 @@ function agenceFlagEmoji($idAgence)
     return intval($idAgence) === 2 ? '🇦🇪' : '🇲🇦';
 }
 
+// Lien "espace client" public utilisé dans les emails automatiques - même distinction
+// Maroc/Dubaï qu'agenceFlagEmoji() (l'agence 2 facture depuis Dubaï, toutes les autres
+// depuis le Maroc), chaque pays ayant son propre nom de domaine pour l'espace client.
+function espaceClientLink($idAgence)
+{
+    return intval($idAgence) === 2
+        ? 'https://www.helloworldlabel.ae/client-space/'
+        : 'https://www.helloworld-agency.com/client-space/';
+}
+
 // Emoji drapeau pour le sélecteur de langue du bandeau haut - remplace les images
 // images/langues/*.png qui n'existent pas sur le disque (référencées avec un chemin relatif
 // erroné "../images/langues/", générant un 404 sur toutes les pages).

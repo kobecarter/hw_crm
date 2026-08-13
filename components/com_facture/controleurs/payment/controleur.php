@@ -23,6 +23,9 @@ if (isset($task) && !empty($task)) {
         case 'getRowRappel':
             getRowRappel($_POST);
             break;
+        case 'sendPaymentRequestPdf':
+            sendPaymentRequestPdf($_POST);
+            break;
     }
 }
 
@@ -133,9 +136,7 @@ function sendPaymentConfirmationEmail($facture, $montant)
 
     require_once '../../../vendor/autoload.php';
 
-    global $siteURL;
-    $baseUrl = (defined('PUBLIC_SITE_URL') && PUBLIC_SITE_URL) ? PUBLIC_SITE_URL : $siteURL;
-    $espaceClientLink = $baseUrl . "index.php?option=com_elogin";
+    $espaceClientLink = espaceClientLink($_SESSION['agence']);
     $reste = $facture->getReste();
 
     try {
@@ -185,6 +186,101 @@ function sendPaymentConfirmationEmail($facture, $montant)
         $mail->send();
     } catch (\Exception $e) {
         // Le paiement est déjà enregistré : un échec d'envoi d'email ne doit pas faire échouer l'opération.
+    }
+}
+
+// Génère un PDF de type facture de paiement pour un montant choisi (typiquement un
+// acompte proposé depuis le devis passé en "Accepté"), avec le tampon NON PAYÉ (le
+// payment construit ici n'a pas de justificatif). Rien n'est enregistré en base :
+// le payment n'est jamais ->add(), et le PDF est supprimé du serveur après l'envoi.
+function sendPaymentRequestPdf($data)
+{
+    $indices = array("id_facture", "montant");
+    if (!fieldCheck($data, $indices)) {
+        echo "0";
+        return;
+    }
+
+    $facture = facture::find($data['id_facture'], $_SESSION['agence']);
+    if (!$facture || !$facture->getId()) {
+        echo "2";
+        return;
+    }
+
+    $client = $facture->getClient();
+    if (!$client->getEmail() || !defined('SMTP_HOST') || SMTP_HOST == '') {
+        echo "2";
+        return;
+    }
+
+    require_once '../../../vendor/autoload.php';
+
+    try {
+        $payment = new payment();
+        $payment->setFacture($facture);
+        $payment->setMontant($data['montant']);
+        $payment->setDatePayment(date('Y-m-d'));
+        $payment->setRegImg('');
+
+        $file_name = $payment->pdfPayment("file");
+        $filePath = '../../../uploads/' . $file_name;
+
+        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+        $mail->isSMTP();
+        $mail->Host = SMTP_HOST;
+        $mail->SMTPAuth = true;
+        $mail->Username = SMTP_USERNAME;
+        $mail->Password = SMTP_PASSWORD;
+        $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
+        $mail->CharSet = 'UTF-8';
+
+        $mail->setFrom(SMTP_USERNAME, 'Hello World');
+        $mail->addAddress($client->getEmail(), trim($client->getPrenom() . ' ' . $client->getNom()));
+        $mail->addAttachment($filePath, $file_name);
+
+        $mail->isHTML(true);
+        $isEn = ($facture->getLangue() == 'en');
+        $montantF = number_format($data['montant'], 2, ',', ' ') . ' ' . $facture->getDevise();
+        $devisLie = $facture->getDevis();
+        $devisNumero = ($devisLie && $devisLie->getId()) ? $devisLie->getNumero() : $facture->getNumero();
+        $entreprise = $client->getRaisonSocial() ?: trim($client->getPrenom() . ' ' . $client->getNom());
+        $pourcentage = ($facture->getTotal() > 0) ? round(($data['montant'] / $facture->getTotal()) * 100) : 0;
+
+        if ($isEn) {
+            $mail->Subject = "Deposit invoice — Quote N°" . $devisNumero;
+            $mail->Body = "Hello " . htmlspecialchars($client->getPrenom()) . ",<br><br>"
+                . "Thank you very much for validating your quote N°" . $devisNumero . ". The whole Hello World team is delighted to bring this collaboration to life and support " . htmlspecialchars($entreprise) . " in the success of this project!<br><br>"
+                . "To officially kick off the work and secure our production schedule, please find attached the invoice for the first deposit (" . $pourcentage . "% of the total amount).<br><br>"
+                . "Payment details:<br>"
+                . "Deposit amount: <strong>" . $montantF . "</strong><br><br>"
+                . "As soon as we receive your payment, we will immediately begin the first phase of your project. Our team will also reach out to confirm the next steps of our roadmap.<br><br>"
+                . "If you have any questions about the invoice or the next steps, feel free to reply directly to this email.<br><br>"
+                . "Thank you again for your trust, we can't wait to get started!<br><br>"
+                . "The Hello World team";
+            $mail->AltBody = "Deposit invoice of " . $montantF . " (" . $pourcentage . "%) for quote N°" . $devisNumero . ".";
+        } else {
+            $mail->Subject = "Facture d'acompte — Devis N°" . $devisNumero;
+            $mail->Body = "Bonjour " . htmlspecialchars($client->getPrenom()) . ",<br><br>"
+                . "Nous vous remercions chaleureusement pour la validation de votre devis N°" . $devisNumero . ". Toute l'équipe de Hello World est ravie de concrétiser cette collaboration et d'accompagner " . htmlspecialchars($entreprise) . " dans la réussite de ce projet !<br><br>"
+                . "Afin de lancer officiellement les travaux et bloquer notre calendrier d'exécution, vous trouverez en pièce jointe la facture correspondant au premier acompte (" . $pourcentage . "% du montant total).<br><br>"
+                . "Détails du règlement :<br>"
+                . "Montant de l'acompte : <strong>" . $montantF . "</strong><br><br>"
+                . "Dès réception de votre paiement, nous entamerons immédiatement la première phase de votre projet. Notre équipe prendra également contact avec vous pour valider les prochaines étapes de notre feuille de route.<br><br>"
+                . "Si vous avez la moindre question concernant la facture ou le déroulement des opérations, n'hésitez pas à répondre directement à cet email.<br><br>"
+                . "Nous vous remercions encore pour votre confiance et avons hâte de démarrer !<br><br>"
+                . "L'équipe Hello World";
+            $mail->AltBody = "Facture d'acompte de " . $montantF . " (" . $pourcentage . "%) pour le devis N°" . $devisNumero . ".";
+        }
+
+        $mail->send();
+        @unlink($filePath);
+        echo "1";
+    } catch (\Throwable $e) {
+        if (isset($filePath)) {
+            @unlink($filePath);
+        }
+        echo "2";
     }
 }
 
@@ -400,7 +496,7 @@ function paymentForm($data)
                             <?php else: ?>
                                 <a href="<?php echo $photoLink;?>"data-fancybox><img id="avatarImg" class="avatar-img" src="<?php echo $photoLink; ?>" alt="Profile Image"></a>
 							<?php endif; ?>
-                            <input type="file" name="photo[]" id="edit_img" <?php if(!isset($payment) || (isset($payment) && $payment->getRegImg() == '')) echo 'required'; ?>>
+                            <input type="file" name="photo[]" id="edit_img">
 							
                             <span class="avatar-edit" style="bottom:0;color:green;">
 								<i data-feather="edit-2" class="fa fa-upload shadow-soft"></i>

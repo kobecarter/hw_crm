@@ -8,10 +8,9 @@
 if (!$_SESSION['user']->isResourceHumaine()) :
 ?>
 
-<?php if ($_SESSION['user']->isSuperUser() != false) : ?>
-	<?php
-	// Widget flottant "jours fériés" (collé à droite de l'écran) : construit la liste des
-	// jours à marquer sur le mini-calendrier + les prochaines échéances. La coloration des
+<?php
+	// Widget flottant "jours fériés" (collé à droite de l'écran, visible par tous les utilisateurs) :
+	// construit la liste des jours à marquer sur le mini-calendrier + les prochaines échéances. La coloration des
 	// jours reprend holiday::getColor() (proche/en cours/passé/lointain), mais le
 	// déclenchement de la notification "un jour férié arrive" suit une règle différente et
 	// plus précise : dans les 5 prochains jours OUVRABLES (on saute samedi/dimanche).
@@ -100,10 +99,16 @@ if (!$_SESSION['user']->isResourceHumaine()) :
 		<span>😈 Un jour férié approche... le dictateur ne sera pas content si tu l'as pas noté ! 🤡 Va vite jeter un œil au calendrier avant qu'il n'explose 😂</span>
 	</div>
 	<script>
-		var holidayWidgetDays = <?php echo json_encode($holidayWidgetDays); ?>;
+		<?php
+		// JSON_INVALID_UTF8_SUBSTITUTE : un nom de jour férié mal encodé en base (arrive sur
+		// la prod, jamais vu en local) fait échouer json_encode() silencieusement (retour
+		// false, donc "var holidayWidgetDays = ;" -> SyntaxError JS qui casse tout le
+		// widget) sans ce flag ; avec, les octets invalides sont juste remplacés.
+		$holidayWidgetDaysJson = json_encode($holidayWidgetDays, JSON_INVALID_UTF8_SUBSTITUTE) ?: '{}';
+		?>
+		var holidayWidgetDays = <?php echo $holidayWidgetDaysJson; ?>;
 		var holidayWidgetHasUrgent = <?php echo $hasUrgentHoliday ? 'true' : 'false'; ?>;
 	</script>
-<?php endif; ?>
 
 <?php if ($_SESSION['user']->hasDroit('view', 'com_assistant')) : ?>
 	<?php

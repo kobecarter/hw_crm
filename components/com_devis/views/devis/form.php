@@ -17,7 +17,7 @@
 	}
 </style>
 
-<?php if(isset($devis) && $devis->getFacture()->getId() != 0): ?>
+<?php if(isset($devis) && $devis->getFacture()->getId() != 0 && $devis->getStatu() == 4): ?>
 <div class="alert alert-warning"><i class="fa fa-info"></i> <strong>Attention !!</strong> vous ne pouvez pas modifier ce devis car il est déjà lié à une facture</div>
 <?php endif; ?>
 
@@ -27,7 +27,7 @@ $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFa
 ?>
 
 <form method="post" action="<?php echo $action; ?>" id="devisForm" enctype="multipart/form-data">
-    <fieldset <?php if(isset($devis) && $devis->getFacture()->getId() != 0): ?>disabled="disabled"<?php endif; ?>>
+    <fieldset <?php if(isset($devis) && $devis->getFacture()->getId() != 0 && $devis->getStatu() == 4): ?>disabled="disabled"<?php endif; ?>>
 	<div class="row">
 		<div class="col-md-12 msgbox"></div>
 		<?php if (!isset($devis)): ?>
@@ -488,7 +488,7 @@ $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFa
 		<?php endif; ?>
 	</div>
 	
-	<?php if(!isset($devis) || $devis->getFacture()->getId() == 0): ?>
+	<?php if(!isset($devis) || $devis->getFacture()->getId() == 0 || $devis->getStatu() != 4): ?>
 	<div class="text-right mt-4">
 		<button type="submit" name="<?= $submitName; ?>" class="btn btn-primary submit"><span class="spinner-border spinner-border-sm mr-2 loading"></span> <?php echo $submitValue; ?></button>
 	</div>
@@ -641,6 +641,28 @@ $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFa
 			</div>
 			<div class="modal-footer justify-content-center">
 				<button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+<!-- Acompte Popup (Devis Accepté) -->
+<div id="devis-acompte-modal" class="modal custom-modal tva-confirm-modal fade" role="dialog" data-backdrop="static">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+				<div class="tva-confirm-icon"><i class="fa fa-money-bill-alt"></i></div>
+				<h5 class="modal-title mt-3">Devis accepté</h5>
+			</div>
+			<div class="modal-body text-center">
+				<p>Envoyer une facture de paiement au client pour l'acompte ?</p>
+				<div class="form-group text-left">
+					<label>Acompte</label>
+					<div class="input-group">
+						<input type="number" step="any" class="form-control" id="devis-acompte-montant">
+						<div class="input-group-append"><span class="input-group-text"><?php if (isset($devis)) echo $devis->getDevise(); ?></span></div>
+					</div>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-white" data-dismiss="modal">Fermer</button>
+				<button type="button" id="devis-acompte-send" class="btn btn-primary"><span class="spinner-border spinner-border-sm mr-2" style="display:none;"></span>Envoyer la facture de paiement</button>
 			</div>
 		</div>
 	</div>
@@ -660,6 +682,7 @@ function afficherMessageStyle(texte, type) {
 	$('#messageStyleModal').modal('show');
 }
 </script>
+<!-- /Acompte Popup -->
 
 <script>
 	$(function() {
@@ -731,6 +754,30 @@ function afficherMessageStyle(texte, type) {
 				$(".payment-relance-alert").slideUp();
 			}
 		});
+
+		// Envoi de la facture de paiement (acompte) depuis la popup "Devis accepté"
+		$(document).on("click", "#devis-acompte-send", function() {
+			var $btn = $(this);
+			var factureId = $btn.attr('data-facture-id');
+			var montant = $('#devis-acompte-montant').val();
+			if (!montant || parseFloat(montant) <= 0) {
+				alert("Veuillez saisir un montant valide");
+				return;
+			}
+			$btn.prop('disabled', true);
+			$btn.find('.spinner-border').show();
+			var order = 'id_facture=' + factureId + '&montant=' + montant;
+			$.post("components/com_facture/controleurs/router.php?task=sendPaymentRequestPdf", order, function(theResponse) {
+				$btn.prop('disabled', false);
+				$btn.find('.spinner-border').hide();
+				if (parseInt(theResponse) === 1) {
+					alert("Facture de paiement envoyée au client");
+					$("#devis-acompte-modal").modal('hide');
+				} else {
+					alert("Erreur lors de l'envoi de la facture de paiement");
+				}
+			});
+		})
 
 		// Création factures à partir du devis
 		$(document).on( "click", ".create-invoice", function() {
@@ -844,9 +891,24 @@ function afficherMessageStyle(texte, type) {
 					$('#devisForm .msgbox').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><strong>Success!</strong> ' + msgsucces + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
 
 					<?php if(isset($devis)): ?>
-                    setTimeout(function() {
-						document.location.reload();
-					}, 1500)
+					var respParts = String(theResponse).split('|');
+					var becameAccepted = (devisInitialStatu != '2' && $("#status-select").val() == '2');
+					if (becameAccepted && respParts.length > 1) {
+						var newFactureId = respParts[1];
+						var firstAcompte = $('.amount-input').first().val();
+						$('#devis-acompte-montant').val(firstAcompte);
+						$('#devis-acompte-send').attr('data-facture-id', newFactureId);
+						$("#devis-acompte-modal").off('hidden.bs.modal').on('hidden.bs.modal', function() {
+							document.location.reload();
+						});
+						setTimeout(function() {
+							$("#devis-acompte-modal").modal('show');
+						}, 500)
+					} else {
+	                    setTimeout(function() {
+							document.location.reload();
+						}, 1500)
+					}
                     <?php else: ?>
 					var newDevisId = String(theResponse).split('|')[1];
 					setTimeout(function() {

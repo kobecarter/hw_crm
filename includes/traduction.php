@@ -182,6 +182,14 @@ $traduction = array(
         'fr' => "avoir",
         'en' => "credit"
     ),
+	'PAYE' => array (
+        'fr' => "Payé",
+        'en' => "Paid"
+    ),
+	'NON_PAYE' => array (
+        'fr' => "Non payé",
+        'en' => "Not paid"
+    ),
 	'DEVIS_POUR' => array (
         'fr' => "Devis pour",
         'en' => "Quote for",

@@ -969,6 +969,96 @@ class client
 		return json_encode(array("icon"=>"warning","message"=>"Email or password incorrect","client"=>$db->num_rows($result)));
 	}
 
+    /* ------------------------------------------------------------------ */
+    /* Connexion sociale (espace client) — Google / Facebook.
+       Politique : clients EXISTANTS uniquement. On vérifie le jeton du
+       fournisseur côté serveur, on en extrait l'email vérifié, puis on
+       délègue à socialLoginByEmail() qui renvoie EXACTEMENT la même forme
+       que loginApi (client + token JWT) pour que le reste de l'espace
+       client fonctionne à l'identique. Aucun compte n'est créé ici.       */
+    /* ------------------------------------------------------------------ */
+
+    private static function socialHttpGet($url)
+    {
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        $resp = curl_exec($ch);
+        $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        return array('body' => $resp, 'http' => $http);
+    }
+
+    // Rattache un email vérifié à un client actif et émet un token. Ne crée jamais de compte.
+    public static function socialLoginByEmail($email, $provider = 'social')
+    {
+        global $db;
+        $SQLselect = sprintf("SELECT * FROM " . static::$table . " WHERE email = %s AND active = %s",
+            GetSQLValueString($email, "text"),
+            GetSQLValueString(1, "int")
+        );
+        $result = $db->query($SQLselect);
+        if ($db->num_rows($result) > 0) {
+            $data = $db->fetch_assoc($result);
+            $data['ID'] = $data['id'];
+            $client = static::buildApi($data);
+            $token = setToken($client);
+            return json_encode(array("icon" => "success", "message" => "Successful connection", "client" => $client, "token" => $token));
+        }
+        return json_encode(array("icon" => "warning", "message" => "No account is linked to this email address. Please contact us.", "code" => "no_account", "provider" => $provider));
+    }
+
+    public static function googleLoginApi($data)
+    {
+        if (!defined('GOOGLE_CLIENT_ID') || GOOGLE_CLIENT_ID === '') {
+            return json_encode(array("icon" => "error", "message" => "Google sign-in is not configured", "code" => "not_configured"));
+        }
+        $credential = isset($data['credential']) ? trim($data['credential']) : '';
+        if ($credential === '') {
+            return json_encode(array("icon" => "warning", "message" => "Missing Google credential", "code" => "missing"));
+        }
+        // Vérifie signature + expiration du jeton d'identité directement auprès de Google.
+        $r = static::socialHttpGet("https://oauth2.googleapis.com/tokeninfo?id_token=" . urlencode($credential));
+        if ($r['body'] === false || $r['http'] !== 200) {
+            return json_encode(array("icon" => "error", "message" => "Google verification failed", "code" => "verify_failed"));
+        }
+        $info = json_decode($r['body']);
+        // L'audience DOIT être notre propre client ID (sinon jeton émis pour une autre app).
+        if (!is_object($info) || !isset($info->aud) || $info->aud !== GOOGLE_CLIENT_ID) {
+            return json_encode(array("icon" => "error", "message" => "Invalid Google token", "code" => "invalid_token"));
+        }
+        $emailVerified = isset($info->email_verified) && ($info->email_verified === true || $info->email_verified === 'true');
+        if (!$emailVerified || empty($info->email)) {
+            return json_encode(array("icon" => "warning", "message" => "Google email not verified", "code" => "email_unverified"));
+        }
+        return static::socialLoginByEmail($info->email, 'google');
+    }
+
+    // Scaffold Facebook : actif dès que FACEBOOK_APP_ID / FACEBOOK_APP_SECRET sont renseignés.
+    public static function facebookLoginApi($data)
+    {
+        if (!defined('FACEBOOK_APP_ID') || FACEBOOK_APP_ID === '' || !defined('FACEBOOK_APP_SECRET') || FACEBOOK_APP_SECRET === '') {
+            return json_encode(array("icon" => "error", "message" => "Facebook sign-in is not configured", "code" => "not_configured"));
+        }
+        $token = isset($data['access_token']) ? trim($data['access_token']) : '';
+        if ($token === '') {
+            return json_encode(array("icon" => "warning", "message" => "Missing Facebook token", "code" => "missing"));
+        }
+        // 1) Le jeton appartient-il bien à NOTRE app ? (anti-substitution de jeton)
+        $appToken = FACEBOOK_APP_ID . '|' . FACEBOOK_APP_SECRET;
+        $dbg = json_decode(static::socialHttpGet("https://graph.facebook.com/debug_token?input_token=" . urlencode($token) . "&access_token=" . urlencode($appToken))['body']);
+        if (!is_object($dbg) || !isset($dbg->data) || empty($dbg->data->is_valid) || (string) $dbg->data->app_id !== (string) FACEBOOK_APP_ID) {
+            return json_encode(array("icon" => "error", "message" => "Invalid Facebook token", "code" => "invalid_token"));
+        }
+        // 2) Email vérifié depuis le profil.
+        $me = json_decode(static::socialHttpGet("https://graph.facebook.com/me?fields=email&access_token=" . urlencode($token))['body']);
+        if (!is_object($me) || empty($me->email)) {
+            return json_encode(array("icon" => "warning", "message" => "Facebook email unavailable", "code" => "missing"));
+        }
+        return static::socialLoginByEmail($me->email, 'facebook');
+    }
+
     public static function verifyEmailApi($email){
         require '../../../vendor/autoload.php';
 	    require '../../../includes/traduction.php';
@@ -1001,26 +1091,26 @@ class client
                         				<td align="center"><img src="'.$siteURL.'images/logo_hello_world.png" alt="Hello World Agency" height="64" /></td>
                         			</tr>
                         			<tr bgcolor="#FFFFFF">
-                        				<td align="center" style="padding-bottom:0px"><h1 style="font-weight:normal; margin-bottom:0px;">Password Recovery</h1></td>
+                        				<td align="center" style="padding-bottom:0px"><h1 style="font-weight:normal; margin-bottom:0px;">Réinitialisation du mot de passe</h1></td>
                         			</tr>
                         			<tr bgcolor="#FFFFFF">
                         				<td style="padding-bottom:0px">
                         				<table border="0" cellpadding="5">
                         				<tr style="text-align:center">
                         					<td>
-                        					    <p style="color: grey;text-align: center;margin-top: 0;">If you have lost your password or wish to rest it, use the link below to get started</p>
+                        					    <p style="color: grey;text-align: center;margin-top: 0;">Vous avez demandé à réinitialiser votre mot de passe. Cliquez sur le bouton ci-dessous pour en créer un nouveau. Si vous n’êtes pas à l’origine de cette demande, ignorez simplement cet email.</p>
                         					</td>
                         				</tr>
                         				<tr style="text-align:center">
                         				    <td style="padding-bottom: 30px;">
-                        				        <a style="padding: 10px 20px;background: #0ac3e0;color: white;font-weight: bold;margin: auto;display: block;width: fit-content;text-decoration:none" href="'.$hwaURL.'create-a-new-password/'.$email.'/'.$token.'/">Reset your password</a>
+                        				        <a style="padding: 10px 20px;background: #0ac3e0;color: white;font-weight: bold;margin: auto;display: block;width: fit-content;text-decoration:none" href="'.$hwaURL.'create-a-new-password/'.$email.'/'.$token.'/">Réinitialiser mon mot de passe</a>
                         				    </td>
                         				</tr>
                         				</table>
                         				</td>
                         			</tr>
                         			<tr>
-                        				<td align="center"><p><font size="-3" color="#666666">Hello World Agenct Contact<br/>
+                        				<td align="center"><p><font size="-3" color="#666666">Contact Hello World Agency<br/>
                         		Email: contact@helloworld-agency.com<br/>
                         		Phone. : +212 5 24 42 31 56 / +212 6 75 47 20 01</font></p></td>
                         			</tr>
@@ -1039,12 +1129,17 @@ class client
                 $mail->addAddress($data['email'], $data['nom'].' '.$data['prenom']);
                 $mail->addAddress("contact@helloworld-agency.com");
                 //Set the subject line
-                $mail->Subject = 'Recover Password '.$config->getNom();
-                //Read an HTML message body from an external file, convert referenced images to embedded,
-                //convert HTML into a basic plain-text alternative body
-                $mail->msgHTML($mailBody);
-                //Attach an image file
-                                
+                $mail->Subject = 'Réinitialisation de votre mot de passe';
+                // Email HTML simple (même mécanisme que le formulaire de contact).
+                // NB : ne pas utiliser msgHTML() ici — il génère un message
+                // multipart/alternative dont l'en-tête Content-Type est mal
+                // transmis par le transport mail() du serveur, ce qui fait
+                // afficher le MIME brut côté client. Un seul bloc text/html règle ça.
+                $mail->isHTML(true);
+                $mail->CharSet = 'UTF-8';
+                $mail->Encoding = 'base64';
+                $mail->Body = $mailBody;
+
                 if($mail->send()) {
                     return json_encode(array("icon"=>"success","message"=>"The password recovery link has been successfully sent to your email. Please check your inbox","link"=>'<a href="'.$hwaURL.'create-a-new-password/'.$email.'/'.$token.'/">Click here</a> to reset your password'));
                 } 

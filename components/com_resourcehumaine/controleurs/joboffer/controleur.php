@@ -228,7 +228,7 @@ function generateJobOfferAI($data)
         // de la lettre (en-tête société, mentions légales, salaire, horaires, politiques,
         // confidentialité, signature) est un modèle fixe assemblé de façon déterministe par
         // joboffer::construireLettreHTML(), jamais généré/altéré par l'IA.
-        $fiche = aiJobOfferAssistant::genererObjectifEtBrief($resourcehumaine->getFunction());
+        $fiche = aiJobOfferAssistant::genererObjectifEtBrief($resourcehumaine->getFunction(), $_SESSION['langue']);
         $html = joboffer::construireLettreHTML(
             $resourcehumaine,
             $data['periode_essai'],
@@ -236,7 +236,8 @@ function generateJobOfferAI($data)
             $data['conditions_paiement'],
             isset($data['commissions']) ? $data['commissions'] : '',
             $fiche['objectif'],
-            $fiche['brief']
+            $fiche['brief'],
+            $_SESSION['langue']
         );
         echo json_encode(array('success' => 1, 'contenu' => $html));
     } catch (Exception $e) {

@@ -75,6 +75,26 @@ class aiClaudeClient
         throw new Exception("Erreur API Claude (" . $lastHttpCode . "): " . $lastMsg);
     }
 
+    public static function nomLangue($code)
+    {
+        $noms = array('fr' => 'français', 'en' => 'anglais', 'ar' => 'arabe');
+        return isset($noms[$code]) ? $noms[$code] : 'français';
+    }
+
+    // Rédigée DANS la langue cible (pas juste "en anglais" au milieu d'un prompt français) et
+    // répétée en tête ET en fin de system prompt par les appelants : un unique mot-clé de langue
+    // noyé dans un prompt par ailleurs entièrement français (champs JSON, contexte métier fourni
+    // en français) s'est révélé un signal trop faible, l'API répondant quand même en français.
+    public static function instructionLangue($code)
+    {
+        $phrases = array(
+            'fr' => "IMPORTANT : rédige l'intégralité de ta réponse (tous les textes destinés à l'utilisateur final) en français, même si les données fournies en entrée sont dans une autre langue.",
+            'en' => "IMPORTANT: write your entire response (all end-user-facing text) in English, even if the input data provided below is in another language.",
+            'ar' => "مهم: اكتب ردك بالكامل (كل النصوص الموجهة للمستخدم النهائي) باللغة العربية، حتى لو كانت البيانات المدخلة أدناه بلغة أخرى.",
+        );
+        return isset($phrases[$code]) ? $phrases[$code] : $phrases['fr'];
+    }
+
     public static function extractFirstTextBlock($decoded)
     {
         if (isset($decoded['content']) && is_array($decoded['content'])) {

@@ -60,7 +60,7 @@
 		$categoriesLabels = getCategorieFournisseur();
 		?>
 
-		<div class="row">
+		<div class="row mb-4">
 			<div class="col-xl-3 col-sm-6 col-12 d-flex">
 				<div class="card flex-fill mb-0">
 					<div class="card-body">

@@ -10,16 +10,20 @@
 // altérée/hallucinée dans un document destiné à être signé.
 class aiJobOfferAssistant
 {
-    public static function genererObjectifEtBrief($poste)
+    public static function genererObjectifEtBrief($poste, $langue = 'fr')
     {
+        $nomLangue = aiClaudeClient::nomLangue($langue);
+        $instructionLangue = aiClaudeClient::instructionLangue($langue);
         $schema = '{"objectif":"","brief":["", "", "..."]}';
-        $systemPrompt = "Tu rédiges la fiche de poste (deux sections) d'une lettre d'offre d'emploi professionnelle en français, pour une agence de communication/marketing (Hello World). "
+        $systemPrompt = $instructionLangue . " "
+            . "Tu rédiges la fiche de poste (deux sections) d'une lettre d'offre d'emploi professionnelle en " . $nomLangue . ", pour une agence de communication/marketing (Hello World). "
             . "Réponds UNIQUEMENT avec un objet JSON respectant ce schéma: " . $schema . ". "
             . "'objectif' : un paragraphe (2-3 phrases) résumant la mission générale du poste. "
             . "'brief' : une liste de 6 à 10 tâches concrètes et spécifiques à ce poste précis (pas de généralités interchangeables d'un poste à l'autre), "
             . "rédigées comme des puces de cahier des charges (verbe à l'infinitif en début de puce). "
             . "Adapte entièrement le contenu au poste donné : les tâches d'un·e Designer graphique, d'un·e Social Media Manager, d'un·e Développeur·se web, "
-            . "d'un·e Photographe, d'une Assistante de direction ou d'un·e Commercial·e doivent être clairement différentes et spécifiques à ce métier.";
+            . "d'un·e Photographe, d'une Assistante de direction ou d'un·e Commercial·e doivent être clairement différentes et spécifiques à ce métier. "
+            . $instructionLangue;
 
         $userMessage = "Poste : " . $poste;
 
