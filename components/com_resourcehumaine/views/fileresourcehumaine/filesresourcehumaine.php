@@ -53,12 +53,15 @@ $documentsPresentsFiche = fileresourcehumaine::documentTypesPresents($files);
                                         <a href="./images/resourceshumaines/files/<?php echo $file->getFile(); ?>" target="_blank">
                                             <div class="d-flex align-items-center">
                                                 <i class="far fa-file-pdf icon" alt="<?= $file->getTitle() ?>" title="Cliquer pour voir le fichier"></i>
-                                                <h3><?= $file->getTitle() ?><?php if ($file->getDocumentType() && isset($documentsRequisFiche[$file->getDocumentType()])) : ?> <span class="badge bg-success-light doc-type-badge"><?= htmlspecialchars($documentsRequisFiche[$file->getDocumentType()]) ?></span><?php endif; ?></h3>
+                                                <h3><?= $file->getTitle() ?><?php if ($file->getDocumentType() && isset($documentsRequisFiche[$file->getDocumentType()])) : ?> <span class="badge bg-success-light doc-type-badge"><?= htmlspecialchars($documentsRequisFiche[$file->getDocumentType()]) ?></span><?php endif; ?><?php if (!$file->getValidated()) : ?> <span class="badge badge-warning text-white">En attente de validation</span><?php endif; ?></h3>
                                             </div>
                                         </a>
                                         <div>
                                             <?php if($_SESSION['user']->hasDroit('view', 'com_resourcehumaine') || $_SESSION['user']->isResourceHumaine() ) :?>
                                                 <a href="./images/resourceshumaines/files/<?php echo $file->getFile(); ?>" target="_blank" class="btn btn-primary btn-sm editFile"><i class="fa fa-eye"></i></a>
+                                            <?php endif;?>
+                                            <?php if(!$file->getValidated() && $_SESSION['user']->hasDroit('edit', 'com_resourcehumaine')) :?>
+                                                <a href="javascript:void(0)" data-id="<?php echo $file->getId(); ?>" class="btn btn-success btn-sm approveFile" title="Valider ce document déposé par l'employé"><i class="fa fa-check"></i></a>
                                             <?php endif;?>
                                             <?php if($_SESSION['user']->hasDroit('edit', 'com_resourcehumaine')) :?>
                                                 <a href="index.php?option=com_resourcehumaine&task=file&id=<?= $resourcehumaine->getId() ?>&id_file=<?= $file->getId() ?>" class="btn btn-info btn-sm editFile"><i class="fa fa-edit"></i></a>

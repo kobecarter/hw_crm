@@ -13,6 +13,67 @@ if (isset($task) && !empty($task)) {
         case "deleteFileResourceHumaine" :
             deleteFileResourceHumaine($_POST);
             break;
+        case "addFileResourceHumaineSelf" :
+            addFileResourceHumaineSelf($_POST);
+            break;
+        case "approveFileResourceHumaine" :
+            approveFileResourceHumaine($_POST);
+            break;
+    }
+}
+
+// Upload self-service (espace employé, com_elogin) : jamais de hasDroit ici (voir router.php,
+// gated isResourceHumaine() uniquement) - id_resourcehumaine forcé à la session, jamais au
+// champ du formulaire, et document_type verrouillé sur la liste des documents encore
+// manquants pour le statut de l'employé (whitelist stricte, pas de type libre). Toujours
+// inséré non validé (validated = 0) : ne compte dans la checklist de conformité qu'après
+// validation admin (voir fileresourcehumaine::documentTypesPresents()).
+function addFileResourceHumaineSelf($data)
+{
+    if (!$_SESSION['user']->isResourceHumaine()) {
+        echo "2";
+        return;
+    }
+    $resourcehumaine = $_SESSION['user'];
+    $documentsRequis = fileresourcehumaine::documentsRequis($resourcehumaine->getStatus());
+    $documentType = isset($data['document_type']) ? $data['document_type'] : '';
+    if (!isset($_FILES['file']) || $_FILES['file']['name'][0] == '' || !isset($documentsRequis[$documentType])) {
+        echo "0";
+        return;
+    }
+
+    $dossier = "../../../images/resourceshumaines/files";
+    $files = uploadFiles('file', $dossier, array('PDF', 'pdf', 'jpg', 'jpeg', 'gif', 'png', 'webp', 'JPG', 'JPEG', 'GIF', 'PNG', 'WEBP'));
+
+    $fileresourcehumaine = new fileresourcehumaine();
+    $fileresourcehumaine->setResourcehumaine($resourcehumaine);
+    $fileresourcehumaine->setTitle($documentsRequis[$documentType]);
+    $fileresourcehumaine->setDocumentType($documentType);
+    $fileresourcehumaine->setFile($files[0]);
+    $fileresourcehumaine->setValidated(0);
+
+    if ($fileresourcehumaine->add() == 1) {
+        echo "1";
+    } else {
+        echo "2";
+    }
+}
+
+// Validation admin d'un document déposé par l'employé - le fait basculer à "conforme" dans la
+// checklist. Nom différent de validateFileResourceHumaine() (déjà pris par le helper de
+// validation de formulaire ci-dessous) pour éviter toute confusion.
+function approveFileResourceHumaine($data)
+{
+    if (!isset($data['id']) || empty($data['id'])) {
+        echo "0";
+        return;
+    }
+    $fileresourcehumaine = fileresourcehumaine::find($data['id']);
+    $fileresourcehumaine->setValidated(1);
+    if ($fileresourcehumaine->edit() == 1) {
+        echo "1";
+    } else {
+        echo "2";
     }
 }
 

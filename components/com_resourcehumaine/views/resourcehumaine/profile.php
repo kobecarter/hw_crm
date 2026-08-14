@@ -1,340 +1,241 @@
-<!-- Page Wrapper -->
-<div class="page-wrapper">
-    <div class="content container-fluid">
+<?php
+/**
+ * Tableau de bord de l'espace employé (com_elogin). Exclusif à ce contexte (aucune autre
+ * vue ne l'inclut) — libre de tout re-templater sans impacter le CRM admin. La logique de
+ * calcul des congés (par mois/année depuis la date de début de contrat) est reprise telle
+ * quelle de l'ancienne version, seul le rendu change.
+ */
+$startDate = $resourcehumaine->getStartDate();
+$endDate = $resourcehumaine->getEndDate() ? $resourcehumaine->getEndDate() : date("Y-m-d");
+$totalHolidays = 0;
+$congesParAnnee = array();
+for ($annee = date("Y", strtotime($startDate)); $annee <= date("Y", strtotime($endDate)); $annee++) {
+	$totalAnnee = 0;
+	foreach (months() as $mois) {
+		$dateFinMois = date("Y-m-t", strtotime($annee . "-" . $mois['number'] . "-1"));
+		$debutMois = date("Y-m-d", strtotime($startDate));
+		$finMois = date("Y-m-d", strtotime($endDate));
+		if ($dateFinMois >= $debutMois && $dateFinMois <= $finMois) {
+			$totalAnnee += 1.5;
+			$totalHolidays += 1.5;
+		}
+	}
+	$congesParAnnee[$annee] = $totalAnnee;
+}
+$congesConsommes = 0;
+foreach ($absences as $uneAbsence) {
+	$congesConsommes += ($uneAbsence->getNatureOfAbsence() == 1 ? $uneAbsence->getNumberOfDays() : 0);
+}
+$congesRestants = $totalHolidays - $congesConsommes;
+$pctConges = $totalHolidays > 0 ? max(0, min(100, round(($congesRestants / $totalHolidays) * 100))) : 0;
 
-        <div class="page-header">
-            <div class="row align-items-center">
-                <div class="col">
-                    <h3 class="page-title">Tableau de bord</h3>
-                    <ul class="breadcrumb">
-                        <li class="breadcrumb-item active d-flex align-items-center"><i class="fa fa-home mr-2"></i> Tableau de bord</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
+$anciennete = (new DateTime($startDate))->diff(new DateTime());
+$anciennteLabel = ($anciennete->y > 0 ? $anciennete->y . ' an' . ($anciennete->y > 1 ? 's' : '') . ' ' : '') . $anciennete->m . ' mois';
 
-        <div class="row">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="text-center">
-                            <div class="div-round-profile mb-3">
-                                <img src="./images/resourceshumaines/<?= $resourcehumaine->getPhoto() ?>" onerror="this.src='./images/default-image.jpeg'" alt="<?= $resourcehumaine->getFirstName() . " " . $resourcehumaine->getLastName() ?>">
-                            </div>
-                            <h3 class="mb-0"><?= $resourcehumaine->getFirstName() . " " . $resourcehumaine->getLastName() ?></h3>
-                            <span class="text-secondary"><?= $resourcehumaine->getFunction() ?></span>
-                        </div>
+$documentsManquantsProfil = fileresourcehumaine::documentsManquants($resourcehumaine->getStatus(), $files);
+$dossierComplet = empty($documentsManquantsProfil);
 
-                        <div class="div-table-information customer-details-group mt-5">
-                            <div class="row justify-content-center">
-                                <div class="col-7">
-                                    <div class="row align-items-center justify-content-center">
-                                        <div class="col-lg-4 col-md-6 col-12">
-                                            <div class="customer-details">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="customer-details-cont">
-                                                        <h6>Matricule</h6>
-                                                        <p><?= $resourcehumaine->getReference() ? $resourcehumaine->getReference() : '<span class="text-danger">Indéfinie</span>' ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-4 col-md-6 col-12">
-                                            <div class="customer-details">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="customer-details-cont">
-                                                        <h6>Référence pointage</h6>
-                                                        <p><?= $resourcehumaine->getReferencePointage() ? $resourcehumaine->getReferencePointage() : '<span class="text-danger">Indéfinie</span>' ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-4 col-md-6 col-12">
-                                            <div class="customer-details">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="customer-details-cont">
-                                                        <h6>CIN</h6>
-                                                        <p><?= $resourcehumaine->getCin() ? $resourcehumaine->getCin() : '<span class="text-danger">Indéfinie</span>' ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-4 col-md-6 col-12">
-                                            <div class="customer-details">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="customer-details-cont">
-                                                        <h6>Prénom</h6>
-                                                        <p><?= $resourcehumaine->getFirstName() ? $resourcehumaine->getFirstName() : '<span class="text-danger">Indéfinie</span>' ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-4 col-md-6 col-12">
-                                            <div class="customer-details">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="customer-details-cont">
-                                                        <h6>Nom</h6>
-                                                        <p><?= $resourcehumaine->getLastName() ? $resourcehumaine->getLastName() : '<span class="text-danger">Indéfinie</span>' ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-4 col-md-6 col-12">
-                                            <div class="customer-details">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="customer-details-cont">
-                                                        <h6>Email</h6>
-                                                        <p><?= $resourcehumaine->getEmail() ? $resourcehumaine->getEmail() : '<span class="text-danger">Indéfinie</span>' ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-4 col-md-6 col-12">
-                                            <div class="customer-details">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="customer-details-cont">
-                                                        <h6>Téléphone</h6>
-                                                        <p><?= $resourcehumaine->getPhone() ? $resourcehumaine->getPhone() : '<span class="text-danger">Indéfinie</span>' ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-4 col-md-6 col-12">
-                                            <div class="customer-details">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="customer-details-cont">
-                                                        <h6>Adresse</h6>
-                                                        <p><?= $resourcehumaine->getAddress() ? $resourcehumaine->getAddress() : '<span class="text-danger">Indéfinie</span>' ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-4 col-md-6 col-12">
-                                            <div class="customer-details">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="customer-details-cont">
-                                                        <h6>Ville</h6>
-                                                        <p><?= $resourcehumaine->getCity() ? $resourcehumaine->getCity() : '<span class="text-danger">Indéfinie</span>' ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-4 col-md-6 col-12">
-                                            <div class="customer-details">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="customer-details-cont">
-                                                        <h6>Source de prospection</h6>
-                                                        <p><?= $resourcehumaine->getProspectingSource() ? $resourcehumaine->getProspectingSource() : '<span class="text-danger">Indéfinie</span>' ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-4 col-md-6 col-12">
-                                            <div class="customer-details">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="customer-details-cont">
-                                                        <h6>Numéro de CNSS</h6>
-                                                        <p><?= $resourcehumaine->getCnssNumber() ? $resourcehumaine->getCnssNumber() : '<span class="text-danger">Indéfinie</span>' ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-4 col-md-6 col-12">
-                                            <div class="customer-details">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="customer-details-cont">
-                                                        <h6>Fonction</h6>
-                                                        <p><?= $resourcehumaine->getFunction() ? $resourcehumaine->getFunction() : '<span class="text-danger">Indéfinie</span>' ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-4 col-md-6 col-12">
-                                            <div class="customer-details">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="customer-details-cont">
-                                                        <h6>Statut</h6>
-                                                        <p><?= $resourcehumaine->getStatus() ? $resourcehumaine->getStatus() : '<span class="text-danger">Indéfinie</span>' ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-4 col-md-6 col-12">
-                                            <div class="customer-details">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="customer-details-cont">
-                                                        <h6>Date début</h6>
-                                                        <p><?= normaldate($resourcehumaine->getStartDate()) ? $resourcehumaine->getStartDate() : '<span class="text-danger">Indéfinie</span>' ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-4 col-md-6 col-12">
-                                            <div class="customer-details">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="customer-details-cont">
-                                                        <h6>Date de signature de contrat</h6>
-                                                        <p><?= normaldate($resourcehumaine->getContractSigningDate()) ? $resourcehumaine->getContractSigningDate() : '<span class="text-danger">Indéfinie</span>' ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-4 col-md-6 col-12">
-                                            <div class="customer-details">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="customer-details-cont">
-                                                        <h6>Date fin</h6>
-                                                        <p><?= normaldate($resourcehumaine->getEndDate()) ? $resourcehumaine->getEndDate() : '<span class="text-danger">Indéfinie</span>' ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-4 col-md-6 col-12">
-                                            <div class="customer-details">
-                                                <div class="d-flex align-items-center">
-                                                    <div class="customer-details-cont">
-                                                        <h6>Remarque</h6>
-                                                        <p><?= normaldate($resourcehumaine->getRemark()) ? $resourcehumaine->getRemark() : '<span class="text-danger">Indéfinie</span>' ?></p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+$mesDemandes = request::findAllByResourcehumaine($resourcehumaine->getId());
+$demandesEnAttente = 0;
+foreach ($mesDemandes as $uneDemande) {
+	if ($uneDemande->getStatus() == 0) {
+		$demandesEnAttente++;
+	}
+}
 
-                        <div class="table-responsive mt-5">
-                            <table class="table mb-0 text-center">
-                                <thead>
-                                    <tr>
-                                        <th class="text-secondary">Année</th>
-                                        <?php foreach (months() as $month) : ?>
-                                            <th><?= $month['name'] ?></th>
-                                        <?php endforeach; ?>
-                                        <th>Congé total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php
-                                    $start_date = $resourcehumaine->getStartDate();
-                                    $end_date = $resourcehumaine->getEndDate() ? $resourcehumaine->getEndDate() : date("Y-m-d");
-                                    $total_holidays = 0;
-                                    for ($i = date("Y", strtotime($start_date)); $i <= date("Y", strtotime($end_date)); $i++) :
-                                        $total_holidays_per_year = 0;
-                                    ?>
+$salaireInitial = floatval($resourcehumaine->getSalaireInitial());
+$salaireActuel = floatval($resourcehumaine->getSalaireActuel());
+$evolutionSalairePct = $salaireInitial > 0 ? round((($salaireActuel - $salaireInitial) / $salaireInitial) * 100, 1) : 0;
+$maxSalaire = max($salaireInitial, $salaireActuel, 1);
 
-                                        <tr>
-                                            <td><?= $i ?></td>
-                                            <?php foreach (months() as $month) : ?>
-                                                <th>
-                                                    <?php
-                                                    $month_date = date("Y-m-t", strtotime($i . "-" . $month['number'] . "-1"));
-                                                    $start_month_date = date("Y-m-d", strtotime($start_date));
-                                                    $end_month_date = date("Y-m-d", strtotime($end_date));
+$totalCommissionValideeProfil = parrainage::totalCommissionValidee($resourcehumaine->getId());
 
-                                                    if ($month_date >= $start_month_date && $month_date <= $end_month_date) {
-                                                        $total_holidays_per_year += 1.5;
-                                                        $total_holidays += 1.5;
-                                                        echo '<span class="text-success">1.5</span>';
-                                                    } else {
-                                                        echo '0';
-                                                    }
-                                                    ?>
-                                                </th>
-                                            <?php endforeach; ?>
-                                            <th><span class="text-success"><?= $total_holidays_per_year ?></span></th>
-                                        </tr>
-                                    <?php endfor; ?>
-                                </tbody>
-                                <tfoot">
-                                    <tr class="text-left">
-                                        <th colspan="10"></th>
-                                        <th colspan="4">Congé total : <span class="text-success"><?= $total_holidays ?> Jour(s)</span></th>
-                                    </tr>
-                                    <tr class="text-left">
-                                        <th colspan="10"></th>
-                                        <th colspan="4">Congé consommé : <span class="text-danger">
-                                                <?php
-                                                $total_holidays_consumed = 0;
-                                                foreach ($absences as $value) :
-                                                    $total_holidays_consumed += ($value->getNatureOfAbsence() == 1 ? $value->getNumberOfDays() : 0);
-                                                endforeach;
-                                                echo $total_holidays_consumed . " Jour(s)";
-                                                ?>
-                                            </span></th>
-                                    </tr>
-                                    <tr class="text-left">
-                                        <th colspan="10"></th>
-                                        <th colspan="4">Congé resté : <span class="text-warning"><?= $total_holidays - $total_holidays_consumed ?> Jour(s)</span></th>
-                                    </tr>
-                                    </tfoot>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-<!-- /Page Wrapper -->
+$statsPointageMoisProfil = pointageweb::calculerStatsMois($resourcehumaine, date('Y-m'));
+$absencesNonJustifieesMoisProfil = 0;
+foreach (absence::findByDateMonthly($resourcehumaine->getId(), date('Y-m')) as $uneAbsenceMois) {
+	if ($uneAbsenceMois->getNatureOfAbsence() == 3) {
+		$absencesNonJustifieesMoisProfil += $uneAbsenceMois->getNumberOfDays();
+	}
+}
 
-<script type="text/javascript">
-    $(function() {
+$empPhotoProfil = $resourcehumaine->getPhoto() ? "./images/resourceshumaines/" . $resourcehumaine->getPhoto() : "./images/default-image.jpeg";
+?>
+<main class="emp-main">
 
-        var msgsucces = "Absence supprimé avec succès";
+	<div class="emp-page-header">
+		<h1 class="emp-page-title">Bonjour <?= htmlspecialchars($resourcehumaine->getFirstName()) ?> 👋</h1>
+		<p class="emp-page-subtitle">Voici un aperçu de votre espace personnel</p>
+	</div>
 
-        $(document).on("click", ".delete", function() {
-            event.preventDefault();
-            var $btn = $(this);
-            if (confirm("Etes-vous sure !")) {
-                var id = $(this).attr("data-id");
-                var order = 'id=' + id;
-                $.post("components/com_resourcehumaine/controleurs/router.php?task=deleteAbsenceResourceHumaine", order, function(theResponse) {
-                    if (parseInt(theResponse) == 1) {
+	<div class="emp-card emp-card-tilt emp-hero" style="margin-bottom: 20px;">
+		<div class="emp-hero-avatar-frame">
+			<img src="<?= htmlspecialchars($empPhotoProfil) ?>" onerror="this.src='./images/default-image.jpeg'" alt="">
+		</div>
+		<div class="emp-hero-info">
+			<h2 class="emp-hero-name"><?= htmlspecialchars($resourcehumaine->getFirstName() . ' ' . $resourcehumaine->getLastName()) ?></h2>
+			<p class="emp-hero-role"><?= htmlspecialchars($resourcehumaine->getFunction() ?: 'Collaborateur') ?></p>
+			<div class="emp-hero-chips">
+				<span class="emp-chip"><i class="fa fa-id-badge"></i> <?= htmlspecialchars($resourcehumaine->getReference() ?: 'Matricule non défini') ?></span>
+				<span class="emp-chip"><i class="fa fa-envelope"></i> <?= htmlspecialchars($resourcehumaine->getEmail()) ?></span>
+				<span class="emp-chip"><i class="fa fa-calendar-check"></i> Depuis le <?= normaldate($startDate) ?: htmlspecialchars($startDate) ?></span>
+			</div>
+		</div>
+		<a href="index.php?task=myProfileEdit" class="emp-btn-mini" style="width:auto;padding:0 16px;height:38px;position:relative;z-index:1;flex-shrink:0;" title="Modifier mon profil">
+			<i class="fa fa-user-edit mr-1"></i> Modifier
+		</a>
+	</div>
 
-                        $btn.parent().parent().addClass("table-danger");
-                        setTimeout(function() {
-                            $btn.parent().parent().remove()
-                        }, 1000);
+	<div class="emp-grid emp-kpi-grid" style="margin-bottom: 20px;">
+		<div class="emp-card emp-card-tilt emp-kpi-card">
+			<div class="emp-gauge" data-percent="<?= $pctConges ?>">
+				<div class="emp-gauge-inner">
+					<span class="emp-gauge-value" data-value="<?= $congesRestants ?>">0</span>
+					<span class="emp-gauge-unit">Jours</span>
+				</div>
+			</div>
+			<div>
+				<div class="emp-kpi-label">Congés restants</div>
+				<div style="font-size:.75rem;color:var(--emp-ink-soft);margin-top:2px;"><?= $congesConsommes ?> pris sur <?= $totalHolidays ?></div>
+			</div>
+		</div>
+		<div class="emp-card emp-card-tilt emp-kpi-card">
+			<div class="emp-kpi-icon kpi-2"><i class="fa fa-briefcase"></i></div>
+			<div>
+				<div class="emp-kpi-value"><?= $anciennteLabel ?></div>
+				<div class="emp-kpi-label">Ancienneté</div>
+			</div>
+		</div>
+		<div class="emp-card emp-card-tilt emp-kpi-card">
+			<div class="emp-kpi-icon kpi-3"><i class="fa fa-folder-open"></i></div>
+			<div>
+				<div class="emp-kpi-value"><?= $dossierComplet ? '✓' : count($documentsManquantsProfil) ?></div>
+				<div class="emp-kpi-label"><?= $dossierComplet ? 'Dossier complet' : 'document(s) manquant(s)' ?></div>
+			</div>
+		</div>
+		<a href="index.php?task=parrainage" class="emp-card emp-card-tilt emp-kpi-card" style="text-decoration:none;">
+			<div class="emp-kpi-icon kpi-2"><i class="fa fa-handshake"></i></div>
+			<div>
+				<div class="emp-kpi-value"><?= number_format($totalCommissionValideeProfil, 0, ',', ' ') ?> MAD</div>
+				<div class="emp-kpi-label">Commission de parrainage</div>
+			</div>
+		</a>
+		<div class="emp-card emp-card-tilt emp-kpi-card">
+			<div class="emp-kpi-icon kpi-3"><i class="fa fa-clock"></i></div>
+			<div>
+				<div class="emp-kpi-value"><?= floor($statsPointageMoisProfil['retard_minutes'] / 60) ?>h<?= str_pad($statsPointageMoisProfil['retard_minutes'] % 60, 2, '0', STR_PAD_LEFT) ?></div>
+				<div class="emp-kpi-label">Retard ce mois-ci</div>
+			</div>
+		</div>
+		<div class="emp-card emp-card-tilt emp-kpi-card">
+			<div class="emp-kpi-icon kpi-4"><i class="fa fa-comments"></i></div>
+			<div>
+				<div class="emp-kpi-value"><?= $demandesEnAttente ?></div>
+				<div class="emp-kpi-label">Demande(s) en attente</div>
+			</div>
+		</div>
+		<a href="index.php?task=absences" class="emp-card emp-card-tilt emp-kpi-card" style="text-decoration:none;">
+			<div class="emp-kpi-icon kpi-5"><i class="fa fa-user-clock"></i></div>
+			<div>
+				<div class="emp-kpi-value"><?= $absencesNonJustifieesMoisProfil ?></div>
+				<div class="emp-kpi-label">Jour(s) d'absence ce mois-ci</div>
+			</div>
+		</a>
+	</div>
 
-                        $('.msgbox').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><strong>Success!</strong> ' + msgsucces + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
-                    } else {
-                        $('.msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> Erreur lors de la suppression<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
-                    }
-                });
-            }
-        })
+	<?php if ($salaireInitial > 0 || $salaireActuel > 0) : ?>
+	<div class="emp-card" style="margin-bottom: 20px;">
+		<div class="emp-card-header">
+			<h3 class="emp-card-title"><i class="fa fa-chart-line"></i> Évolution du salaire</h3>
+			<?php if ($evolutionSalairePct != 0) : ?>
+				<span class="emp-badge <?= $evolutionSalairePct > 0 ? 'emp-badge-green' : 'emp-badge-red' ?>">
+					<i class="fa fa-arrow-<?= $evolutionSalairePct > 0 ? 'up' : 'down' ?> mr-1"></i><?= abs($evolutionSalairePct) ?> %
+				</span>
+			<?php endif; ?>
+		</div>
+		<div class="emp-salary-row">
+			<span class="emp-salary-label">Salaire initial</span>
+			<div class="emp-salary-track"><div class="emp-salary-fill" style="width:<?= round(($salaireInitial / $maxSalaire) * 100) ?>%;"></div></div>
+			<span class="emp-salary-value"><?= number_format($salaireInitial, 0, ',', ' ') ?> DH</span>
+		</div>
+		<div class="emp-salary-row">
+			<span class="emp-salary-label">Salaire actuel</span>
+			<div class="emp-salary-track"><div class="emp-salary-fill is-current" style="width:<?= round(($salaireActuel / $maxSalaire) * 100) ?>%;"></div></div>
+			<span class="emp-salary-value"><?= number_format($salaireActuel, 0, ',', ' ') ?> DH</span>
+		</div>
+	</div>
+	<?php endif; ?>
 
-        // envoi du formulaire en ajax
-        $('form#absenceResourceHumaineForm').ajaxForm({
-            beforeSubmit: function() {
-                $("#absenceResourceHumaineForm .loading").css('display', 'inline-block');
-            },
-            success: function(theResponse) {
-                console.log(theResponse)
-                $("#absenceResourceHumaineForm .loading").fadeOut();
-                $("html, body").animate({
-                    scrollTop: 0
-                }, "slow");
+	<div class="emp-card" style="margin-bottom: 20px;">
+		<div class="emp-card-header">
+			<h3 class="emp-card-title"><i class="fa fa-bolt"></i> Accès rapide</h3>
+		</div>
+		<div class="emp-grid emp-quicklinks">
+			<a href="index.php?task=absences" class="emp-card emp-card-tilt emp-quicklink-card">
+				<div class="emp-quicklink-icon"><i class="fa fa-umbrella-beach"></i></div>
+				<span class="emp-quicklink-label">Absences & congés</span>
+				<i class="fa fa-arrow-right emp-quicklink-arrow"></i>
+			</a>
+			<a href="index.php?task=files" class="emp-card emp-card-tilt emp-quicklink-card">
+				<div class="emp-quicklink-icon"><i class="fa fa-folder-open"></i></div>
+				<span class="emp-quicklink-label">Mes fichiers</span>
+				<i class="fa fa-arrow-right emp-quicklink-arrow"></i>
+			</a>
+			<a href="index.php?task=payslips" class="emp-card emp-card-tilt emp-quicklink-card">
+				<div class="emp-quicklink-icon"><i class="fa fa-file-invoice-dollar"></i></div>
+				<span class="emp-quicklink-label">Bulletins de paie</span>
+				<i class="fa fa-arrow-right emp-quicklink-arrow"></i>
+			</a>
+			<a href="index.php?task=bonuses" class="emp-card emp-card-tilt emp-quicklink-card">
+				<div class="emp-quicklink-icon"><i class="fa fa-gift"></i></div>
+				<span class="emp-quicklink-label">Mes bonus</span>
+				<i class="fa fa-arrow-right emp-quicklink-arrow"></i>
+			</a>
+			<a href="index.php?task=requests" class="emp-card emp-card-tilt emp-quicklink-card">
+				<div class="emp-quicklink-icon"><i class="fa fa-comments"></i></div>
+				<span class="emp-quicklink-label">Mes demandes</span>
+				<i class="fa fa-arrow-right emp-quicklink-arrow"></i>
+			</a>
+			<a href="index.php?task=parrainage" class="emp-card emp-card-tilt emp-quicklink-card">
+				<div class="emp-quicklink-icon"><i class="fa fa-handshake"></i></div>
+				<span class="emp-quicklink-label">Parrainage client</span>
+				<i class="fa fa-arrow-right emp-quicklink-arrow"></i>
+			</a>
+		</div>
+	</div>
 
-                var msgsucces = "Absence ajouté avec succès";
-                if ($(".submit").attr("name") === "edit") {
-                    msgsucces = "Absence modifié avec succès";
-                }
-                if (parseInt(theResponse) === 1) {
-                    $('#absenceResourceHumaineForm .msgbox').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><strong>Success!</strong> ' + msgsucces + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+	<div class="emp-card">
+		<div class="emp-card-header">
+			<h3 class="emp-card-title"><i class="fa fa-chart-pie"></i> Détail des congés par année</h3>
+		</div>
+		<div class="table-responsive">
+			<table class="table table-sm text-center mb-0">
+				<thead>
+					<tr>
+						<th class="text-left text-secondary">Année</th>
+						<?php foreach (months() as $mois) : ?>
+							<th><?= $mois['name'] ?></th>
+						<?php endforeach; ?>
+						<th>Total</th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php for ($annee = date("Y", strtotime($startDate)); $annee <= date("Y", strtotime($endDate)); $annee++) : ?>
+						<tr>
+							<td class="text-left"><b><?= $annee ?></b></td>
+							<?php foreach (months() as $mois) :
+								$dateFinMois = date("Y-m-t", strtotime($annee . "-" . $mois['number'] . "-1"));
+								$debutMois = date("Y-m-d", strtotime($startDate));
+								$finMois = date("Y-m-d", strtotime($endDate));
+								$acquis = ($dateFinMois >= $debutMois && $dateFinMois <= $finMois);
+							?>
+								<td><?= $acquis ? '<span class="emp-badge emp-badge-green">1.5</span>' : '<span style="color:var(--emp-ink-soft)">0</span>' ?></td>
+							<?php endforeach; ?>
+							<td><span class="emp-badge emp-badge-purple"><?= $congesParAnnee[$annee] ?></span></td>
+						</tr>
+					<?php endfor; ?>
+				</tbody>
+			</table>
+		</div>
+	</div>
 
-                    setTimeout(function() {
-                        location.reload()
-                    }, 1500)
-
-                } else if (parseInt(theResponse) === 0) {
-                    $('#absenceResourceHumaineForm .msgbox').html('<div class="alert alert-warning alert-dismissible fade show" role="alert"><strong>Attention!</strong> Veuillez remplir les champs obligatoires<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
-                } else {
-                    $('#absenceResourceHumaineForm .msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> Erreur lors de l\'execution de l\'opération<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
-                }
-            }
-        });
-    });
-</script>
+</main>

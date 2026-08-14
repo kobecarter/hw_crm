@@ -11,6 +11,7 @@ $ongletsEmploye = array(
     'absence' => array('label' => 'Absences', 'icon' => 'fa-calendar-times'),
     'request' => array('label' => 'Demandes', 'icon' => 'fa-envelope-open-text'),
     'bonus' => array('label' => 'Bonus', 'icon' => 'fa-money-bill-wave'),
+    'parrainage' => array('label' => 'Parrainage', 'icon' => 'fa-handshake'),
     'payslip' => array('label' => 'Bulletins de paie', 'icon' => 'fa-file-invoice-dollar'),
     'joboffer' => array('label' => 'Offre d\'emploi', 'icon' => 'fa-file-signature'),
 );

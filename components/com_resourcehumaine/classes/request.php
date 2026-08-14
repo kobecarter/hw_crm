@@ -4,10 +4,21 @@ class request
 {
     static $table =  __prefixe_db__ . "request";
 
+    // Types de demande self-service (employé) - clé stable en base, libellé affiché. Utilisé à
+    // la fois pour peupler le <select> du formulaire et comme whitelist serveur (jamais de
+    // valeur libre acceptée depuis $_POST).
+    public static $typesLabels = array(
+        'conge' => 'Congé',
+        'absence' => 'Absence',
+        'formation' => 'Formation',
+        'autre' => 'Autre',
+    );
+
     private $id;
     private $resourcehumaine;
     private $title;
     private $description;
+    private $type;
     private $response;
     private $status;
     private $date_add;
@@ -31,6 +42,14 @@ class request
     
     public function getDescription(){
         return $this->description;
+    }
+
+    public function getType(){
+        return $this->type;
+    }
+
+    public function getTypeLabel(){
+        return isset(self::$typesLabels[$this->type]) ? self::$typesLabels[$this->type] : self::$typesLabels['autre'];
     }
 
     public function getResponse(){
@@ -66,6 +85,10 @@ class request
         $this->description = $description;
     }
 
+    public function setType($type){
+        $this->type = isset(self::$typesLabels[$type]) ? $type : 'autre';
+    }
+
     public function setResponse($response){
         $this->response = $response;
     }
@@ -93,10 +116,11 @@ class request
     public function add()
     {
         global $db;
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_resourcehumaine, title, description, response, status, date_add, date_edit) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_resourcehumaine, title, description, type, response, status, date_add, date_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->resourcehumaine->getId(), "int"),
             GetSQLValueString($this->title, "text"),
             GetSQLValueString($this->description, "text"),
+            GetSQLValueString($this->type, "text"),
             GetSQLValueString($this->response, "text"),
             GetSQLValueString($this->status, "int"),
             GetSQLValueString($this->date_add, "date"),
@@ -113,10 +137,11 @@ class request
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET id_resourcehumaine = %s, title = %s, description = %s, response = %s,status = %s, date_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET id_resourcehumaine = %s, title = %s, description = %s, type = %s, response = %s,status = %s, date_edit = %s WHERE id = %s",
             GetSQLValueString($this->resourcehumaine->getId(), "int"),
             GetSQLValueString($this->title, "text"),
             GetSQLValueString($this->description, "text"),
+            GetSQLValueString($this->type, "text"),
             GetSQLValueString($this->response, "text"),
             GetSQLValueString($this->status, "int"),
             GetSQLValueString($this->date_edit, "date"),
@@ -191,6 +216,7 @@ class request
         $request->setResourcehumaine(resourcehumaine::find($data["id_resourcehumaine"]));
         $request->setTitle($data['title']);
         $request->setDescription($data['description']);
+        $request->setType(isset($data['type']) ? $data['type'] : 'autre');
         $request->setResponse($data['response']);
         $request->setStatus($data['status']);
         $request->setDateAdd($data['date_add']);

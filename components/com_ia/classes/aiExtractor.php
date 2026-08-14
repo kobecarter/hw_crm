@@ -216,6 +216,25 @@ class aiExtractor
         return self::appelerEtDecoder($systemPrompt, $messages, 1024, array('type_document', 'montant', 'mois', 'annee', 'nom', 'prenom', 'cin', 'titre_suggere'));
     }
 
+    // Extraction du montant net à payer d'un bulletin de paie déjà classé/rattaché à un
+    // employé (contrairement à extractChargeDocument() ci-dessus, pensé pour la dropzone de la
+    // page Charges où le type de document est encore inconnu) - utilisé par le recalcul de
+    // bonus (components/com_resourcehumaine/controleurs/bonus/controleur.php) qui relit les
+    // bulletins déjà stockés sur le disque pour les comparer au salaire déclaré.
+    public static function extractPayslipAmount($absolutePath, $extension)
+    {
+        $schema = '{"montant":""}';
+        $systemPrompt = "Tu es un assistant qui extrait le montant net à payer d'un bulletin de paie marocain, pour un CRM RH. "
+            . "Réponds UNIQUEMENT avec un objet JSON valide, sans aucun texte avant ou après, sans balises markdown. "
+            . "Le JSON doit respecter exactement ce schéma: " . $schema . " "
+            . "'montant' est le NET A PAYER (pas le salaire brut, pas le net imposable), en dirhams, sans symbole monétaire (juste le nombre, ex: '8500.00'). "
+            . "Règle stricte: si le montant n'est pas présent ou n'est pas certain sur le document, laisse le champ vide. Ne devine jamais une valeur.";
+
+        $messages = self::construireMessagesDocument($absolutePath, $extension, "Analyse ce bulletin de paie et extrait le net à payer.");
+
+        return self::appelerEtDecoder($systemPrompt, $messages, 512, array('montant'));
+    }
+
     // Extraction des lignes d'un relevé bancaire PDF (Rapprochement Bancaire) : contrairement aux
     // autres extracteurs ci-dessus qui remplissent un seul enregistrement, un relevé contient de
     // nombreuses transactions - le schéma retourne donc un TABLEAU de lignes plutôt qu'un objet

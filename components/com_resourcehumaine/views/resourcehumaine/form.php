@@ -214,6 +214,13 @@
 
 		<div class="col-md-3">
 			<div class="form-group">
+				<label>Commission de parrainage (MAD)<span class="text-muted"> — par client validé</span></label>
+				<input type="number" step="0.01" min="0" class="form-control" name="commission_parrainage" value="<?php if (isset($resourcehumaine)) echo $resourcehumaine->getCommissionParrainage(); ?>">
+			</div>
+		</div>
+
+		<div class="col-md-3">
+			<div class="form-group">
 				<label>Date debut<span class="text-danger"> * </span></label>
 				<div class="cal-icon">
 					<input type="text" class="form-control datetimepicker" name="start_date" value="<?php if (isset($resourcehumaine)) {

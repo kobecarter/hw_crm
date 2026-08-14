@@ -1466,3 +1466,36 @@ function envoyerEmailDocumentsManquantsRH($employe, $manquants)
         return false;
     }
 }
+
+// Pointage web self-service (com_resourcehumaine) : l'employé ne peut pointer que depuis le
+// Wi-Fi du bureau (config.secrets.php, POINTAGE_ALLOWED_IPS, CSV). Repli sûr par défaut : si la
+// liste est vide (pas encore configurée) ou l'adresse du visiteur est vide, refuse - jamais
+// permissif par accident. Compare REMOTE_ADDR et, s'il existe, le premier maillon de
+// X-Forwarded-For (hébergement mutualisé/proxy en prod) : ce dernier est falsifiable par le
+// client, mais l'enjeu ici est une politique de présence RH, pas une frontière de sécurité
+// sensible - la même tolérance que le reste de l'app pour ce type de contrôle.
+function pointageIpAutorisee()
+{
+    if (!defined('POINTAGE_ALLOWED_IPS') || trim(POINTAGE_ALLOWED_IPS) === '') {
+        return false;
+    }
+    $autorisees = array_map('trim', explode(',', POINTAGE_ALLOWED_IPS));
+
+    $ipsAVerifier = array();
+    if (!empty($_SERVER['REMOTE_ADDR'])) {
+        $ipsAVerifier[] = $_SERVER['REMOTE_ADDR'];
+    }
+    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $premier = trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0]);
+        if ($premier !== '') {
+            $ipsAVerifier[] = $premier;
+        }
+    }
+
+    foreach ($ipsAVerifier as $ip) {
+        if (in_array($ip, $autorisees, true)) {
+            return true;
+        }
+    }
+    return false;
+}

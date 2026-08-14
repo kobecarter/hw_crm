@@ -249,6 +249,14 @@
                             $anneesConge[] = array('annee' => $i, 'mois' => $moisDetail, 'total' => $total_holidays_per_year);
                         }
                         $total_holidays_restant = $total_holidays - $total_holidays_consumed;
+
+                        $statsPointageMoisDetail = pointageweb::calculerStatsMois($resourcehumaine, date('Y-m'));
+                        $absencesNonJustifieesMoisDetail = 0;
+                        foreach (absence::findByDateMonthly($resourcehumaine->getId(), date('Y-m')) as $uneAbsenceMoisDetail) {
+                            if ($uneAbsenceMoisDetail->getNatureOfAbsence() == 3) {
+                                $absencesNonJustifieesMoisDetail += $uneAbsenceMoisDetail->getNumberOfDays();
+                            }
+                        }
                         ?>
 
                         <div class="row mt-4">
@@ -269,6 +277,45 @@
                                                 <div class="leave-gauge-legend-item"><span class="leave-dot leave-dot-remaining"></span> Congé restant <b><?= $total_holidays_restant ?> j</b></div>
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mt-4">
+                            <div class="col-md-6 d-flex">
+                                <div class="card flex-fill mb-0">
+                                    <div class="card-body">
+                                        <div class="dash-widget-header">
+                                            <span class="dash-widget-icon bg-9" data-toggle="tooltip" title="Cumul des minutes de retard à l'arrivée sur le mois en cours, calculé à partir du pointage web (référence 09:00, jamais au-delà de 2h sinon compté en absence).">
+                                                <i class="fa fa-clock"></i>
+                                            </span>
+                                            <div class="dash-count">
+                                                <div class="dash-title">Retard ce mois-ci</div>
+                                                <div class="dash-counts">
+                                                    <p><?= floor($statsPointageMoisDetail['retard_minutes'] / 60) ?>h<?= str_pad($statsPointageMoisDetail['retard_minutes'] % 60, 2, '0', STR_PAD_LEFT) ?></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p class="text-muted mt-3 mb-0"><?= $statsPointageMoisDetail['retard_jours'] ?> jour(s) concerné(s)</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 d-flex">
+                                <div class="card flex-fill mb-0">
+                                    <div class="card-body">
+                                        <div class="dash-widget-header">
+                                            <span class="dash-widget-icon bg-1" data-toggle="tooltip" title="Jours d'absence 'Non justifié' enregistrés ce mois-ci, y compris ceux détectés automatiquement (aucun pointage, ou retard de plus de 2h).">
+                                                <i class="fa fa-user-clock"></i>
+                                            </span>
+                                            <div class="dash-count">
+                                                <div class="dash-title">Absence(s) ce mois-ci</div>
+                                                <div class="dash-counts">
+                                                    <p><?= $absencesNonJustifieesMoisDetail ?></p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <p class="text-muted mt-3 mb-0">Non justifié</p>
                                     </div>
                                 </div>
                             </div>
