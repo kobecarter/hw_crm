@@ -20,6 +20,9 @@ $option = isset($_GET['option']) ? $_GET['option'] : "com_dashboard";
 $config = new config($db);
 if (in_array($option, array('com_login', 'com_elogin'))) {
     include("includes/tpl/top-login.php");
+} else if (isset($_SESSION['user']) && $_SESSION['user'] instanceof resourcehumaine) {
+    // Espace self-service employé : shell dédié (verre/GSAP), jamais le sidebar admin.
+    include("includes/tpl/employee-top.php");
 } else {
     include("includes/tpl/top.php");
     include("includes/tpl/sidebar.php");

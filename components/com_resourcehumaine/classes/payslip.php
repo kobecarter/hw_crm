@@ -9,6 +9,7 @@ class payslip
     private $title;
     private $date;
     private $file;
+    private $amount;
     private $id_charge;
 
     public function __construct(){
@@ -44,6 +45,13 @@ class payslip
         return $this->file;
     }
 
+    // Net à payer extrait par IA du PDF (voir aiExtractor::extractPayslipAmount()), mis en
+    // cache ici pour ne jamais ré-extraire un bulletin déjà traité lors d'un recalcul suivant.
+    // Null tant que le bulletin n'a jamais été passé par le recalcul de bonus.
+    public function getAmount(){
+        return $this->amount;
+    }
+
     public function getIdCharge(){
         return $this->id_charge;
     }
@@ -68,6 +76,10 @@ class payslip
         $this->file = $file;
     }
 
+    public function setAmount($amount){
+        $this->amount = $amount;
+    }
+
     public function setIdCharge($id_charge){
         $this->id_charge = $id_charge;
     }
@@ -75,11 +87,12 @@ class payslip
     public function add()
     {
         global $db;
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_resourcehumaine, title, date, file, id_charge) VALUES (%s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_resourcehumaine, title, date, file, amount, id_charge) VALUES (%s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->resourcehumaine->getId(), "int"),
             GetSQLValueString($this->title, "text"),
             GetSQLValueString($this->date, "date"),
             GetSQLValueString($this->file, "text"),
+            GetSQLValueString($this->amount, "double"),
             GetSQLValueString($this->id_charge, "int")
         );
 
@@ -93,11 +106,12 @@ class payslip
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET id_resourcehumaine = %s, title = %s, date = %s, file = %s, id_charge = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET id_resourcehumaine = %s, title = %s, date = %s, file = %s, amount = %s, id_charge = %s WHERE id = %s",
             GetSQLValueString($this->resourcehumaine->getId(), "int"),
             GetSQLValueString($this->title, "text"),
             GetSQLValueString($this->date, "date"),
             GetSQLValueString($this->file, "text"),
+            GetSQLValueString($this->amount, "double"),
             GetSQLValueString($this->id_charge, "int"),
             GetSQLValueString($this->getId(), "int")
         );
@@ -194,6 +208,7 @@ class payslip
         $payslip->setTitle($data['title']);
         $payslip->setDate($data['date']);
         $payslip->setFile($data['file']);
+        $payslip->setAmount(isset($data['amount']) && $data['amount'] !== '' ? $data['amount'] : null);
         $payslip->setIdCharge(isset($data['id_charge']) ? $data['id_charge'] : null);
         return $payslip;
     }

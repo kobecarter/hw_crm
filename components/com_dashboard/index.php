@@ -138,6 +138,9 @@ switch ($task) {
         if($_SESSION['user']->isResourceHumaine()){
             $resourcehumaine = $_SESSION['user'];
             $payslips = payslip::findAllByResourcehumaine($resourcehumaine->getId());
+            // Même calcul que components/com_resourcehumaine/index.php (vue admin) - manquait
+            // ici, donc la bannière "bulletins manquants" ne s'affichait jamais côté employé.
+            $moisManquants = $resourcehumaine->isActive() ? payslip::missingMonths($resourcehumaine) : array();
             include_once("components/com_resourcehumaine/views/payslip/profile_payslips.php");
         }
         break;
@@ -162,8 +165,36 @@ switch ($task) {
             include_once("components/com_resourcehumaine/views/bonus/profile_bonuses.php");
         }
         break;
+    case 'myProfileEdit':
+        if($_SESSION['user']->isResourceHumaine()){
+            $resourcehumaine = $_SESSION['user'];
+            include_once("components/com_resourcehumaine/views/resourcehumaine/profile_edit.php");
+        }
+        break;
+    case 'parrainage':
+        if($_SESSION['user']->isResourceHumaine()){
+            $resourcehumaine = $_SESSION['user'];
+            $parrainages = parrainage::findAllByResourcehumaine($resourcehumaine->getId());
+            include_once("components/com_resourcehumaine/views/parrainage/profile_parrainage.php");
+        }
+        break;
+    case 'pointageweb':
+        if($_SESSION['user']->isResourceHumaine()){
+            $resourcehumaine = $_SESSION['user'];
+            $pointageDuJour = pointageweb::findOrCreateAujourdhui($resourcehumaine);
+            $ipAutorisee = pointageIpAutorisee();
+            $blocagePointage = pointageweb::jourBloquePourPointage($resourcehumaine, date('Y-m-d'));
+            include_once("components/com_resourcehumaine/views/pointageweb/profile_pointage.php");
+        }
+        break;
 	default:
-		if ($_SESSION['user']->hasDroit('view', 'com_dashboard')) {
+		// isResourceHumaine() en plus de hasDroit() : l'espace self-service employé
+		// (com_elogin) doit toujours pouvoir voir son propre tableau de bord, quel que
+		// soit le profil (Administrateur, Commercial, ...) assigné à sa fiche RH -
+		// resourcehumaine::hasDroit() renvoie volontairement toujours false (voir ce
+		// fichier), donc sans ce OR aucun employé ne pourrait plus jamais atteindre
+		// cette page par défaut.
+		if ($_SESSION['user']->isResourceHumaine() || $_SESSION['user']->hasDroit('view', 'com_dashboard')) {
             if($_SESSION['user']->isResourceHumaine()){
                 $resourcehumaine = $_SESSION['user'];
                 $files = fileresourcehumaine::findAllByResourcehumaine($resourcehumaine->getId());

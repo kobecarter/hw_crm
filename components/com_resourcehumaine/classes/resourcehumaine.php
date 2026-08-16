@@ -22,6 +22,7 @@ class resourcehumaine
     private $rib;
     private $salaire_initial;
     private $salaire_actuel;
+    private $commission_parrainage;
     private $function;
     private $profil;
     private $status;
@@ -174,6 +175,11 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
     public function getSalaireActuel()
     {
         return $this->salaire_actuel;
+    }
+
+    public function getCommissionParrainage()
+    {
+        return $this->commission_parrainage;
     }
 
     public function getFunction()
@@ -353,6 +359,11 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
         $this->salaire_actuel = $salaire_actuel;
     }
 
+    public function setCommissionParrainage($commission_parrainage)
+    {
+        $this->commission_parrainage = $commission_parrainage;
+    }
+
     public function setFunction($function)
     {
         $this->function = $function;
@@ -437,7 +448,7 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
     public function add()
     {
         global $db;
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (reference,reference_pointage,id_agency, cin, cnss_number, firstname, lastname, email, password, phone, second_phone, address, city, prospecting_source, rib, salaire_initial, salaire_actuel, function, id_profil, status, start_date, contract_signing_date, end_date, photo, remark, active, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (reference,reference_pointage,id_agency, cin, cnss_number, firstname, lastname, email, password, phone, second_phone, address, city, prospecting_source, rib, salaire_initial, salaire_actuel, commission_parrainage, function, id_profil, status, start_date, contract_signing_date, end_date, photo, remark, active, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->reference, "text"),
             GetSQLValueString($this->reference_pointage, "text"),
             GetSQLValueString($this->agency->getId(), "int"),
@@ -455,6 +466,7 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
             GetSQLValueString($this->rib, "text"),
             GetSQLValueString($this->salaire_initial, "double"),
             GetSQLValueString($this->salaire_actuel, "double"),
+            GetSQLValueString($this->commission_parrainage, "double"),
             GetSQLValueString($this->function, "text"),
             GetSQLValueString($this->profil->getId(), "int"),
             GetSQLValueString($this->status, "text"),
@@ -463,7 +475,7 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
             GetSQLValueString($this->end_date, "date"),
 			GetSQLValueString($this->photo, "text"),
             GetSQLValueString($this->remark, "text"),
-            GetSQLValueString($this->active, "int"),				 
+            GetSQLValueString($this->active, "int"),
             GetSQLValueString($this->date_add, "date"),
             GetSQLValueString($this->last_edit, "date")
         );
@@ -477,7 +489,7 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET reference = %s, reference_pointage = %s, id_agency = %s, cin = %s, cnss_number = %s, firstname = %s, lastname = %s, email = %s, password = %s, phone = %s, second_phone = %s, address = %s, city = %s, prospecting_source = %s, rib = %s, salaire_initial = %s, salaire_actuel = %s, function = %s, id_profil= %s, status = %s, start_date = %s, contract_signing_date = %s, end_date = %s, photo = %s, remark = %s, active = %s, date_add = %s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET reference = %s, reference_pointage = %s, id_agency = %s, cin = %s, cnss_number = %s, firstname = %s, lastname = %s, email = %s, password = %s, phone = %s, second_phone = %s, address = %s, city = %s, prospecting_source = %s, rib = %s, salaire_initial = %s, salaire_actuel = %s, commission_parrainage = %s, function = %s, id_profil= %s, status = %s, start_date = %s, contract_signing_date = %s, end_date = %s, photo = %s, remark = %s, active = %s, date_add = %s, last_edit = %s WHERE id = %s",
             GetSQLValueString($this->reference, "text"),
             GetSQLValueString($this->reference_pointage, "text"),
             GetSQLValueString($this->agency->getId(), "int"),
@@ -495,6 +507,7 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
             GetSQLValueString($this->rib, "text"),
             GetSQLValueString($this->salaire_initial, "double"),
             GetSQLValueString($this->salaire_actuel, "double"),
+            GetSQLValueString($this->commission_parrainage, "double"),
             GetSQLValueString($this->function, "text"),
             GetSQLValueString($this->profil->getId(), "int"),
             GetSQLValueString($this->status, "text"),
@@ -672,6 +685,7 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
 		$resourcehumaine->setRib($data['rib']);
         $resourcehumaine->setSalaireInitial(isset($data['salaire_initial']) ? $data['salaire_initial'] : null);
         $resourcehumaine->setSalaireActuel(isset($data['salaire_actuel']) ? $data['salaire_actuel'] : null);
+        $resourcehumaine->setCommissionParrainage(isset($data['commission_parrainage']) ? $data['commission_parrainage'] : 0);
         $resourcehumaine->setFunction($data['function']);
         $resourcehumaine->setProfil(isset($data['id_profil']) ? profil::find($data['id_profil']) : new profil());
         $resourcehumaine->setStatus($data['status']);
@@ -743,11 +757,13 @@ function calculerPeriodeStagiaire($start_date, $end_date = null) {
     }
 
     public function hasDroit($action, $module){
-        if($this->getProfil()->hasDroit($action, $module)){
-            return true;
-        }else{
-            return false;
-        }
+        // L'espace self-service employé (com_elogin) n'accorde jamais de droit sur les
+        // modules de gestion CRM, quel que soit le profil (Administrateur, Commercial, ...)
+        // assigné à la fiche RH — ce profil sert à classer le rôle de l'employé, pas à lui
+        // donner accès au back-office via le portail employé. Tous les écrans self-service
+        // légitimes (absences, fichiers, primes, bulletins, demandes) sont gérés via
+        // isResourceHumaine(), jamais via hasDroit().
+        return false;
     }
 
     public static function isEmailValable($email){

@@ -24,6 +24,9 @@ if (isset($task) && !empty($task)) {
         case 'removeRowWorkDate':
             removeRowWorkDate($_POST);
             break;
+        case 'editMyResourceHumaine':
+            editMyResourceHumaine($_POST);
+            break;
     }
 }
 
@@ -109,6 +112,57 @@ function editResourceHumaine($data)
     }
 }
 
+// Auto-édition (espace employé, com_elogin) : jamais de hasDroit ici (voir router.php, gated
+// isResourceHumaine() uniquement) - contrôle serveur strict que l'id soumis correspond bien à
+// la session, exactement le même garde-fou que editMyProfile() de com_users
+// (components/com_users/controleurs/user/controleur.php), pour la même raison : sans lui,
+// changer l'id à la main permettrait de modifier la fiche RH de n'importe quel employé.
+function editMyResourceHumaine($data)
+{
+    $indices = array("id", "phone", "address", "city");
+    if (fieldCheck($data, $indices)) {
+        if (intval($data['id']) !== intval($_SESSION['user']->getId())) {
+            echo "2";
+            return;
+        }
+        if (buildResourceHumaineSelf($data)->edit() == 1) {
+            $refreshed = resourcehumaine::find($_SESSION['user']->getId());
+            $refreshed->setConnected(true);
+            $_SESSION['user'] = $refreshed;
+            echo "1";
+        } else {
+            echo "2";
+        }
+    } else {
+        echo "0";
+    }
+}
+
+// Ne touche QUE les champs personnels (photo/téléphone/adresse/ville) - reconstruit depuis
+// l'enregistrement existant en base (jamais un objet neuf), pour que profil/salaire/statut/
+// dates/commission - réservés à l'admin via buildResourceHumaine() - gardent leur valeur
+// actuelle sans qu'aucun setter dessus ne soit jamais appelé ici.
+function buildResourceHumaineSelf($data)
+{
+    $resourcehumaine = resourcehumaine::find($_SESSION['user']->getId());
+
+    $photo = array();
+    if (isset($_FILES['photo']) && $_FILES['photo']['name'][0] != '') {
+        $photo = uploadFiles('photo', '../../../images/resourceshumaines/', array('jpg', 'jpeg', 'gif', 'png', 'JPG', 'JPEG', 'GIF', 'PNG'));
+    }
+    if (isset($photo[0])) {
+        $resourcehumaine->setPhoto($photo[0]);
+    }
+
+    $resourcehumaine->setPhone($data['phone']);
+    $resourcehumaine->setSecondPhone(isset($data['second_phone']) ? $data['second_phone'] : '');
+    $resourcehumaine->setAddress($data['address']);
+    $resourcehumaine->setCity($data['city']);
+    $resourcehumaine->setLastEdit(date("Y-m-d H:i:s"));
+
+    return $resourcehumaine;
+}
+
 function deleteResourceHumaine($data)
 {
     $indices = array("id");
@@ -173,6 +227,8 @@ function buildResourceHumaine($data, $id = null)
     $resourcehumaine->setRib($data['rib']);
     $resourcehumaine->setSalaireInitial(isset($data['salaire_initial']) && $data['salaire_initial'] !== '' ? $data['salaire_initial'] : null);
     $resourcehumaine->setSalaireActuel(isset($data['salaire_actuel']) && $data['salaire_actuel'] !== '' ? $data['salaire_actuel'] : null);
+    // NOT NULL DEFAULT 0 en base (contrairement aux salaires, nullable) - jamais null ici.
+    $resourcehumaine->setCommissionParrainage(isset($data['commission_parrainage']) && $data['commission_parrainage'] !== '' ? $data['commission_parrainage'] : 0);
 	$resourcehumaine->setFunction($data['function']);
     $resourcehumaine->setProfil(isset($data['id_profil']) ? profil::find($data['id_profil']) : new profil());
     $resourcehumaine->setStatus($data['status']);

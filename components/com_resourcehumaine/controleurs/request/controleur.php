@@ -348,6 +348,7 @@ function buildRequest($data, $id = null)
     $request->setResourcehumaine(resourcehumaine::find($_SESSION['user']->getId()));
     $request->setTitle($data["title"]);
     $request->setDescription($data["description"]);
+    $request->setType(isset($data["type"]) ? $data["type"] : 'autre');
     $request->setStatus(isset($_POST["status"]) ? 1 : 0);
     $request->setDateAdd(date("Y-m-d"));
     $request->setDateEdit(date("Y-m-d"));

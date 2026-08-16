@@ -73,5 +73,17 @@
             }
         });
 
+        $(document).on("click", ".approveFile", function() {
+            var $btn = $(this);
+            var id = $btn.attr("data-id");
+            $.post("components/com_resourcehumaine/controleurs/router.php?task=approveFileResourceHumaine", { id: id }, function(theResponse) {
+                if (parseInt(theResponse) === 1) {
+                    location.reload();
+                } else {
+                    $(".msgbox").html("<div class='alert alert-danger alert-dismissable'><i class='fa fa-times'></i> <strong>Erreur! </strong>Échec de la validation.</div>").slideDown();
+                }
+            });
+        });
+
     });
 </script>

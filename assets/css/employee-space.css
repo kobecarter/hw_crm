@@ -1,0 +1,1135 @@
+/* ==========================================================================
+   Espace Employé — feuille dédiée, chargée uniquement par includes/tpl/
+   employee-top.php (jamais sur les pages admin). Hérite des tokens de
+   assets/css/modern-theme.css (--brand, --accent-*, --radius-*, --shadow-*,
+   --ease) déjà chargé avant celle-ci, et les étend pour cet espace : fond à
+   blobs animés, cartes verre, jauge congés en conic-gradient, nav pilules à
+   indicateur glissant, tilt 3D (voir assets/js/employee-space.js).
+   ========================================================================== */
+
+/* Masquage initial de l'entrée (voir assets/js/employee-space.js) - classe posée en synchrone
+   dans <head> (includes/tpl/employee-top.php) avant le premier paint, retirée par le JS dès
+   qu'il tourne. Si JS est désactivé, la classe n'est jamais posée : le contenu reste visible
+   par défaut (pas de dépendance JS pour être lisible). */
+.emp-anim .emp-header,
+.emp-anim .emp-nav-wrap,
+.emp-anim .emp-hero,
+.emp-anim .emp-main > .emp-grid > *,
+.emp-anim .emp-main > .emp-card:not(.emp-hero),
+.emp-anim .emp-main > .emp-page-header {
+	opacity: 0;
+}
+
+:root {
+	--emp-glass-bg: rgba(255, 255, 255, 0.62);
+	--emp-glass-bg-strong: rgba(255, 255, 255, 0.8);
+	--emp-glass-border: rgba(255, 255, 255, 0.55);
+	--emp-ink: #181a2a;
+	--emp-ink-soft: #6b7280;
+	--emp-header-h: 76px;
+	--emp-nav-h: 60px;
+}
+
+[data-theme="dark"] {
+	--emp-glass-bg: rgba(30, 32, 54, 0.55);
+	--emp-glass-bg-strong: rgba(30, 32, 54, 0.75);
+	--emp-glass-border: rgba(255, 255, 255, 0.1);
+	--emp-ink: #f1f2f8;
+	--emp-ink-soft: #a3a7c2;
+}
+
+.employee-space {
+	/* Pas de background ici : .emp-bg (position:fixed, plein viewport, déjà theme-aware)
+	   fait tout le travail. En donner un ici aussi le peindrait PAR-DESSUS .emp-bg (élément
+	   normal placé après lui dans le DOM), empêchant le mode clair de jamais s'afficher -
+	   c'était le bug : cet écran restait toujours sombre quel que soit le thème. */
+	overflow-x: hidden;
+}
+
+/* ---- Fond animé : blobs dégradés qui dérivent lentement ------------------- */
+.emp-bg {
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	overflow: hidden;
+	background: #f4f5fb;
+}
+[data-theme="dark"] .emp-bg {
+	background: #0b0c1a;
+}
+.emp-bg-blob {
+	position: absolute;
+	border-radius: 50%;
+	filter: blur(60px);
+	opacity: 0.22;
+	will-change: transform;
+}
+[data-theme="dark"] .emp-bg-blob {
+	opacity: 0.5;
+}
+.emp-bg-blob-1 {
+	width: 46vw;
+	height: 46vw;
+	top: -14vw;
+	left: -10vw;
+	background: radial-gradient(circle, rgba(99, 102, 241, 0.55), transparent 70%);
+	animation: empBlobDrift1 22s ease-in-out infinite;
+}
+.emp-bg-blob-2 {
+	width: 38vw;
+	height: 38vw;
+	top: 10vh;
+	right: -12vw;
+	background: radial-gradient(circle, rgba(20, 184, 166, 0.45), transparent 70%);
+	animation: empBlobDrift2 26s ease-in-out infinite;
+}
+.emp-bg-blob-3 {
+	width: 42vw;
+	height: 42vw;
+	bottom: -18vw;
+	left: 18vw;
+	background: radial-gradient(circle, rgba(236, 72, 153, 0.35), transparent 70%);
+	animation: empBlobDrift3 30s ease-in-out infinite;
+}
+@keyframes empBlobDrift1 {
+	0%, 100% { transform: translate(0, 0) scale(1); }
+	50% { transform: translate(6vw, 8vh) scale(1.12); }
+}
+@keyframes empBlobDrift2 {
+	0%, 100% { transform: translate(0, 0) scale(1); }
+	50% { transform: translate(-7vw, 5vh) scale(1.08); }
+}
+@keyframes empBlobDrift3 {
+	0%, 100% { transform: translate(0, 0) scale(1); }
+	50% { transform: translate(4vw, -6vh) scale(1.1); }
+}
+@media (prefers-reduced-motion: reduce) {
+	.emp-bg-blob { animation: none; }
+}
+
+.employee-space, .employee-space body {
+	min-height: 100vh;
+}
+
+/* ---- Structure générale ---------------------------------------------------- */
+.emp-shell {
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+}
+.emp-main {
+	flex: 1;
+	max-width: 1180px;
+	width: 100%;
+	margin: 0 auto;
+	padding: 32px 24px 80px;
+}
+
+/* ---- Header ----------------------------------------------------------------- */
+.emp-header {
+	position: sticky;
+	top: 0;
+	z-index: 40;
+	height: var(--emp-header-h);
+	display: flex;
+	align-items: center;
+	background: var(--emp-glass-bg-strong);
+	backdrop-filter: blur(22px) saturate(180%);
+	-webkit-backdrop-filter: blur(22px) saturate(180%);
+	border-bottom: 1px solid var(--emp-glass-border);
+}
+.emp-header-inner {
+	max-width: 1180px;
+	width: 100%;
+	margin: 0 auto;
+	padding: 0 24px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+}
+.emp-brand {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	font-weight: 800;
+	font-size: 1.05rem;
+	color: var(--emp-ink);
+	letter-spacing: -0.01em;
+}
+.emp-brand img {
+	height: 32px;
+	width: auto;
+	border-radius: 8px;
+}
+.emp-brand-badge {
+	font-size: 0.62rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	padding: 3px 8px;
+	border-radius: 999px;
+	background: var(--brand-grad, linear-gradient(135deg, #6366f1, #4f46e5));
+	color: #fff;
+}
+.emp-header-actions {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.emp-icon-btn {
+	width: 40px;
+	height: 40px;
+	border-radius: 12px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(120, 120, 160, 0.1);
+	border: 1px solid var(--emp-glass-border);
+	color: var(--emp-ink-soft);
+	cursor: pointer;
+	transition: transform 0.2s var(--ease, ease), color 0.2s ease, background 0.2s ease;
+}
+.emp-icon-btn:hover {
+	color: var(--brand, #6d28d9);
+	background: rgba(109, 40, 217, 0.1);
+	transform: translateY(-2px);
+}
+.emp-user-chip {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 14px 6px 6px;
+	border-radius: 999px;
+	background: rgba(120, 120, 160, 0.1);
+	border: 1px solid var(--emp-glass-border);
+	cursor: pointer;
+	transition: transform 0.2s var(--ease, ease);
+}
+.emp-user-chip:hover {
+	transform: translateY(-2px);
+}
+.emp-user-avatar {
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	object-fit: cover;
+	border: 2px solid #fff;
+	box-shadow: 0 0 0 2px var(--brand, #6d28d9);
+}
+.emp-user-name {
+	font-weight: 700;
+	font-size: 0.85rem;
+	color: var(--emp-ink);
+	max-width: 140px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* ---- Nav pilules avec indicateur glissant ----------------------------------- */
+.emp-nav-wrap {
+	position: sticky;
+	top: var(--emp-header-h);
+	z-index: 39;
+	background: var(--emp-glass-bg);
+	backdrop-filter: blur(18px) saturate(160%);
+	-webkit-backdrop-filter: blur(18px) saturate(160%);
+	border-bottom: 1px solid var(--emp-glass-border);
+}
+.emp-nav {
+	position: relative;
+	max-width: 1180px;
+	margin: 0 auto;
+	padding: 10px 24px;
+	display: flex;
+	gap: 6px;
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+.emp-nav::-webkit-scrollbar { display: none; }
+.emp-nav-indicator {
+	position: absolute;
+	top: 10px;
+	height: 40px;
+	border-radius: 999px;
+	background: var(--brand-grad, linear-gradient(135deg, #6366f1, #4f46e5));
+	box-shadow: 0 8px 20px rgba(99, 102, 241, 0.35);
+	z-index: 0;
+	pointer-events: none;
+}
+.emp-nav-link {
+	position: relative;
+	z-index: 1;
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 10px 18px;
+	border-radius: 999px;
+	font-size: 0.85rem;
+	font-weight: 700;
+	color: var(--emp-ink-soft);
+	white-space: nowrap;
+	text-decoration: none;
+	transition: color 0.25s ease;
+}
+.emp-nav-link:hover {
+	color: var(--emp-ink);
+	text-decoration: none;
+}
+.emp-nav-link.active {
+	color: #fff;
+}
+.emp-nav-link i {
+	font-size: 0.9rem;
+	width: 16px;
+	text-align: center;
+}
+.emp-nav-badge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 5px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.35);
+	font-size: 0.65rem;
+	font-weight: 800;
+}
+.emp-nav-link:not(.active) .emp-nav-badge {
+	background: var(--accent-pink, #ec4899);
+	color: #fff;
+}
+
+/* ---- Cartes verre de base ---------------------------------------------------- */
+.emp-card {
+	position: relative;
+	background: var(--emp-glass-bg);
+	backdrop-filter: blur(20px) saturate(180%);
+	-webkit-backdrop-filter: blur(20px) saturate(180%);
+	border: 1px solid var(--emp-glass-border);
+	border-radius: var(--radius-lg, 20px);
+	box-shadow: var(--shadow-md, 0 10px 26px rgba(30, 30, 60, 0.08));
+	padding: 24px;
+}
+.emp-card-tilt {
+	transform-style: preserve-3d;
+	will-change: transform;
+	transition: transform 0.4s var(--ease, ease), box-shadow 0.4s var(--ease, ease);
+}
+.emp-card-tilt:hover {
+	box-shadow: var(--shadow-lg, 0 20px 44px rgba(30, 30, 60, 0.14));
+}
+.emp-card-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 18px;
+}
+.emp-card-title {
+	font-size: 1rem;
+	font-weight: 800;
+	color: var(--emp-ink);
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+}
+.emp-card-title i {
+	color: var(--brand, #6d28d9);
+}
+/* .emp-page-header vit directement sur le fond de la page (jamais dans une carte verre),
+   donc son texte suit le fond (sombre en clair, clair en sombre) plutôt que --emp-ink qui
+   est calibré pour être lisible SUR les cartes claires. */
+.emp-page-header {
+	margin-bottom: 24px;
+}
+.emp-page-title {
+	font-size: 1.5rem;
+	font-weight: 800;
+	letter-spacing: -0.01em;
+	color: #14162a;
+	margin: 0 0 4px;
+}
+.emp-page-subtitle {
+	color: rgba(20, 22, 42, 0.6);
+	font-size: 0.9rem;
+	margin: 0;
+}
+[data-theme="dark"] .emp-page-title {
+	color: #fff;
+}
+[data-theme="dark"] .emp-page-subtitle {
+	color: rgba(255, 255, 255, 0.6);
+}
+.emp-grid {
+	display: grid;
+	gap: 20px;
+}
+/* Un item de grid a min-width:auto par défaut, donc refuse de descendre sous la largeur
+   "naturelle" de son contenu (ex: le mot "manquant(s)" d'un coup) - il déborde alors de sa
+   colonne au lieu de laisser le texte passer à la ligne. min-width:0 corrige ça partout. */
+.emp-grid > * {
+	min-width: 0;
+}
+
+/* ---- Hero profil (tableau de bord) ------------------------------------------ */
+.emp-hero {
+	display: flex;
+	align-items: center;
+	gap: 26px;
+	flex-wrap: wrap;
+	overflow: hidden;
+}
+.emp-hero::before {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background:
+		radial-gradient(circle at 8% 20%, rgba(99, 102, 241, 0.18), transparent 55%),
+		radial-gradient(circle at 95% 0%, rgba(20, 184, 166, 0.16), transparent 50%);
+	pointer-events: none;
+}
+.emp-hero-avatar-frame {
+	position: relative;
+	width: 108px;
+	height: 108px;
+	flex-shrink: 0;
+	border-radius: 28px;
+	padding: 4px;
+	background: var(--brand-grad, linear-gradient(135deg, #6366f1, #4f46e5));
+	transform-style: preserve-3d;
+}
+.emp-hero-avatar-frame img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	border-radius: 24px;
+	display: block;
+	background: #fff;
+}
+.emp-hero-info {
+	position: relative;
+	z-index: 1;
+	flex: 1;
+	min-width: 200px;
+}
+.emp-hero-name {
+	font-size: 1.5rem;
+	font-weight: 800;
+	color: var(--emp-ink);
+	margin: 0 0 2px;
+	letter-spacing: -0.01em;
+}
+.emp-hero-role {
+	color: var(--brand, #6d28d9);
+	font-weight: 700;
+	font-size: 0.92rem;
+	margin: 0 0 12px;
+}
+.emp-hero-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+.emp-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 12px;
+	border-radius: 999px;
+	background: rgba(120, 120, 160, 0.1);
+	border: 1px solid var(--emp-glass-border);
+	font-size: 0.78rem;
+	font-weight: 600;
+	color: var(--emp-ink-soft);
+}
+.emp-chip i {
+	color: var(--brand, #6d28d9);
+}
+
+/* ---- Tuiles KPI --------------------------------------------------------------- */
+/* Nombre de colonnes FIXE (jamais auto-fit/minmax) : avec la jauge congés en span 2 et 6
+   tuiles simples (8 "unités" de colonne au total), un nombre de colonnes qui ne divise pas
+   8 exactement (auto-fit produisait 3, 5, 6... selon la largeur d'écran) laisse un trou visible
+   en fin de grille - 4 colonnes divise toujours pile (2 rangées complètes), quelle que soit la
+   largeur d'écran au-delà de 900px. */
+.emp-kpi-grid {
+	grid-template-columns: repeat(4, 1fr);
+}
+/* La tuile congés (jauge ronde de 116px + texte à côté) a besoin de plus de place que les
+   autres pour ne pas casser "Congés restants" en plein milieu d'un mot - elle prend 2 colonnes
+   plutôt que de forcer un minmax() plus large pour toutes les tuiles. */
+.emp-kpi-grid > :first-child {
+	grid-column: span 2;
+}
+.emp-kpi-card {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+}
+.emp-kpi-card > div {
+	min-width: 0;
+}
+.emp-kpi-icon {
+	width: 52px;
+	height: 52px;
+	flex-shrink: 0;
+	border-radius: 16px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1.3rem;
+	color: #fff;
+}
+.emp-kpi-icon.kpi-1 { background: linear-gradient(135deg, #a78bfa, #6366f1); }
+.emp-kpi-icon.kpi-2 { background: linear-gradient(135deg, #34d399, #14b8a6); }
+.emp-kpi-icon.kpi-3 { background: linear-gradient(135deg, #fbbf24, #f97316); }
+.emp-kpi-icon.kpi-4 { background: linear-gradient(135deg, #f472b6, #ec4899); }
+.emp-kpi-icon.kpi-5 { background: linear-gradient(135deg, #f87171, #dc2626); }
+.emp-kpi-value {
+	font-size: 1.4rem;
+	font-weight: 800;
+	color: var(--emp-ink);
+	line-height: 1.1;
+	overflow-wrap: break-word;
+}
+.emp-kpi-label {
+	font-size: 0.78rem;
+	color: var(--emp-ink-soft);
+	font-weight: 600;
+	overflow-wrap: break-word;
+}
+
+/* ---- Jauge congés en conic-gradient -------------------------------------------- */
+.emp-gauge {
+	--pct: 0;
+	position: relative;
+	width: 116px;
+	height: 116px;
+	flex-shrink: 0;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: conic-gradient(var(--brand, #6d28d9) calc(var(--pct) * 1%), rgba(120, 120, 160, 0.15) 0);
+	transition: background 1.2s var(--ease, ease);
+}
+.emp-gauge::before {
+	content: "";
+	position: absolute;
+	inset: 9px;
+	border-radius: 50%;
+	background: var(--emp-glass-bg-strong);
+	backdrop-filter: blur(10px);
+}
+.emp-gauge-inner {
+	position: relative;
+	text-align: center;
+}
+.emp-gauge-value {
+	display: block;
+	font-size: 1.3rem;
+	font-weight: 800;
+	color: var(--emp-ink);
+}
+.emp-gauge-unit {
+	display: block;
+	font-size: 0.68rem;
+	color: var(--emp-ink-soft);
+	font-weight: 700;
+	text-transform: uppercase;
+}
+
+/* ---- Raccourcis rapides -------------------------------------------------------- */
+.emp-quicklinks {
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+.emp-quicklink-card {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 10px;
+	text-decoration: none;
+	color: inherit;
+	cursor: pointer;
+}
+.emp-quicklink-card:hover {
+	color: inherit;
+	text-decoration: none;
+}
+.emp-quicklink-icon {
+	width: 44px;
+	height: 44px;
+	border-radius: 14px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--brand-grad, linear-gradient(135deg, #6366f1, #4f46e5));
+	color: #fff;
+	font-size: 1.1rem;
+}
+.emp-quicklink-label {
+	font-weight: 700;
+	font-size: 0.88rem;
+	color: var(--emp-ink);
+}
+.emp-quicklink-arrow {
+	margin-left: auto;
+	color: var(--emp-ink-soft);
+	transition: transform 0.25s var(--ease, ease);
+}
+.emp-quicklink-card:hover .emp-quicklink-arrow {
+	transform: translateX(4px);
+	color: var(--brand, #6d28d9);
+}
+
+/* ---- Badges de statut ----------------------------------------------------------- */
+.emp-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	padding: 4px 11px;
+	border-radius: 999px;
+	font-size: 0.72rem;
+	font-weight: 700;
+}
+.emp-badge-purple { background: rgba(139, 92, 246, 0.15); color: #7c3aed; }
+.emp-badge-blue { background: rgba(14, 165, 233, 0.15); color: #0284c7; }
+.emp-badge-teal { background: rgba(20, 184, 166, 0.15); color: #0f766e; }
+.emp-badge-amber { background: rgba(245, 158, 11, 0.16); color: #b45309; }
+.emp-badge-red { background: rgba(239, 68, 68, 0.14); color: #dc2626; }
+.emp-badge-green { background: rgba(34, 197, 94, 0.15); color: #16a34a; }
+.emp-badge-gray { background: rgba(120, 120, 160, 0.15); color: var(--emp-ink-soft); }
+
+/* ---- Timeline (absences / demandes) --------------------------------------------- */
+.emp-timeline {
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+}
+.emp-timeline-item {
+	position: relative;
+	display: flex;
+	gap: 16px;
+	padding: 0 0 22px 0;
+}
+.emp-timeline-item:last-child {
+	padding-bottom: 0;
+}
+.emp-timeline-rail {
+	position: relative;
+	width: 14px;
+	flex-shrink: 0;
+	display: flex;
+	justify-content: center;
+}
+.emp-timeline-dot {
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	background: var(--brand, #6d28d9);
+	box-shadow: 0 0 0 4px rgba(109, 40, 217, 0.15);
+	margin-top: 4px;
+	z-index: 1;
+}
+.emp-timeline-dot.dot-teal { background: var(--accent-teal, #14b8a6); box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.15); }
+.emp-timeline-dot.dot-amber { background: var(--accent-amber, #f59e0b); box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.15); }
+.emp-timeline-dot.dot-red { background: #ef4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15); }
+.emp-timeline-dot.dot-green { background: #22c55e; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.15); }
+.emp-timeline-item:not(:last-child) .emp-timeline-rail::after {
+	content: "";
+	position: absolute;
+	top: 18px;
+	bottom: -22px;
+	width: 2px;
+	background: var(--emp-glass-border);
+	left: 50%;
+	transform: translateX(-50%);
+}
+.emp-timeline-content {
+	flex: 1;
+	min-width: 0;
+	background: rgba(255, 255, 255, 0.35);
+	border: 1px solid var(--emp-glass-border);
+	border-radius: var(--radius-md, 16px);
+	padding: 14px 16px;
+}
+[data-theme="dark"] .emp-timeline-content {
+	background: rgba(255, 255, 255, 0.04);
+}
+.emp-timeline-top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	flex-wrap: wrap;
+	margin-bottom: 4px;
+}
+.emp-timeline-title {
+	font-weight: 700;
+	color: var(--emp-ink);
+	font-size: 0.92rem;
+}
+.emp-timeline-meta {
+	color: var(--emp-ink-soft);
+	font-size: 0.8rem;
+	margin: 0;
+}
+.emp-timeline-desc {
+	color: var(--emp-ink-soft);
+	font-size: 0.82rem;
+	margin: 6px 0 0;
+}
+.emp-timeline-actions {
+	display: flex;
+	gap: 6px;
+	margin-top: 10px;
+}
+
+/* ---- Grille fichiers / bulletins ------------------------------------------------- */
+.emp-file-grid {
+	grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+}
+.emp-file-card {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	padding: 18px;
+	text-decoration: none;
+}
+.emp-file-card:hover {
+	text-decoration: none;
+}
+.emp-file-top {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.emp-file-icon {
+	width: 40px;
+	height: 40px;
+	border-radius: 12px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(239, 68, 68, 0.12);
+	color: #dc2626;
+	font-size: 1.15rem;
+	flex-shrink: 0;
+}
+.emp-file-title {
+	font-weight: 700;
+	font-size: 0.86rem;
+	color: var(--emp-ink);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	line-height: 1.25;
+}
+.emp-file-actions {
+	margin-top: auto;
+	display: flex;
+	gap: 6px;
+}
+.emp-btn-mini {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	border-radius: 9px;
+	border: 1px solid var(--emp-glass-border);
+	background: rgba(120, 120, 160, 0.08);
+	color: var(--emp-ink-soft);
+	cursor: pointer;
+	transition: all 0.2s ease;
+	text-decoration: none;
+}
+.emp-btn-mini:hover {
+	background: var(--brand, #6d28d9);
+	color: #fff;
+	text-decoration: none;
+}
+.emp-btn-mini.danger:hover {
+	background: #ef4444;
+}
+
+/* ---- Conformité dossier ------------------------------------------------------------ */
+.emp-compliance-banner {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 14px 18px;
+	border-radius: var(--radius-md, 16px);
+	margin-bottom: 18px;
+	font-size: 0.86rem;
+	font-weight: 600;
+}
+.emp-compliance-banner.is-ok {
+	background: rgba(34, 197, 94, 0.12);
+	color: #15803d;
+}
+.emp-compliance-banner.is-missing {
+	background: rgba(245, 158, 11, 0.14);
+	color: #b45309;
+}
+.emp-compliance-banner i {
+	font-size: 1.2rem;
+}
+.emp-doc-checklist {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: 10px;
+}
+.emp-doc-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 9px 12px;
+	border-radius: 12px;
+	font-size: 0.8rem;
+	font-weight: 600;
+	background: rgba(120, 120, 160, 0.08);
+}
+.emp-doc-item.ok { color: #15803d; }
+.emp-doc-item.ok i { color: #22c55e; }
+.emp-doc-item.missing { color: #b45309; }
+.emp-doc-item.missing i { color: #f59e0b; }
+
+/* ---- Bannière bulletins manquants -------------------------------------------------- */
+.emp-missing-banner {
+	margin-bottom: 18px;
+}
+.emp-missing-banner-title {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-weight: 700;
+	color: #b45309;
+	font-size: 0.88rem;
+	margin-bottom: 10px;
+}
+.emp-missing-pills {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+.emp-missing-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 7px 14px;
+	border-radius: 999px;
+	background: rgba(245, 158, 11, 0.14);
+	color: #b45309;
+	font-size: 0.78rem;
+	font-weight: 700;
+	border: 1px dashed rgba(245, 158, 11, 0.4);
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+.emp-missing-pill:hover {
+	background: #f59e0b;
+	color: #fff;
+}
+
+/* ---- Formulaire (Demandes) ---------------------------------------------------------- */
+.emp-form-group {
+	margin-bottom: 18px;
+}
+.emp-form-label {
+	display: block;
+	font-size: 0.82rem;
+	font-weight: 700;
+	color: var(--emp-ink);
+	margin-bottom: 6px;
+}
+.emp-input, .emp-textarea {
+	width: 100%;
+	padding: 12px 14px;
+	border-radius: 12px;
+	border: 1px solid var(--emp-glass-border);
+	background: rgba(255, 255, 255, 0.5);
+	color: var(--emp-ink);
+	font-size: 0.88rem;
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+[data-theme="dark"] .emp-input, [data-theme="dark"] .emp-textarea {
+	background: rgba(255, 255, 255, 0.04);
+}
+.emp-input:focus, .emp-textarea:focus {
+	outline: none;
+	border-color: var(--brand, #6d28d9);
+	box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.15);
+}
+.emp-textarea {
+	resize: vertical;
+	min-height: 120px;
+}
+.emp-submit-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 12px 24px;
+	border-radius: 999px;
+	border: none;
+	background: var(--brand-grad, linear-gradient(135deg, #6366f1, #4f46e5));
+	color: #fff;
+	font-weight: 700;
+	font-size: 0.88rem;
+	cursor: pointer;
+	box-shadow: 0 10px 24px rgba(99, 102, 241, 0.3);
+	transition: transform 0.2s var(--ease, ease), box-shadow 0.2s ease;
+}
+.emp-submit-btn:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 14px 30px rgba(99, 102, 241, 0.4);
+}
+
+/* ---- Évolution du salaire (tableau de bord) ------------------------------------------- */
+.emp-salary-row {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	margin-bottom: 14px;
+}
+.emp-salary-row:last-child {
+	margin-bottom: 0;
+}
+.emp-salary-label {
+	width: 110px;
+	flex-shrink: 0;
+	font-size: 0.8rem;
+	font-weight: 700;
+	color: var(--emp-ink-soft);
+}
+.emp-salary-track {
+	flex: 1;
+	height: 14px;
+	border-radius: 999px;
+	background: rgba(120, 120, 160, 0.12);
+	overflow: hidden;
+}
+.emp-salary-fill {
+	height: 100%;
+	border-radius: 999px;
+	background: rgba(120, 120, 160, 0.4);
+	transition: width 1s var(--ease, ease);
+}
+.emp-salary-fill.is-current {
+	background: var(--brand-grad, linear-gradient(135deg, #6366f1, #4f46e5));
+}
+.emp-salary-value {
+	width: 110px;
+	flex-shrink: 0;
+	text-align: right;
+	font-weight: 800;
+	font-size: 0.9rem;
+	color: var(--emp-ink);
+}
+
+/* ---- État vide ------------------------------------------------------------------------ */
+.emp-empty {
+	text-align: center;
+	padding: 40px 20px;
+	color: var(--emp-ink-soft);
+}
+.emp-empty i {
+	font-size: 2rem;
+	margin-bottom: 10px;
+	opacity: 0.5;
+	display: block;
+}
+
+/* ---- Message boxes (alertes ajax) ------------------------------------------------------ */
+.emp-msgbox:empty { display: none; }
+.emp-msgbox .alert {
+	border-radius: var(--radius-md, 16px);
+	border: none;
+}
+
+/* ---- Pointage web (Arrivée / Départ pause / Retour pause / Départ) ---------------------- */
+.emp-punch-alert {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 20px;
+	border-radius: var(--radius-lg, 20px);
+	background: rgba(239, 68, 68, 0.12);
+	color: #dc2626;
+	font-weight: 700;
+	font-size: 0.95rem;
+}
+.emp-punch-alert i {
+	font-size: 1.8rem;
+	flex-shrink: 0;
+}
+/* Bandeau informatif (jamais bloquant, contrairement à .emp-punch-alert) rappelant que la
+   position est vérifiée à chaque clic - pulse discret pendant la localisation en cours. */
+.emp-punch-geoloc-hint {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 12px 16px;
+	margin-bottom: 18px;
+	border-radius: var(--radius-md, 14px);
+	background: rgba(99, 102, 241, 0.08);
+	color: var(--emp-ink-soft);
+	font-size: 0.8rem;
+}
+.emp-punch-geoloc-hint i {
+	color: #6366f1;
+	flex-shrink: 0;
+}
+.emp-punch-geoloc-hint.is-locating i {
+	animation: emp-geoloc-pulse 1s ease-in-out infinite;
+}
+@keyframes emp-geoloc-pulse {
+	0%, 100% { opacity: 1; transform: scale(1); }
+	50% { opacity: 0.5; transform: scale(0.85); }
+}
+.emp-punch-clock {
+	text-align: center;
+	margin-bottom: 22px;
+}
+.emp-punch-clock-time {
+	font-size: 2.6rem;
+	font-weight: 800;
+	color: var(--emp-ink);
+	letter-spacing: -0.02em;
+	line-height: 1.1;
+	font-variant-numeric: tabular-nums;
+}
+.emp-punch-clock-date {
+	color: var(--emp-ink-soft);
+	font-size: 0.85rem;
+	text-transform: capitalize;
+}
+.emp-punch-grid {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 14px;
+}
+.emp-punch-btn {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 10px;
+	padding: 22px 12px;
+	border-radius: var(--radius-lg, 20px);
+	border: none;
+	cursor: pointer;
+	font-weight: 700;
+	font-size: 0.85rem;
+	color: #fff;
+	background: linear-gradient(135deg, #a3a7c2, #6b7280);
+	opacity: 0.45;
+	transition: transform 0.2s var(--ease, ease), box-shadow 0.2s var(--ease, ease), opacity 0.2s ease;
+}
+.emp-punch-btn i {
+	font-size: 1.6rem;
+}
+.emp-punch-btn.is-ready {
+	opacity: 1;
+	cursor: pointer;
+	box-shadow: var(--shadow-md, 0 10px 26px rgba(30, 30, 60, 0.08));
+}
+.emp-punch-btn.is-ready:hover {
+	transform: translateY(-3px) scale(1.02);
+	box-shadow: var(--shadow-lg, 0 20px 44px rgba(30, 30, 60, 0.14));
+}
+.emp-punch-btn.is-done {
+	opacity: 1;
+	cursor: default;
+	background: linear-gradient(135deg, #34d399, #14b8a6);
+}
+.emp-punch-btn:disabled {
+	cursor: not-allowed;
+}
+.emp-punch-btn[data-etape="arrivee"].is-ready { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+.emp-punch-btn[data-etape="depart_pause"].is-ready { background: linear-gradient(135deg, #fbbf24, #f97316); }
+.emp-punch-btn[data-etape="retour_pause"].is-ready { background: linear-gradient(135deg, #22d3ee, #0ea5e9); }
+.emp-punch-btn[data-etape="depart"].is-ready { background: linear-gradient(135deg, #f472b6, #ec4899); }
+.emp-punch-btn-heure {
+	font-size: 0.72rem;
+	font-weight: 600;
+	opacity: 0.85;
+}
+.emp-punch-summary {
+	margin-top: 22px;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+	gap: 14px;
+}
+.emp-punch-summary-item {
+	text-align: center;
+	padding: 14px;
+	border-radius: var(--radius-md, 16px);
+	background: rgba(120, 120, 160, 0.08);
+}
+.emp-punch-summary-value {
+	font-size: 1.2rem;
+	font-weight: 800;
+	color: var(--emp-ink);
+}
+.emp-punch-summary-label {
+	font-size: 0.72rem;
+	color: var(--emp-ink-soft);
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+}
+
+/* ---- Responsive ------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+	.emp-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+	.emp-quicklinks { grid-template-columns: repeat(2, 1fr); }
+	.emp-file-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+}
+
+@media (max-width: 768px) {
+	.emp-header-inner { padding: 0 16px; }
+	.emp-brand { gap: 8px; font-size: 0.95rem; }
+	.emp-brand img { height: 26px; }
+	.emp-brand-label { display: none; }
+	.emp-header-actions { gap: 6px; }
+	.emp-icon-btn { width: 36px; height: 36px; }
+	.emp-user-chip { padding: 4px 10px 4px 4px; }
+	.emp-nav { padding: 8px 16px; }
+	.emp-main { padding: 20px 16px 60px; }
+
+	.emp-hero { gap: 16px; padding: 20px; }
+	.emp-hero-avatar-frame { width: 72px; height: 72px; }
+	.emp-hero-name { font-size: 1.15rem; }
+	.emp-hero-role { font-size: 0.85rem; margin-bottom: 8px; }
+	.emp-chip { font-size: 0.72rem; padding: 5px 10px; }
+	.emp-hero > .emp-btn-mini { width: 100%; justify-content: center; margin-left: 0 !important; order: 3; }
+
+	.emp-punch-grid { grid-template-columns: repeat(2, 1fr); }
+	.emp-punch-clock-time { font-size: 2rem; }
+
+	.emp-user-name { display: none; }
+	.emp-nav-link span { display: none; }
+	.emp-nav-link i { font-size: 1rem; }
+	.emp-nav-link { padding: 10px 14px; }
+
+	.emp-kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+	.emp-kpi-card { flex-direction: column; align-items: flex-start; gap: 10px; padding: 16px; }
+	.emp-quicklinks { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+	.emp-file-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+
+	.emp-card { padding: 18px; }
+	.emp-page-title { font-size: 1.25rem; }
+}
+
+@media (max-width: 480px) {
+	.emp-kpi-grid { grid-template-columns: 1fr 1fr; }
+	.emp-quicklinks { grid-template-columns: 1fr; }
+	.emp-doc-checklist { grid-template-columns: 1fr; }
+}

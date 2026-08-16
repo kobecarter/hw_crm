@@ -113,9 +113,20 @@ switch ($task)
             }
         }
         break;
+    case 'parrainage':
+        if ($_SESSION['user']->hasDroit('add', 'com_resourcehumaine')) {
+            if (isset($_GET['id']) && !empty($_GET['id'])) {
+                $id = intval($_GET['id']);
+                $resourcehumaine = resourcehumaine::find($id);
+                $parrainages = parrainage::findAllByResourcehumaine($resourcehumaine->getId());
+                include_once("components/com_resourcehumaine/views/parrainage/list.php");
+            }
+        }
+        break;
     case 'pointage':
         if ($_SESSION['user']->hasDroit('add', 'com_resourcehumaine')) {
                 $action1 = "components/com_resourcehumaine/controleurs/router.php?task=importPointage";
+                $localisationBureau = pointagelocalisation::find();
                 include_once("components/com_resourcehumaine/views/pointage/list.php");
         }
         break;

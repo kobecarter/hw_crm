@@ -9,6 +9,7 @@ class fileresourcehumaine
     private $title;
     private $document_type;
     private $file;
+    private $validated;
 
     // Types de documents suivis pour le contrôle de conformité du dossier employé (clé stable
     // utilisée en base, indépendante du libellé affiché qui peut être traduit/modifié).
@@ -49,6 +50,10 @@ class fileresourcehumaine
 
     public function __construct(){
         $this->id = 0;
+        // Par défaut "validé" (comme la colonne DB : DEFAULT 1) - un ajout admin
+        // (buildFileResourceHumaine) ne connaît pas ce concept et ne l'écrase jamais ; seul le
+        // chemin self-service employé (buildFileResourceHumaineSelf) le repasse à 0.
+        $this->validated = 1;
     }
 
     public function getId(){
@@ -71,6 +76,10 @@ class fileresourcehumaine
         return $this->file;
     }
 
+    public function getValidated(){
+        return $this->validated;
+    }
+
     public function setId($id){
         $this->id = $id;
     }
@@ -91,14 +100,19 @@ class fileresourcehumaine
         $this->file = $file;
     }
 
+    public function setValidated($validated){
+        $this->validated = $validated;
+    }
+
     public function add()
     {
         global $db;
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_resourcehumaine, title, document_type, file) VALUES (%s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_resourcehumaine, title, document_type, file, validated) VALUES (%s, %s, %s, %s, %s)",
             GetSQLValueString($this->resourcehumaine->getId(), "int"),
             GetSQLValueString($this->title, "text"),
             GetSQLValueString($this->document_type, "text"),
-            GetSQLValueString($this->file, "text")
+            GetSQLValueString($this->file, "text"),
+            GetSQLValueString($this->validated, "int")
         );
 
         if (!$db->query($SQLinsert)) {
@@ -111,11 +125,12 @@ class fileresourcehumaine
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET id_resourcehumaine = %s, title = %s, document_type = %s, file = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET id_resourcehumaine = %s, title = %s, document_type = %s, file = %s, validated = %s WHERE id = %s",
             GetSQLValueString($this->resourcehumaine->getId(), "int"),
             GetSQLValueString($this->title, "text"),
             GetSQLValueString($this->document_type, "text"),
             GetSQLValueString($this->file, "text"),
+            GetSQLValueString($this->validated, "int"),
             GetSQLValueString($this->getId(), "int")
         );
         if (!$db->query($SQLupdate)) {
@@ -188,6 +203,7 @@ class fileresourcehumaine
         $fileresourcehumaine->setTitle($data['title']);
         $fileresourcehumaine->setDocumentType(isset($data['document_type']) ? $data['document_type'] : null);
         $fileresourcehumaine->setFile($data['file']);
+        $fileresourcehumaine->setValidated(isset($data['validated']) ? $data['validated'] : 1);
         return $fileresourcehumaine;
     }
 
@@ -197,7 +213,9 @@ class fileresourcehumaine
     {
         $presents = array();
         foreach ($files as $f) {
-            if ($f->getDocumentType()) {
+            // Un document déposé par l'employé lui-même (validated = 0) ne compte pas encore
+            // comme fourni côté conformité tant qu'un admin ne l'a pas validé.
+            if ($f->getDocumentType() && $f->getValidated()) {
                 $presents[$f->getDocumentType()] = true;
             }
         }

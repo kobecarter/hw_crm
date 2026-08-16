@@ -40,6 +40,27 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
         case 'removeRowWorkDate' :
                 include_once ("resourcehumaine/controleur.php");
             break;
+        case 'addParrainage' :
+            // Soumission self-service (espace employé) - jamais hasDroit ici, volontairement
+            // (voir le commentaire dans parrainage/controleur.php).
+            if ($_SESSION['user']->isResourceHumaine()) {
+                include_once ("parrainage/controleur.php");
+            }
+            break;
+        case 'validateParrainage' :
+        case 'rejectParrainage' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_resourcehumaine')) {
+                include_once ("parrainage/controleur.php");
+            }
+            break;
+        case 'editMyResourceHumaine' :
+            // Auto-édition (espace employé) : pas de hasDroit ici, volontairement - réservé aux
+            // admins qui gèrent tout le monde. editMyResourceHumaine() vérifie déjà en interne
+            // que l'id soumis correspond à $_SESSION['user']->getId() avant toute écriture.
+            if ($_SESSION['user']->isResourceHumaine()) {
+                include_once ("resourcehumaine/controleur.php");
+            }
+            break;
         case 'addFileResourceHumaine' :
             if ($_SESSION['user']->hasDroit('add', 'com_resourcehumaine')) {
                 include_once ("fileresourcehumaine/controleur.php");
@@ -54,7 +75,19 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
             if ($_SESSION['user']->hasDroit('delete', 'com_resourcehumaine')) {
                 include_once ("fileresourcehumaine/controleur.php");
             }
-            break;	
+            break;
+        case 'addFileResourceHumaineSelf' :
+            // Upload self-service (espace employé) - jamais hasDroit ici, volontairement (voir
+            // le commentaire dans fileresourcehumaine/controleur.php).
+            if ($_SESSION['user']->isResourceHumaine()) {
+                include_once ("fileresourcehumaine/controleur.php");
+            }
+            break;
+        case 'approveFileResourceHumaine' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_resourcehumaine')) {
+                include_once ("fileresourcehumaine/controleur.php");
+            }
+            break;
         case 'addAbsenceResourceHumaine' :
             if ($_SESSION['user']->hasDroit('edit', 'com_resourcehumaine')) {
                 include_once ("absence/controleur.php");
@@ -85,6 +118,11 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
                 include_once ("bonus/controleur.php");
             }
             break;
+        case 'recalculateBonus' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_resourcehumaine')) {
+                include_once ("bonus/controleur.php");
+            }
+            break;
         case 'importPointage' :
             if ($_SESSION['user']->hasDroit('add', 'com_resourcehumaine')) {
                 include_once ("pointage/controleur.php");
@@ -94,7 +132,60 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
             if ($_SESSION['user']->hasDroit('view', 'com_resourcehumaine')) {
                 include_once ("pointage/controleur.php");
             }
-            break;	
+            break;
+        case 'pointerWeb' :
+            // Pointage self-service (espace employé) - jamais hasDroit ici, volontairement (voir
+            // le commentaire dans pointageweb/controleur.php) : pointerWeb() revérifie déjà en
+            // interne l'IP Wi-Fi avant tout enregistrement.
+            if ($_SESSION['user']->isResourceHumaine()) {
+                include_once ("pointageweb/controleur.php");
+            }
+            break;
+        case 'filterPointageWeb' :
+            if ($_SESSION['user']->hasDroit('view', 'com_resourcehumaine')) {
+                include_once ("pointageweb/controleur.php");
+            }
+            break;
+        case 'cronPointageRappel' :
+            // Endpoint public (pas de session active, appelé par un cron externe) - protégé par
+            // POINTAGE_CRON_SECRET, jamais par hasDroit. Voir cronPointageRappelEndpoint().
+            include_once ("pointageweb/controleur.php");
+            break;
+        case 'filterJoursTravail' :
+            if ($_SESSION['user']->hasDroit('view', 'com_resourcehumaine')) {
+                include_once ("pointageweb/controleur.php");
+            }
+            break;
+        case 'toggleJourTravail' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_resourcehumaine')) {
+                include_once ("pointageweb/controleur.php");
+            }
+            break;
+        case 'filterHorairesTravail' :
+            if ($_SESSION['user']->hasDroit('view', 'com_resourcehumaine')) {
+                include_once ("pointageweb/controleur.php");
+            }
+            break;
+        case 'saveHoraireReference' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_resourcehumaine')) {
+                include_once ("pointageweb/controleur.php");
+            }
+            break;
+        case 'saveHoraireJour' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_resourcehumaine')) {
+                include_once ("pointageweb/controleur.php");
+            }
+            break;
+        case 'resetHoraireJour' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_resourcehumaine')) {
+                include_once ("pointageweb/controleur.php");
+            }
+            break;
+        case 'saveLocalisationBureau' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_resourcehumaine')) {
+                include_once ("pointageweb/controleur.php");
+            }
+            break;
         case 'addPayslip' :
             if ($_SESSION['user']->hasDroit('add', 'com_resourcehumaine')) {
                 include_once ("payslip/controleur.php");

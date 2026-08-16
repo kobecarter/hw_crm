@@ -11,6 +11,7 @@
                         <thead class="thead-light">
                             <tr>
                                 <th>ID</th>
+                                <th>Type</th>
                                 <th>Titre</th>
                                 <th>Description</th>
                                 <th>Réponse</th>
@@ -22,6 +23,7 @@
                             <?php foreach ($requests as $request): ?>
                                 <tr>
                                     <td><?php echo $request->getId(); ?></td>
+                                    <td><span class="badge badge-info"><?php echo $request->getTypeLabel(); ?></span></td>
                                     <td><?php echo $request->getTitle(); ?></td>
                                     <td><span title="<?= strip_tags($request->getDescription()) ?>"><?php echo substr($request->getDescription(), 0, 30); ?> <?php echo strlen($request->getDescription()) > 30 ? '[...]' : null ?> </span></td>
                                     <td class="response">
