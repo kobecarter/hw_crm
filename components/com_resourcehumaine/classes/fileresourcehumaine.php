@@ -22,6 +22,7 @@ class fileresourcehumaine
             'contrat_cdi' => 'Contrat CDI',
             'engagement_confidentialite' => 'Engagement de confidentialité',
             'reglement_interieur' => 'Règlement intérieur',
+            'certificat_residence' => 'Certificat de résidence',
         ),
         'Periode De test' => array(
             'cin' => 'CIN',
@@ -29,6 +30,7 @@ class fileresourcehumaine
             'contrat_cdi' => 'Contrat CDI',
             'engagement_confidentialite' => 'Engagement de confidentialité',
             'reglement_interieur' => 'Règlement intérieur',
+            'certificat_residence' => 'Certificat de résidence',
         ),
         'Stagaire' => array(
             'reglement_interieur' => 'Règlement intérieur',
