@@ -24,6 +24,9 @@ class contract
     private $contrat_pdf;
     private $corps_genere;
     private $signed_at;
+    private $acceptance_token;
+    private $signed_by_name;
+    private $signed_ip;
     private $langue;
     private $date_add;
     private $last_edit;
@@ -139,6 +142,28 @@ class contract
         return $this->signed_at;
     }
 
+    // Jeton de signature en ligne (cf. envoyerContratEmailSignature() et
+    // components/com_contract/controleurs/contractaccept/router.php, même mécanisme que
+    // crm_joboffer.acceptance_token) - null tant que le contrat n'a jamais été envoyé pour
+    // signature en ligne.
+    public function getAcceptanceToken()
+    {
+        return $this->acceptance_token;
+    }
+
+    // Nom tapé + IP capturés au moment de la signature en ligne (contractaccept/router.php) -
+    // trace d'audit indépendante du fichier lui-même : reste disponible même quand le fichier
+    // déposé (Word/PDF override) ne peut pas recevoir la mention de signature.
+    public function getSignedByName()
+    {
+        return $this->signed_by_name;
+    }
+
+    public function getSignedIp()
+    {
+        return $this->signed_ip;
+    }
+
     public function getDateAdd()
     {
         return $this->date_add;
@@ -238,6 +263,21 @@ class contract
         $this->signed_at = $signed_at;
     }
 
+    public function setAcceptanceToken($acceptance_token)
+    {
+        $this->acceptance_token = $acceptance_token;
+    }
+
+    public function setSignedByName($signed_by_name)
+    {
+        $this->signed_by_name = $signed_by_name;
+    }
+
+    public function setSignedIp($signed_ip)
+    {
+        $this->signed_ip = $signed_ip;
+    }
+
     public function setDateAdd($date_add)
     {
         $this->date_add = $date_add;
@@ -252,7 +292,7 @@ class contract
     {
         global $db;
 
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_devis, type, date, date_fin, nombre_de_paiement, show_signature, status, contrat_pdf, corps_genere, signed_at, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_devis, type, date, date_fin, nombre_de_paiement, show_signature, status, contrat_pdf, corps_genere, signed_at, acceptance_token, signed_by_name, signed_ip, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
 			GetSQLValueString($this->devis->getId(), "id"),
             GetSQLValueString($this->type, "text"),
             GetSQLValueString($this->date, "date"),
@@ -263,6 +303,9 @@ class contract
             GetSQLValueString($this->contrat_pdf, "text"),
             GetSQLValueString($this->corps_genere, "text"),
             GetSQLValueString($this->signed_at, "date"),
+            GetSQLValueString($this->acceptance_token, "text"),
+            GetSQLValueString($this->signed_by_name, "text"),
+            GetSQLValueString($this->signed_ip, "text"),
             GetSQLValueString($this->date_add, "date"),
             GetSQLValueString($this->last_edit, "date")
         );
@@ -294,7 +337,7 @@ class contract
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  id_devis = %s, type = %s, date = %s, date_fin = %s, nombre_de_paiement = %s, show_signature = %s, status = %s, contrat_pdf = %s, corps_genere = %s, signed_at = %s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  id_devis = %s, type = %s, date = %s, date_fin = %s, nombre_de_paiement = %s, show_signature = %s, status = %s, contrat_pdf = %s, corps_genere = %s, signed_at = %s, acceptance_token = %s, signed_by_name = %s, signed_ip = %s, last_edit = %s WHERE id = %s",
 			GetSQLValueString($this->devis->getId(), "int"),
             GetSQLValueString($this->type, "text"),
             GetSQLValueString($this->date, "date"),
@@ -305,6 +348,9 @@ class contract
             GetSQLValueString($this->contrat_pdf, "text"),
             GetSQLValueString($this->corps_genere, "text"),
             GetSQLValueString($this->signed_at, "date"),
+            GetSQLValueString($this->acceptance_token, "text"),
+            GetSQLValueString($this->signed_by_name, "text"),
+            GetSQLValueString($this->signed_ip, "text"),
             GetSQLValueString($this->last_edit, "date"),
             GetSQLValueString($this->id, "int")
         );
@@ -456,6 +502,9 @@ class contract
         $contract->setContratPDF($data['contrat_pdf']);
         $contract->setCorpsGenere(isset($data['corps_genere']) ? $data['corps_genere'] : null);
         $contract->setSignedAt(isset($data['signed_at']) ? $data['signed_at'] : null);
+        $contract->setAcceptanceToken(isset($data['acceptance_token']) ? $data['acceptance_token'] : null);
+        $contract->setSignedByName(isset($data['signed_by_name']) ? $data['signed_by_name'] : null);
+        $contract->setSignedIp(isset($data['signed_ip']) ? $data['signed_ip'] : null);
         $contract->setDateAdd($data['date_add']);
         $contract->setLastEdit($data['last_edit']);
         $contract->setLangue($data['langue']);

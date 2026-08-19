@@ -160,7 +160,9 @@
 		<h1 class="elogin-title">Espace Employé</h1>
 		<p class="elogin-subtitle">Connectez-vous pour accéder à votre espace personnel</p>
 
-		<form method="post" id="eloginForm" action="<?php echo $siteURL; ?>components/com_elogin/controleurs/router.php?task=login">
+		<!-- Action relative - même correctif que components/com_login/views/login/login.php (le
+		     même bug de connexion mobile touchait aussi cette page). -->
+		<form method="post" id="eloginForm" action="components/com_elogin/controleurs/router.php?task=login">
 			<div class="elogin-msgbox msgbox"></div>
 
 			<div class="elogin-field">

@@ -31,6 +31,15 @@ if (isset($task) && !empty($task)) {
         case 'marquerContratSigne':
             marquerContratSigne($_POST, $_FILES);
             break;
+        case 'remplacerContratGenere':
+            remplacerContratGenere($_POST, $_FILES);
+            break;
+        case 'importerContratDepuisFichier':
+            importerContratDepuisFichier($_POST, $_FILES);
+            break;
+        case 'regenererCorpsDepuisDevis':
+            regenererCorpsDepuisDevis($_POST);
+            break;
         case 'envoyerContratSlack':
             envoyerContratSlack($_POST);
             break;
@@ -46,9 +55,15 @@ function removeContratPDF($data)
     if (fieldCheck($data, $indices)) {
         $id = $data["id"];
         $contract = contract::find($id, $_SESSION['agence'], $_SESSION['langue']);
+        // Capturé AVANT setContratPDF('') : sinon getContratPDF() ne renvoie plus que '' au moment
+        // du unlink() ci-dessous, qui pointait alors vers le DOSSIER images/contracts/ lui-même
+        // (toujours "existant", jamais supprimable par unlink()) au lieu du fichier réel - celui-ci
+        // restait orphelin sur le disque à chaque retrait, alors même que contrat_pdf était bien
+        // vidé en base.
+        $ancienFichier = $contract->getContratPDF();
         $contract->setContratPDF('');
-        if($contract->edit() == 1 && file_exists("../../../images/contracts/" . $contract->getContratPDF())){
-            @unlink("../../../images/contracts/" . $contract->getContratPDF());
+        if($contract->edit() == 1 && $ancienFichier && file_exists("../../../images/contracts/" . $ancienFichier)){
+            @unlink("../../../images/contracts/" . $ancienFichier);
             echo "1";
         } else {
             echo "2";
@@ -253,11 +268,50 @@ function construireMpdfContrat($contract)
     return $mpdf;
 }
 
+// Sert tel quel le fichier DÉPOSÉ pour ce contrat (Word/PDF, cf. remplacerContratGenere() et
+// marquerContratSigne() plus bas) au lieu de régénérer depuis corps_genere - un seul fichier fait
+// autorité par contrat (contrat_pdf), quel que soit le bouton (PDF/Word) utilisé pour le consulter.
+// N'affiche rien et retourne (sans exit) si aucun fichier n'a été déposé, pour laisser l'appelant
+// régénérer normalement.
+function servirFichierContratSiPresent($contract)
+{
+    $fichier = $contract->getContratPDF();
+    if (!$fichier) {
+        return;
+    }
+    $chemin = '../../../images/contracts/' . $fichier;
+    if (!file_exists($chemin)) {
+        return;
+    }
+    $extension = strtolower(pathinfo($fichier, PATHINFO_EXTENSION));
+    $typesMime = array(
+        'pdf' => 'application/pdf',
+        'doc' => 'application/msword',
+        'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'gif' => 'image/gif',
+    );
+    $mime = isset($typesMime[$extension]) ? $typesMime[$extension] : 'application/octet-stream';
+    // Un PDF s'affiche directement dans le navigateur (comme le rendu généré) ; les autres formats
+    // (Word, images) se téléchargent - un navigateur ne sait pas les afficher inline.
+    $disposition = ($extension === 'pdf') ? 'inline' : 'attachment';
+
+    header('Content-Type: ' . $mime);
+    header('Content-Disposition: ' . $disposition . '; filename="' . $fichier . '"');
+    header('Content-Length: ' . filesize($chemin));
+    readfile($chemin);
+    exit;
+}
+
 function pdfContract($data){
     if (isset($data["id"]) && !empty($data["id"])) {
         $contract = contract::find($data["id"], $_SESSION['agence'], $_SESSION['langue']);
         $devis = $contract->getDevis();
         $contract = contract::find($data["id"], $_SESSION['agence'], $devis->getLangue());
+
+        servirFichierContratSiPresent($contract);
 
         $mpdf = construireMpdfContrat($contract);
         $mpdf->Output('contract.pdf', 'I');
@@ -285,6 +339,8 @@ function docxContract($data)
         $devis = $contract->getDevis();
         $client = $devis->getClient();
         $agence = agence::find($client->getAgence()->getId(), $devis->getLangue());
+
+        servirFichierContratSiPresent($contract);
 
         $corpsContrat = $contract->getCorpsGenere() ? $contract->getCorpsGenere() : contractGenerator::genererCorpsContrat($contract);
 
@@ -391,13 +447,27 @@ function genererContratDepuisDevis($data)
     // depuis la page devis), mais l'étape 1 de l'assistant "Ajouter un contrat"
     // (com_contract&task=add) permet de les personnaliser avant génération - on les reprend donc
     // si fournis, sans jamais rendre ces champs obligatoires côté client.
-    $titre = isset($data['titre_contract']) && trim($data['titre_contract']) !== '' ? trim($data['titre_contract']) : 'Contrat de prestation - Devis N°' . $devis->getNumero();
     $duration = isset($data['duration_contract']) && trim($data['duration_contract']) !== '' ? trim($data['duration_contract']) : '12 mois';
     $garantie = isset($data['garantie_contract']) ? trim($data['garantie_contract']) : '';
     $villeContrat = isset($data['ville_contract']) && trim($data['ville_contract']) !== '' ? trim($data['ville_contract']) : $ville;
     $dateContrat = isset($data['date_contract']) && trim($data['date_contract']) !== '' ? dateBD($data['date_contract']) : date('Y-m-d');
     $tribunal = isset($data['tribunal_contract']) && trim($data['tribunal_contract']) !== '' ? trim($data['tribunal_contract']) : 'Tribunal de Commerce de ' . $ville;
-    $nombreDePaiement = isset($data['nombre_de_paiement_contract']) && $data['nombre_de_paiement_contract'] !== '' ? intval($data['nombre_de_paiement_contract']) : 1;
+    // Repris des conditions de paiement du devis (texte libre, cf. contractGenerator::
+    // estimerNombreDePaiement()) si l'utilisateur n'a rien précisé dans l'assistant - jamais
+    // écrasé s'il a lui-même saisi/ajusté une valeur.
+    $nombreDePaiement = isset($data['nombre_de_paiement_contract']) && $data['nombre_de_paiement_contract'] !== ''
+        ? intval($data['nombre_de_paiement_contract'])
+        : contractGenerator::estimerNombreDePaiement($devis->getConditionPaiment());
+    // Titre : uniquement "traité" (échéancier ajouté) quand il est auto-généré - un titre saisi à
+    // la main par l'utilisateur n'est jamais complété/modifié derrière son dos.
+    if (isset($data['titre_contract']) && trim($data['titre_contract']) !== '') {
+        $titre = trim($data['titre_contract']);
+    } else {
+        $titre = 'Contrat de prestation - Devis N°' . $devis->getNumero();
+        if ($nombreDePaiement > 1) {
+            $titre .= ' — Paiement en ' . $nombreDePaiement . ' fois';
+        }
+    }
 
     $contract = new contract();
     $contract->setDevis($devis);
@@ -482,6 +552,155 @@ function enregistrerCorpsContrat($data)
     $contract->setLastEdit(date('Y-m-d H:i:s'));
     $contract->edit();
     echo json_encode(array('success' => 1));
+}
+
+// Dépôt d'un document (Word/PDF) qui ÉCRASE le contrat généré par le système - distinct de
+// marquerContratSigne() ci-dessous : ici on ne présume pas que le document est déjà signé (pas de
+// changement de statut/devis), on dit juste "faites confiance à ce fichier plutôt qu'au texte
+// généré". pdfContract()/docxContract() le serviront tel quel dès qu'il est présent (cf.
+// servirFichierContratSiPresent() plus haut) - même colonne contrat_pdf que marquerContratSigne(),
+// donc déposer un nouveau document ici ou via "Marquer comme signé" remplace toujours le précédent.
+function remplacerContratGenere($data, $files)
+{
+    header('Content-Type: application/json');
+    if (!$_SESSION['user']->hasDroit('edit', 'com_contract')) {
+        echo json_encode(array('success' => 0, 'message' => 'Accès refusé'));
+        return;
+    }
+    if (!isset($data['id']) || empty($data['id'])) {
+        echo json_encode(array('success' => 0, 'message' => 'Contrat manquant'));
+        return;
+    }
+    if (!isset($files['contrat_document']['name'][0]) || empty($files['contrat_document']['name'][0])) {
+        echo json_encode(array('success' => 0, 'message' => 'Fichier manquant'));
+        return;
+    }
+    $contract = contract::find(intval($data['id']), $_SESSION['agence'], $_SESSION['langue']);
+    if (!$contract->getId()) {
+        echo json_encode(array('success' => 0, 'message' => 'Contrat introuvable'));
+        return;
+    }
+
+    $uploaded = uploadFiles('contrat_document', '../../../images/contracts/', array('pdf', 'doc', 'docx', 'PDF', 'DOC', 'DOCX'));
+    if (empty($uploaded[0])) {
+        echo json_encode(array('success' => 0, 'message' => "Échec de l'upload (formats acceptés : pdf, doc, docx)"));
+        return;
+    }
+
+    $contract->setContratPDF($uploaded[0]);
+    $contract->setLastEdit(date('Y-m-d H:i:s'));
+    $contract->edit();
+
+    echo json_encode(array('success' => 1));
+}
+
+// Importe un fichier Word (.doc/.docx) DANS l'éditeur WYSIWYG - distinct de
+// remplacerContratGenere() ci-dessus (qui dépose un fichier opaque servi tel quel) : ici on LIT le
+// contenu du fichier et on le convertit en HTML pour l'injecter dans CKEditor, afin que le texte
+// reste éditable et que pdfContract()/docxContract() continuent de régénérer depuis corps_genere
+// comme d'habitude - aucun fichier n'est conservé sur le disque. Ne touche jamais corps_genere en
+// base directement : renvoie seulement le HTML, c'est le bouton "Enregistrer comme brouillon"
+// existant (enregistrerCorpsContrat) qui valide après relecture par l'utilisateur - une conversion
+// Word -> HTML peut être imparfaite sur des documents complexes, jamais appliquée à l'aveugle.
+function importerContratDepuisFichier($data, $files)
+{
+    header('Content-Type: application/json');
+    if (!$_SESSION['user']->hasDroit('edit', 'com_contract')) {
+        echo json_encode(array('success' => 0, 'message' => 'Accès refusé'));
+        return;
+    }
+    if (!isset($data['id']) || empty($data['id'])) {
+        echo json_encode(array('success' => 0, 'message' => 'Contrat manquant'));
+        return;
+    }
+    $contract = contract::find(intval($data['id']), $_SESSION['agence'], $_SESSION['langue']);
+    if (!$contract->getId()) {
+        echo json_encode(array('success' => 0, 'message' => 'Contrat introuvable'));
+        return;
+    }
+    if (!isset($files['fichier_import']['name']) || empty($files['fichier_import']['name'])) {
+        echo json_encode(array('success' => 0, 'message' => 'Fichier manquant'));
+        return;
+    }
+
+    $nomOriginal = $files['fichier_import']['name'];
+    $extension = strtolower(pathinfo($nomOriginal, PATHINFO_EXTENSION));
+    if (!in_array($extension, array('doc', 'docx'))) {
+        echo json_encode(array('success' => 0, 'message' => "Seuls les fichiers Word (.doc/.docx) peuvent être importés dans l'éditeur - pour un PDF, utilisez plutôt le dépôt de document ci-dessous, qui remplace directement le fichier final."));
+        return;
+    }
+
+    require_once '../../../vendor/autoload.php';
+    \PhpOffice\PhpWord\Settings::setTempDir('/tmp');
+
+    $tmpPath = '/tmp/contrat_import_' . uniqid() . '.' . $extension;
+    if (!move_uploaded_file($files['fichier_import']['tmp_name'], $tmpPath)) {
+        echo json_encode(array('success' => 0, 'message' => "Échec de l'upload"));
+        return;
+    }
+
+    try {
+        $readerName = ($extension === 'doc') ? 'MsDoc' : 'Word2007';
+        $phpWordDoc = \PhpOffice\PhpWord\IOFactory::load($tmpPath, $readerName);
+        $htmlWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWordDoc, 'HTML');
+        ob_start();
+        $htmlWriter->save('php://output');
+        $htmlComplet = ob_get_clean();
+        @unlink($tmpPath);
+
+        $corpsExtrait = $htmlComplet;
+        if (preg_match('/<body[^>]*>(.*)<\/body>/is', $htmlComplet, $m)) {
+            $corpsExtrait = $m[1];
+        }
+
+        // PhpWord met le gras/italique/couleur/alignement en style inline sur chaque passage de
+        // texte (donc déjà conservés ci-dessus), MAIS met la police/taille PAR DÉFAUT du document
+        // et les bordures de tableau dans le <style> du <head>, qui vient d'être jeté avec le
+        // reste du <head> - un <style> injecté directement dans CKEditor n'est pas fiable (filtré
+        // ou pas selon la configuration ACF). On les réapplique donc en dur sur les balises
+        // concernées : la police de base sur un wrapper englobant, les bordures directement sur
+        // <table>/<td>/<th> qui n'en ont sinon aucune (contrairement à la balise <table> qui, elle,
+        // reçoit déjà un style inline de PhpWord).
+        if (preg_match('/body\s*\{([^}]*)\}/i', $htmlComplet, $mBase)) {
+            $corpsExtrait = '<div style="' . htmlspecialchars(trim($mBase[1]), ENT_QUOTES) . '">' . $corpsExtrait . '</div>';
+        }
+        $corpsExtrait = preg_replace('/<table(?![^>]*\bstyle=)/i', '<table style="border-collapse:collapse;width:100%;"', $corpsExtrait);
+        $corpsExtrait = preg_replace('/<(td|th)(?![^>]*\bstyle=)/i', '<$1 style="border:1px solid #000;padding:4px;"', $corpsExtrait);
+
+        if (trim(strip_tags($corpsExtrait)) === '') {
+            echo json_encode(array('success' => 0, 'message' => "Le fichier semble vide ou n'a pas pu être lu correctement."));
+            return;
+        }
+
+        echo json_encode(array('success' => 1, 'html' => $corpsExtrait));
+    } catch (\Exception $e) {
+        @unlink($tmpPath);
+        echo json_encode(array('success' => 0, 'message' => "Impossible de lire ce fichier Word (format non supporté ou fichier corrompu)."));
+    }
+}
+
+// Régénère le corps du contrat depuis le devis (contractGenerator::genererCorpsContrat(), le même
+// gabarit qu'à la création à partir des catégories de service du devis) - pour repartir d'une base
+// propre après des modifications manuelles qu'on veut jeter. Comme importerContratDepuisFichier(),
+// ne touche jamais la base : renvoie juste le HTML, c'est l'enregistrement normal du formulaire qui
+// valide après relecture.
+function regenererCorpsDepuisDevis($data)
+{
+    header('Content-Type: application/json');
+    if (!$_SESSION['user']->hasDroit('edit', 'com_contract')) {
+        echo json_encode(array('success' => 0, 'message' => 'Accès refusé'));
+        return;
+    }
+    if (!isset($data['id']) || empty($data['id'])) {
+        echo json_encode(array('success' => 0, 'message' => 'Contrat manquant'));
+        return;
+    }
+    $contract = contract::find(intval($data['id']), $_SESSION['agence'], $_SESSION['langue']);
+    if (!$contract->getId()) {
+        echo json_encode(array('success' => 0, 'message' => 'Contrat introuvable'));
+        return;
+    }
+    echo json_encode(array('success' => 1, 'html' => contractGenerator::genererCorpsContrat($contract)));
 }
 
 // Upload du contrat signé (PDF) - même mécanique que
@@ -636,6 +855,15 @@ function envoyerContratSlack($data)
     echo json_encode(array('success' => 1));
 }
 
+// Même patron que joboffreLienAcceptation() (com_resourcehumaine/controleurs/joboffer/
+// controleur.php) : lien public, sans authentification, vers la page de signature en ligne.
+function contratLienSignature($token)
+{
+    global $siteURL;
+    $baseUrl = (defined('PUBLIC_SITE_URL') && PUBLIC_SITE_URL) ? PUBLIC_SITE_URL : $siteURL;
+    return $baseUrl . 'components/com_contract/controleurs/contractaccept/router.php?token=' . urlencode($token);
+}
+
 // Bouton "Envoyer au client par email pour signature" - même mécanique que
 // com_devis/controleurs/devis/controleur.php::sendDevisPdfEmailToClient() (PHPMailer, PDF en
 // pièce jointe), adaptée au contrat : PDF généré à la volée via construireMpdfContrat() (jamais
@@ -668,13 +896,34 @@ function envoyerContratEmailSignature($data)
         return;
     }
 
+    // Réutilise le jeton existant s'il y en a déjà un (renvoi de l'email après coup) plutôt que
+    // d'en régénérer un à chaque envoi - un lien déjà transmis au client ne doit pas se périmer
+    // silencieusement à cause d'un simple renvoi.
+    $token = $contract->getAcceptanceToken();
+    if (!$token) {
+        $token = bin2hex(random_bytes(32));
+    }
+    $lienSignature = contratLienSignature($token);
+
     require_once '../../../vendor/autoload.php';
-    $mpdf = construireMpdfContrat($contract);
-    // /tmp plutôt que sys_get_temp_dir() : ce dernier résout vers un dossier propre à la
-    // session/l'utilisateur shell courant sous macOS, inaccessible en écriture au worker Apache
-    // qui exécute réellement cette requête (même piège déjà rencontré avec PhpWord/docxContract()).
-    $tmpPath = '/tmp/contrat_' . $contract->getId() . '_' . uniqid() . '.pdf';
-    $mpdf->Output($tmpPath, 'F');
+
+    // Un document déposé (Word/PDF, cf. remplacerContratGenere()/marquerContratSigne()) fait
+    // toujours foi sur la version régénérée - jamais deux versions différentes en circulation.
+    $fichierDepose = $contract->getContratPDF();
+    if ($fichierDepose && file_exists('../../../images/contracts/' . $fichierDepose)) {
+        $tmpPath = '../../../images/contracts/' . $fichierDepose;
+        $supprimerApresEnvoi = false;
+        $nomPieceJointe = 'Contrat-' . $devis->getNumero() . '.' . strtolower(pathinfo($fichierDepose, PATHINFO_EXTENSION));
+    } else {
+        $mpdf = construireMpdfContrat($contract);
+        // /tmp plutôt que sys_get_temp_dir() : ce dernier résout vers un dossier propre à la
+        // session/l'utilisateur shell courant sous macOS, inaccessible en écriture au worker Apache
+        // qui exécute réellement cette requête (même piège déjà rencontré avec PhpWord/docxContract()).
+        $tmpPath = '/tmp/contrat_' . $contract->getId() . '_' . uniqid() . '.pdf';
+        $mpdf->Output($tmpPath, 'F');
+        $supprimerApresEnvoi = true;
+        $nomPieceJointe = 'Contrat-' . $devis->getNumero() . '.pdf';
+    }
 
     try {
         $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
@@ -690,34 +939,43 @@ function envoyerContratEmailSignature($data)
         $mail->setFrom(SMTP_USERNAME, 'Hello World');
         $mail->addAddress($client->getEmail(), trim($client->getPrenom() . ' ' . $client->getNom()));
         $mail->addCC('contact@helloworld-agency.com');
-        $mail->addAttachment($tmpPath, 'Contrat-' . $devis->getNumero() . '.pdf');
+        $mail->addAttachment($tmpPath, $nomPieceJointe);
         $mail->isHTML(true);
 
         $isEn = ($devis->getLangue() == 'en');
         if ($isEn) {
             $mail->Subject = "Your contract for quote N°" . $devis->getNumero() . " — signature required";
             $mail->Body = "Hello " . htmlspecialchars($client->getPrenom()) . ",<br><br>"
-                . "Please find attached your contract for quote N°" . $devis->getNumero() . ". Please review, sign, and return it to us.<br><br>"
+                . "Please find attached your contract for quote N°" . $devis->getNumero() . ".<br><br>"
+                . "You can sign it online here: <a href=\"" . $lienSignature . "\">" . $lienSignature . "</a><br>"
+                . "Alternatively, you may print, sign, scan, and return it to us.<br><br>"
                 . "Feel free to reach out with any question.<br><br>Have a great day,<br>The Hello World team";
-            $mail->AltBody = "Hello " . $client->getPrenom() . ", please find attached your contract for quote N°" . $devis->getNumero() . ".";
+            $mail->AltBody = "Hello " . $client->getPrenom() . ", please find attached your contract for quote N°" . $devis->getNumero() . ". Sign it online here: " . $lienSignature;
         } else {
             $mail->Subject = "Votre contrat pour le devis N°" . $devis->getNumero() . " — signature requise";
             $mail->Body = "Bonjour " . htmlspecialchars($client->getPrenom()) . ",<br><br>"
-                . "Veuillez trouver ci-joint votre contrat pour le devis N°" . $devis->getNumero() . ". Merci de le relire, le signer, et nous le retourner.<br><br>"
+                . "Veuillez trouver ci-joint votre contrat pour le devis N°" . $devis->getNumero() . ".<br><br>"
+                . "Vous pouvez le signer en ligne ici : <a href=\"" . $lienSignature . "\">" . $lienSignature . "</a><br>"
+                . "Vous pouvez aussi l'imprimer, le signer, le scanner, et nous le retourner.<br><br>"
                 . "N'hésitez pas à revenir vers nous pour la moindre question.<br><br>Belle journée à vous,<br>L'équipe Hello World";
-            $mail->AltBody = "Bonjour " . $client->getPrenom() . ", veuillez trouver ci-joint votre contrat pour le devis N°" . $devis->getNumero() . ".";
+            $mail->AltBody = "Bonjour " . $client->getPrenom() . ", veuillez trouver ci-joint votre contrat pour le devis N°" . $devis->getNumero() . ". Signez-le en ligne ici : " . $lienSignature;
         }
 
         $mail->send();
         copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
-        @unlink($tmpPath);
+        if ($supprimerApresEnvoi) {
+            @unlink($tmpPath);
+        }
     } catch (\Exception $e) {
-        @unlink($tmpPath);
+        if ($supprimerApresEnvoi) {
+            @unlink($tmpPath);
+        }
         echo json_encode(array('success' => 0, 'message' => $mail->ErrorInfo));
         return;
     }
 
     $contract->setStatus(contract::STATUT_ATTENTE_SIGNATURE);
+    $contract->setAcceptanceToken($token);
     $contract->setLastEdit(date('Y-m-d H:i:s'));
     $contract->edit();
 
@@ -743,7 +1001,11 @@ function buildContract($data, $id = null)
     }
 
     if(isset($_FILES['contrat_pdf']) && $_FILES['contrat_pdf']['name'][0]!=''){
-        $photo = uploadFiles('contrat_pdf','../../../images/contracts/',  array('jpg','jpeg','gif','png','pdf','JPG','JPEG','GIF','PNG','PDF'));    
+        // doc/docx ajoutés : ce champ sert aussi à déposer un contrat rédigé à la main (Word) qui
+        // doit ÉCRASER la version générée automatiquement - voir pdfContract()/docxContract() plus
+        // haut, qui servent désormais ce fichier tel quel dès qu'il est présent, au lieu de
+        // régénérer systématiquement depuis corps_genere.
+        $photo = uploadFiles('contrat_pdf','../../../images/contracts/',  array('jpg','jpeg','gif','png','pdf','doc','docx','JPG','JPEG','GIF','PNG','PDF','DOC','DOCX'));
     }
 
     if(isset($photo[0])) {

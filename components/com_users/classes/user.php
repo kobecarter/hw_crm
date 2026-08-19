@@ -8,6 +8,7 @@ class user {
     private $prenom;
     private $nom;
     private $email;
+    private $google_email;
     private $tel;
     private $adresse;
 	private $fonction;
@@ -93,6 +94,10 @@ class user {
         return $this->email;
     }
 
+    public function getGoogleEmail(){
+        return $this->google_email;
+    }
+
     public function getTel(){
         return $this->tel;
     }
@@ -154,7 +159,11 @@ class user {
 	public function setEmail($email){
         $this->email = $email;
     }
-	
+
+	public function setGoogleEmail($googleEmail){
+        $this->google_email = $googleEmail;
+    }
+
 	public function setAdresse($adresse){
         $this->adresse = $adresse;
     }
@@ -288,6 +297,37 @@ class user {
         }
     }
 
+    // Lie/délie un compte Google (com_login "Se connecter avec Google") - colonne dédiée, jamais
+    // la colonne "email" de connexion elle-même (voir findByGoogleEmail() plus haut).
+    public function linkGoogleAccount($googleEmail)
+    {
+        global $db;
+        $this->google_email = $googleEmail;
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET google_email = %s WHERE id = %s",
+            GetSQLValueString($this->google_email, "text"),
+            GetSQLValueString($this->id, "int")
+        );
+        if (!$db->query($SQLupdate)) {
+            return 1;
+        } else {
+            return 0;
+        }
+    }
+
+    public function unlinkGoogleAccount()
+    {
+        global $db;
+        $this->google_email = null;
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET google_email = NULL WHERE id = %s",
+            GetSQLValueString($this->id, "int")
+        );
+        if (!$db->query($SQLupdate)) {
+            return 1;
+        } else {
+            return 0;
+        }
+    }
+
 
 	public function delete()
     {
@@ -354,7 +394,45 @@ class user {
         }
         return $user;
     }
-	
+
+    // Même convention de retour que find() ci-dessus (jamais null - un user() vierge, id=0, si
+    // rien ne correspond). Scopé "actif = 1" et LIMIT 1 : "email" n'a PAS de contrainte unique en
+    // base (au moins une adresse partagée par plusieurs comptes désactivés existe déjà en prod),
+    // donc sans ce filtre une recherche par email serait ambiguë. En pratique, parmi les comptes
+    // ACTIFS, aucune adresse n'est aujourd'hui partagée - le LIMIT 1 est un garde-fou, pas un choix
+    // arbitraire silencieux.
+    public static function findByEmail($email)
+    {
+        global $db;
+        $user = new user();
+        $SQLselect = sprintf("SELECT * FROM ".__prefixe_db__."users WHERE email = %s AND actif = 1 ORDER BY id LIMIT 1",
+            GetSQLValueString($email, "text"));
+        $result = $db->query($SQLselect);
+        if ($db->num_rows($result) == 1) {
+            $data = $db->fetch_assoc($result);
+            $user = static::build($data);
+        }
+        return $user;
+    }
+
+    // Connexion Google (voir com_login/controleurs/login.php) : recherche par l'email Google
+    // explicitement LIÉ par l'utilisateur (colonne dédiée google_email, jamais la colonne "email"
+    // de connexion elle-même) - un compte Google n'authentifie que s'il a été rattaché au préalable
+    // à ce compte CRM précis, jamais par simple coïncidence d'adresse.
+    public static function findByGoogleEmail($googleEmail)
+    {
+        global $db;
+        $user = new user();
+        $SQLselect = sprintf("SELECT * FROM ".__prefixe_db__."users WHERE google_email = %s AND actif = 1 ORDER BY id LIMIT 1",
+            GetSQLValueString($googleEmail, "text"));
+        $result = $db->query($SQLselect);
+        if ($db->num_rows($result) == 1) {
+            $data = $db->fetch_assoc($result);
+            $user = static::build($data);
+        }
+        return $user;
+    }
+
 	public static function login($login, $password)
     {
         global $db;
@@ -444,6 +522,7 @@ class user {
         $user->setPrenom($data['prenom']);
         $user->setNom($data['nom']);
         $user->setEmail($data['email']);
+        $user->setGoogleEmail(isset($data['google_email']) ? $data['google_email'] : null);
         $user->setTel($data['tel']);
 		$user->setAdresse($data['adresse']);
 		$user->setLangue($data['langue']);

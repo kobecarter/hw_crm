@@ -26,6 +26,9 @@ if (isset($task) && !empty($task)) {
         case 'supprimerLot':
             supprimerLot($_POST);
             break;
+        case 'annulerRapprochementFacture':
+            annulerRapprochementFacture($_POST);
+            break;
     }
 }
 
@@ -713,7 +716,14 @@ function supprimerLot($data)
     $idsTva = array();
 
     foreach ($lignes as $ligne) {
-        if ($ligne->getIdPayment()) {
+        $infosLigne = $ligne->getDonneesMatchingArray();
+
+        // "credit_reglement_existant" (bouton "Associer" sur un règlement déjà enregistré du
+        // client, voir validerLigne()) liait un règlement qui existait déjà AVANT cet import - même
+        // logique que "debit_charge_existante" ci-dessous : jamais supprimé, seulement délié (la
+        // ligne du relevé disparaît, pas le règlement du client).
+        $reglementPreExistant = isset($infosLigne['type']) && $infosLigne['type'] === 'credit_reglement_existant';
+        if ($ligne->getIdPayment() && !$reglementPreExistant) {
             $payment = payment::find($ligne->getIdPayment());
             if ($payment->getId()) {
                 $facture = $payment->getFacture();
@@ -727,7 +737,6 @@ function supprimerLot($data)
         // rapprochement s'est contenté de la retrouver) - elle n'a jamais été créée par ce lot et
         // ne doit donc jamais être supprimée ici, seulement déliée (ce que fait deleteByLot() en
         // supprimant la ligne). Toute autre charge référencée, elle, a bien été créée par ce lot.
-        $infosLigne = $ligne->getDonneesMatchingArray();
         $chargePreExistante = isset($infosLigne['type']) && $infosLigne['type'] === 'debit_charge_existante';
         if ($ligne->getIdCharge() && !$chargePreExistante && !in_array($ligne->getIdCharge(), $idsCharge)) {
             $idsCharge[] = $ligne->getIdCharge();
@@ -1074,6 +1083,38 @@ function verifierReaffectationCharge($idCharge, releveLigne $ligneCourante, $for
     return null;
 }
 
+// Même sécurité anti-doublon que verifierReaffectationCharge() ci-dessus, appliquée aux
+// règlements existants du client (fenêtre "Choisir la facture" -> panneau "Règlements déjà
+// enregistrés" -> "Associer ce règlement", plutôt que de créer un nouveau paiement en doublon).
+function verifierReaffectationPayment($idPayment, releveLigne $ligneCourante, $force)
+{
+    $ancienneLigne = releveLigne::findLigneParPayment($idPayment, $ligneCourante->getId());
+    if (!$ancienneLigne) {
+        return null;
+    }
+    if (!$force) {
+        $banqueAncienne = $ancienneLigne->getBank();
+        return array(
+            'success' => 0,
+            'needs_confirmation' => 1,
+            'message' => "Ce règlement est déjà affecté à un enregistrement. Êtes-vous sûr de vouloir le réaffecter ?",
+            'ancienne_affectation' => array(
+                'id_ligne' => $ancienneLigne->getId(),
+                'date_operation' => $ancienneLigne->getDateOperation() ? date('d/m/Y', strtotime($ancienneLigne->getDateOperation())) : '',
+                'libelle' => $ancienneLigne->getLibelle(),
+                'montant' => $ancienneLigne->getDebit() ? $ancienneLigne->getDebit() : $ancienneLigne->getCredit(),
+                'compte' => $banqueAncienne ? nomAfficheCompte($banqueAncienne) : ''
+            )
+        );
+    }
+
+    $ancienneLigne->setIdPayment(null);
+    $ancienneLigne->setStatut('a_valider');
+    $ancienneLigne->setLastEdit(date('Y-m-d H:i:s'));
+    $ancienneLigne->edit();
+    return null;
+}
+
 function validerLigne($data, $files = array())
 {
     header('Content-Type: application/json');
@@ -1198,8 +1239,36 @@ function validerLigne($data, $files = array())
         return;
     }
 
-    // Crédit ambigu : l'utilisateur choisit manuellement parmi les candidats proposés.
+    // Crédit ambigu : l'utilisateur choisit manuellement parmi les candidats proposés - soit une
+    // facture (crée un nouveau règlement), soit un règlement déjà enregistré du client (panneau
+    // "Règlements déjà enregistrés" -> "Associer" : ce crédit correspond à un paiement déjà saisi
+    // manuellement, on se contente de lier, jamais de créer un deuxième règlement en doublon).
     if (isset($infos['type']) && $infos['type'] === 'credit_ambigu') {
+        if (!empty($data['id_payment_existant'])) {
+            $paymentExistant = payment::find(intval($data['id_payment_existant']));
+            if (!$paymentExistant || !$paymentExistant->getId() || !$paymentExistant->getFacture() || !$paymentExistant->getFacture()->getClient() || $paymentExistant->getFacture()->getClient()->getAgence()->getId() != $ligne->getAgence()->getId()) {
+                echo json_encode(array('success' => 0, 'message' => 'Règlement introuvable'));
+                return;
+            }
+            $conflit = verifierReaffectationPayment($paymentExistant->getId(), $ligne, !empty($data['force_reaffectation']));
+            if ($conflit) {
+                echo json_encode($conflit);
+                return;
+            }
+
+            $ligne->setIdPayment($paymentExistant->getId());
+            $ligne->setStatut('matched_facture');
+            // Marqueur distinct de "credit_rapproche" (facture -> nouveau règlement) : ce règlement
+            // existait AVANT ce rapprochement - "Annuler" (annulerRapprochementFacture()) et
+            // supprimerLot() doivent tous deux savoir ne JAMAIS le supprimer, seulement le délier.
+            $ligne->setDonneesMatchingArray(array('type' => 'credit_reglement_existant', 'id_payment' => $paymentExistant->getId()));
+            $ligne->setLastEdit(date('Y-m-d H:i:s'));
+            $ligne->edit();
+
+            echo json_encode(array('success' => 1, 'action' => 'reglement_lie', 'id_payment' => $paymentExistant->getId()));
+            return;
+        }
+
         if (!isset($data['id_facture']) || empty($data['id_facture'])) {
             echo json_encode(array('success' => 0, 'message' => 'Choisissez une facture parmi les candidats proposés'));
             return;
@@ -1222,6 +1291,10 @@ function validerLigne($data, $files = array())
 
         $ligne->setIdPayment($idPayment);
         $ligne->setStatut('matched_facture');
+        // Même forme que le match automatique credit_rapproche (un seul candidat) : ce règlement a
+        // bien été CRÉÉ par ce rapprochement, "Annuler" et supprimerLot() peuvent donc le supprimer
+        // sans risque de perdre un paiement du client antérieur à cet import.
+        $ligne->setDonneesMatchingArray(array('type' => 'credit_rapproche', 'facture' => array('id_facture' => $facture->getId(), 'numero' => $facture->getNumero())));
         $ligne->setLastEdit(date('Y-m-d H:i:s'));
         $ligne->edit();
 
@@ -1256,6 +1329,55 @@ function validerLigne($data, $files = array())
     }
 
     echo json_encode(array('success' => 0, 'message' => 'Aucune action de validation possible pour cette ligne'));
+}
+
+// Annule un rapprochement crédit -> facture déjà confirmé (bouton "Annuler" sur une ligne
+// "Facture rapprochée") : la ligne repasse "à valider" avec 0 candidat (comme un import frais -
+// l'utilisateur peut choisir une autre facture ou un autre règlement via "Choisir"). Si le
+// règlement lié avait été CRÉÉ par cette confirmation (type credit_rapproche, qu'il vienne du
+// matching automatique à candidat unique ou d'un choix manuel de facture), il est supprimé et la
+// facture recalculée ; s'il s'agissait d'un règlement du client déjà existant, simplement associé
+// (type credit_reglement_existant, voir "Associer ce règlement"), il n'est JAMAIS supprimé -
+// seulement délié, exactement comme supprimerLot() épargne les charges "debit_charge_existante".
+function annulerRapprochementFacture($data)
+{
+    header('Content-Type: application/json');
+    if (!$_SESSION['user']->hasDroit('edit', 'com_rapprochement')) {
+        echo json_encode(array('success' => 0, 'message' => 'Accès refusé'));
+        return;
+    }
+    if (!isset($data['id']) || empty($data['id'])) {
+        echo json_encode(array('success' => 0, 'message' => 'Ligne manquante'));
+        return;
+    }
+
+    $ligne = releveLigne::find(intval($data['id']));
+    if (!$ligne->getId() || $ligne->getStatut() !== 'matched_facture') {
+        echo json_encode(array('success' => 0, 'message' => "Cette ligne n'est pas un rapprochement de facture actif"));
+        return;
+    }
+
+    $infos = $ligne->getDonneesMatchingArray();
+    $reglementPreExistant = isset($infos['type']) && $infos['type'] === 'credit_reglement_existant';
+
+    if ($ligne->getIdPayment() && !$reglementPreExistant) {
+        $payment = payment::find($ligne->getIdPayment());
+        if ($payment->getId()) {
+            $facture = $payment->getFacture();
+            $payment->delete();
+            if ($facture && $facture->getId()) {
+                $facture->checkPayment();
+            }
+        }
+    }
+
+    $ligne->setIdPayment(null);
+    $ligne->setStatut('a_valider');
+    $ligne->setDonneesMatchingArray(array('type' => 'credit_ambigu', 'candidats' => array()));
+    $ligne->setLastEdit(date('Y-m-d H:i:s'));
+    $ligne->edit();
+
+    echo json_encode(array('success' => 1));
 }
 
 function ignorerLigne($data)

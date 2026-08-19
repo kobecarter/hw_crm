@@ -94,7 +94,9 @@
                         $wizard_status_invoice_url = "javascript:void(0)";
                         $facture = facture::findByDevis($devis->getId(),$_SESSION['agence']);
                         if($facture){
-                            $wizard_status_invoice = "wizard-warning";
+                            // Aucun paiement encore reçu sur cette facture (reste == total) : rouge, jamais
+                            // jaune - le jaune est réservé au cercle "Paiements" ci-dessous (montant partiel).
+                            $wizard_status_invoice = "wizard-danger";
                             $wizard_status_invoice_url = 'index.php?option=com_facture&task=edit&id='.$facture->getId();
                             if($facture->getReste() < $facture->getTotal()){
                                 $wizard_status_invoice = "wizard-success";
@@ -115,16 +117,16 @@
                         if($facture){
                             $wizard_status_payment_url = 'index.php?option=com_facture&task=payment&id='.$facture->getId();
                             if($facture->getTotal() == $facture->getReste()){
-                                //$wizard_status_payment = "wizard-danger";
+                                $wizard_status_payment = "wizard-danger";
                             }elseif($facture->getTotal() > $facture->getReste() && $facture->getReste() > 0)	{
                                 $wizard_status_payment = "wizard-warning";
                             }elseif($facture->getReste() <= 0){
                                 $wizard_status_payment = "wizard-success";
                             }
                         }
-                        
+
                     ?>
-                    <a <?php if($wizard_status_payment_url != "javascript:void(0)") :?> target="_blank" <?php endif;?> class="<?=$wizard_status_payment?> nav-link rounded-circle mx-auto d-flex align-items-center justify-content-center" href="<?=$wizard_status_payment_url?>" id="step3-tab" data-bs-toggle="tab" role="tab" aria-controls="step3" aria-selected="false" title="Paiements">
+                    <a <?php if($wizard_status_payment_url != "javascript:void(0)") :?> target="_blank" <?php endif;?> class="<?=$wizard_status_payment?> nav-link rounded-circle mx-auto d-flex align-items-center justify-content-center" href="<?=$wizard_status_payment_url?>" id="step4-tab" data-bs-toggle="tab" role="tab" aria-controls="step4" aria-selected="false" title="Paiements">
                         <i class="far fa-money-bill-alt"></i>
                         <span class="wizard-item-title">Paiements</span>
                     </a>

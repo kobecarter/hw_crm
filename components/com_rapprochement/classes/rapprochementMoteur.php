@@ -71,6 +71,7 @@ class rapprochementMoteur
                     'id_facture' => $f->getId(),
                     'numero' => $f->getNumero(),
                     'client' => $nomClient,
+                    'id_client' => $client ? $client->getId() : null,
                     'montant' => $reste,
                     'score' => round($score, 1)
                 );

@@ -284,7 +284,7 @@
 																<?php if (!empty($infos['candidats'])) :?>
 																<optgroup label="Candidat(s) détecté(s) (même montant)">
 																	<?php foreach ($infos['candidats'] as $c) :?>
-																	<option value="<?= $c['id_facture'] ?>">N°<?= htmlspecialchars($c['numero']) ?> — <?= htmlspecialchars($c['client']) ?> (<?= number_format($c['montant'], 2, ',', ' ') ?> DH)</option>
+																	<option value="<?= $c['id_facture'] ?>" data-client="<?= isset($c['id_client']) && $c['id_client'] ? $c['id_client'] : '' ?>">N°<?= htmlspecialchars($c['numero']) ?> — <?= htmlspecialchars($c['client']) ?> (<?= number_format($c['montant'], 2, ',', ' ') ?> DH)</option>
 																	<?php endforeach;?>
 																</optgroup>
 																<?php endif;?>
@@ -305,6 +305,10 @@
 																	<?php endforeach;?>
 																</optgroup>
 															</select>
+															<!-- Porteur de valeur pour "Associer ce règlement" (panneau "Règlements déjà enregistrés"
+															     de la fenêtre #affecterModal) - alternative à .rapprochement-facture-select : lie ce
+															     crédit à un règlement DÉJÀ existant du client au lieu d'en créer un nouveau. -->
+															<input type="hidden" class="rapprochement-payment-existant d-none" value="">
 															<button type="button" class="btn btn-white btn-sm rapprochement-choisir" data-toggle="tooltip" title="Choisir la facture" data-affecter-type="facture" data-candidats-facture="<?= count($infos['candidats']) ?>"><i class="fa fa-search mr-1"></i>Choisir</button>
 														<?php elseif (isset($infos['type']) && $infos['type'] === 'debit_charge_existante') :?>
 															<?php $idsCandidatsCharge = array_column($infos['candidats'], 'id');?>
@@ -357,6 +361,11 @@
 												<?php elseif ($l->getStatut() === 'sans_justificatif') :?>
 													<button type="button" class="btn btn-danger btn-sm rapprochement-justificatif-manuel" data-toggle="tooltip" title="Insérer le justificatif"><i class="fa fa-paperclip"></i></button>
 													<button type="button" class="btn btn-white btn-sm rapprochement-ignorer" data-toggle="tooltip" title="Ignorer"><i class="fa fa-times"></i></button>
+												<?php elseif ($l->getStatut() === 'matched_facture') :?>
+													<!-- Retour à "à valider" (voir annulerRapprochementFacture() côté contrôleur) - le
+													     règlement n'est supprimé que s'il a été CRÉÉ par ce rapprochement, jamais s'il
+													     s'agissait d'un règlement du client déjà existant simplement associé. -->
+													<button type="button" class="btn btn-white btn-sm rapprochement-annuler-facture" data-toggle="tooltip" title="Annuler ce rapprochement"><i class="fa fa-undo text-danger"></i></button>
 												<?php elseif ($l->getStatut() === 'matched_charge' && $l->getIdCharge()) :?>
 													<!-- La charge (créée ou liée depuis ce relevé) reste modifiable sans quitter la page -
 													     titre/montant/type/remarque erronés ou à compléter après coup, sans repasser par la
@@ -560,8 +569,8 @@
      (au lieu d'un <select> cramponné dans la cellule du tableau) : recherche parmi les candidats
      détectés automatiquement ET l'ensemble des factures (payées comprises) / charges disponibles de
      l'agence, pour ne jamais bloquer l'utilisateur au seul auto-matching. -->
-<div id="affecterModal" class="modal custom-modal fade" role="dialog">
-	<div class="modal-dialog modal-dialog-centered" role="document">
+<div id="affecterModal" class="modal custom-modal fade" role="dialog" data-client-infos='<?= htmlspecialchars(json_encode(array("factures" => $facturesParClient, "reglements" => $reglementsParClient)), ENT_QUOTES, "UTF-8") ?>'>
+	<div class="modal-dialog modal-dialog-centered modal-lg" role="document">
 		<div class="modal-content">
 			<div class="modal-header">
 				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -590,6 +599,39 @@
 					<select id="affecterSelect" class="form-control" style="width:100%;"></select>
 				</div>
 
+				<!-- Vue d'ensemble du client de la facture actuellement sélectionnée : ses AUTRES
+				     factures et ses règlements déjà enregistrés - jamais une affectation à l'aveugle,
+				     l'admin voit tout l'historique avant de confirmer. Alimentée en JS depuis
+				     data-client-infos (posé sur #affecterModal, chargé une seule fois avec la page),
+				     mise à jour à chaque changement de facture sélectionnée ou de client recherché. -->
+				<div id="affecterClientInfos" class="d-none mt-3 pt-3" style="border-top:1px dashed #e2e8f0;">
+					<div class="row">
+						<div class="col-6">
+							<label class="text-muted mb-1" style="font-size:0.75rem;"><i class="fa fa-file-invoice mr-1"></i>Factures du client</label>
+							<div class="list-group" style="max-height:180px; overflow-y:auto;" id="affecterClientFactures"></div>
+						</div>
+						<div class="col-6">
+							<label class="text-muted mb-1" style="font-size:0.75rem;"><i class="fa fa-money-check-alt mr-1"></i>Règlements déjà enregistrés</label>
+							<div class="list-group" style="max-height:180px; overflow-y:auto;" id="affecterClientReglements"></div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Filet de secours (facture uniquement) : le client recherché n'a AUCUNE facture -
+				     plutôt que de bloquer l'utilisateur, un petit encart lui propose d'aller créer/lier
+				     le règlement directement depuis la page Facturation (nouvel onglet, la fenêtre de
+				     rapprochement reste ouverte ici) - à rafraîchir ensuite pour le retrouver dans le
+				     panneau "Règlements déjà enregistrés" et cliquer "Associer". -->
+				<div id="affecterAucuneFactureZone" class="d-none mt-3">
+					<div class="d-flex align-items-center" style="gap:0.75rem; background:rgba(99, 102, 241, 0.06); border-radius:12px; padding:0.7rem 0.9rem;">
+						<div style="width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg, #6366f1, #4f46e5); display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 4px 10px rgba(79, 70, 229, 0.3);">
+							<i class="fa fa-lightbulb" style="color:#fff; font-size:0.85rem;"></i>
+						</div>
+						<p class="mb-0" style="flex:1; min-width:0; font-size:0.82rem; color:var(--ink, #181a2a);">Introuvable ? Ajoutez le règlement directement depuis la facturation.</p>
+						<a href="index.php?option=com_facture" target="_blank" class="btn btn-sm btn-primary" style="border-radius:999px; white-space:nowrap; flex-shrink:0;"><i class="fa fa-plus mr-1"></i>Nouveau règlement</a>
+					</div>
+				</div>
+
 				<!-- Ne s'affiche que pour une charge (jamais pour une facture) : si aucune charge de la
 				     liste ne correspond réellement, l'utilisateur crée la charge manquante ici même,
 				     plutôt que d'être bloqué au seul choix parmi les charges existantes. -->
@@ -616,6 +658,56 @@
 			<div class="modal-footer">
 				<button type="button" class="btn btn-white" data-dismiss="modal">Annuler</button>
 				<button type="button" class="btn btn-primary" id="affecterConfirmerBtn"><i class="fa fa-check mr-1"></i> Confirmer</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Popup "Confirmer le rapprochement" — dernier verrou avant d'écrire en base (créer un nouveau
+     règlement, ou lier un règlement déjà existant du client) : jamais un clic direct sans relecture,
+     même habillage que les autres popups de confirmation du module (.tva-confirm-modal). Le texte
+     du corps est rempli dynamiquement (demanderConfirmationRapprochement()) selon le crédit/la
+     facture/le règlement concernés - le popup lui-même reste générique. -->
+<div id="confirmerRapprochementModal" class="modal custom-modal tva-confirm-modal fade" role="dialog">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+				<div class="tva-confirm-icon" style="background:linear-gradient(135deg, #34d399, #059669); box-shadow:0 8px 20px rgba(5, 150, 105, 0.35);"><i class="fa fa-link"></i></div>
+				<h5 class="modal-title mt-3">Confirmer le rapprochement ?</h5>
+			</div>
+			<div class="modal-body">
+				<p class="text-center mb-0" id="confirmerRapprochementTexte" style="font-size:0.9rem;">—</p>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-white" data-dismiss="modal">Annuler</button>
+				<button type="button" class="btn btn-success" id="confirmerRapprochementBtn"><i class="fa fa-check mr-1"></i> Confirmer</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Popup "Annuler ce rapprochement" — retour d'une ligne "Facture rapprochée" à "à valider" (voir
+     annulerRapprochementFacture()) : action destructrice potentielle (peut supprimer un règlement),
+     jamais un clic direct sans confirmation, même habillage que les autres popups d'avertissement. -->
+<div id="annulerRapprochementModal" class="modal custom-modal tva-confirm-modal fade" role="dialog">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+				<div class="tva-confirm-icon" style="background:linear-gradient(135deg, #f87171, #b91c1c); box-shadow:0 8px 20px rgba(185, 28, 28, 0.35);"><i class="fa fa-undo"></i></div>
+				<h5 class="modal-title mt-3">Annuler ce rapprochement ?</h5>
+			</div>
+			<div class="modal-body">
+				<p class="text-center mb-0" id="annulerRapprochementTexte" style="font-size:0.9rem;">—</p>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-white" data-dismiss="modal">Fermer</button>
+				<button type="button" class="btn btn-danger" id="annulerRapprochementBtn"><i class="fa fa-undo mr-1"></i> Annuler le rapprochement</button>
 			</div>
 		</div>
 	</div>
@@ -733,6 +825,41 @@ $(function () {
 		var p = iso.split('-');
 		return p.length === 3 ? (p[2] + '/' + p[1] + '/' + p[0]) : iso;
 	}
+
+	// Dernier verrou avant d'écrire en base pour un rapprochement crédit -> facture (nouveau
+	// règlement créé OU règlement existant associé) - jamais un clic direct sans relecture. Le
+	// popup lui-même (#confirmerRapprochementModal) est générique, seul le texte change.
+	var rapprochementConfirmerCallback = null;
+	function demanderConfirmationRapprochement(messageHtml, callback) {
+		$('#confirmerRapprochementTexte').html(messageHtml);
+		rapprochementConfirmerCallback = callback;
+		$('#confirmerRapprochementModal').modal('show');
+	}
+	$('#confirmerRapprochementBtn').on('click', function () {
+		$('#confirmerRapprochementModal').modal('hide');
+		if (rapprochementConfirmerCallback) {
+			var callback = rapprochementConfirmerCallback;
+			rapprochementConfirmerCallback = null;
+			callback();
+		}
+	});
+
+	// Même principe pour "Annuler ce rapprochement" (#annulerRapprochementModal) - action
+	// destructrice potentielle (peut supprimer un règlement), jamais un clic direct.
+	var rapprochementAnnulerCallback = null;
+	function demanderAnnulationRapprochement(messageHtml, callback) {
+		$('#annulerRapprochementTexte').html(messageHtml);
+		rapprochementAnnulerCallback = callback;
+		$('#annulerRapprochementModal').modal('show');
+	}
+	$('#annulerRapprochementBtn').on('click', function () {
+		$('#annulerRapprochementModal').modal('hide');
+		if (rapprochementAnnulerCallback) {
+			var callback = rapprochementAnnulerCallback;
+			rapprochementAnnulerCallback = null;
+			callback();
+		}
+	});
 
 	// ---- Sécurité anti-doublon (réaffectation) : la charge/le bulletin choisi est déjà rattaché
 	// à une AUTRE ligne de relevé - le serveur bloque et renvoie needs_confirmation=1 au lieu
@@ -1077,6 +1204,64 @@ $(function () {
 	var affecterLigneCourante = null;
 	var affecterTypeCourant = null;
 	var affecterFactureHtmlComplet = '';
+	// Toutes les factures + tous les règlements de l'agence, regroupés par id_client (posé une
+	// seule fois par index.php dans data-client-infos, voir #affecterModal) - jamais un nouvel
+	// aller-retour AJAX pour afficher l'historique du client au survol/à la sélection.
+	var affecterClientInfos = (function () {
+		var brut = $('#affecterModal').attr('data-client-infos');
+		try { return brut ? JSON.parse(brut) : { factures: {}, reglements: {} }; } catch (e) { return { factures: {}, reglements: {} }; }
+	})();
+
+	// Rafraîchit le panneau "Factures du client / Règlements déjà enregistrés" du #affecterModal
+	// pour le client actuellement identifié (facture sélectionnée dans #affecterSelect OU client
+	// choisi manuellement dans #affecterClientSelect) - jamais une affectation à l'aveugle.
+	function affecterAfficherInfosClient(idClient) {
+		var $zone = $('#affecterClientInfos');
+		var $factures = $('#affecterClientFactures');
+		var $reglements = $('#affecterClientReglements');
+
+		// Filet de secours vers la facturation : reste visible tant qu'un client est identifié, MÊME
+		// s'il a des factures/règlements affichés - rien ne garantit que l'un d'eux est le bon pour
+		// CE crédit précis (montant différent, etc.), c'est à l'utilisateur d'en juger, pas au code.
+		$('#affecterAucuneFactureZone').toggleClass('d-none', !idClient);
+
+		var factures = idClient ? (affecterClientInfos.factures[idClient] || []) : [];
+		var reglements = idClient ? (affecterClientInfos.reglements[idClient] || []) : [];
+
+		if (!idClient || (factures.length === 0 && reglements.length === 0)) {
+			$zone.addClass('d-none');
+			return;
+		}
+
+		if (factures.length === 0) {
+			$factures.html('<p class="text-muted mb-0 px-2 py-1" style="font-size:0.8rem;">Aucune facture.</p>');
+		} else {
+			var htmlF = '';
+			factures.forEach(function (f) {
+				var estPayee = f.reste <= 0;
+				htmlF += '<div class="list-group-item d-flex justify-content-between align-items-center py-1 px-2" style="font-size:0.78rem;">'
+					+ '<span>N°' + f.numero + ' <small class="text-muted">' + formatDateFr(f.date) + '</small></span>'
+					+ '<span class="badge ' + (estPayee ? 'badge-success' : 'badge-warning') + '">' + fmtMontant(f.total) + ' ' + f.devise + (estPayee ? '' : ' · reste ' + fmtMontant(f.reste) + ' ' + f.devise) + '</span>'
+					+ '</div>';
+			});
+			$factures.html(htmlF);
+		}
+
+		if (reglements.length === 0) {
+			$reglements.html('<p class="text-muted mb-0 px-2 py-1" style="font-size:0.8rem;">Aucun règlement enregistré.</p>');
+		} else {
+			var htmlR = '';
+			reglements.forEach(function (r) {
+				htmlR += '<div class="list-group-item d-flex justify-content-between align-items-center py-1 px-2" style="font-size:0.78rem;">'
+					+ '<span>' + (r.deja_lie ? '⚠ ' : '') + 'N°' + r.facture_numero + ' <small class="text-muted">' + formatDateFr(r.date) + (r.methode ? ' · ' + r.methode : '') + '</small><br><span class="badge badge-light">' + fmtMontant(r.montant) + ' ' + r.devise + '</span></span>'
+					+ '<button type="button" class="btn btn-white btn-xs rapprochement-associer-reglement" data-toggle="tooltip" title="' + (r.deja_lie ? 'Déjà rapproché avec une autre opération - cliquer pour réaffecter' : 'Associer ce crédit à ce règlement plutôt que de créer un nouveau paiement') + '" data-payment-id="' + r.id + '">Associer</button>'
+					+ '</div>';
+			});
+			$reglements.html(htmlR);
+		}
+
+		$zone.removeClass('d-none');
+	}
 
 	function affecterBasculerZoneNouvelleCharge(estNouvelleCharge) {
 		$('#affecterNouvelleChargeZone').toggleClass('d-none', !estNouvelleCharge);
@@ -1105,6 +1290,7 @@ $(function () {
 			html = '<option value="__nouvelle__">+ Créer une nouvelle charge</option>' + html;
 		}
 		affecterFactureHtmlComplet = html;
+		$('#affecterAucuneFactureZone').addClass('d-none');
 
 		// Aucun client détecté automatiquement dans le libellé de ce crédit (0 candidat) :
 		// recherche du client d'abord (fenêtre dédiée), la liste des factures ne s'affiche qu'une
@@ -1120,9 +1306,19 @@ $(function () {
 			$('#affecterClientSelect').val(null);
 			$affecterSelect.html('<option value="">Choisir la facture...</option>');
 			$('#affecterSelectZone').addClass('d-none');
+			$('#affecterClientInfos').addClass('d-none');
 		} else {
 			$affecterSelect.html(html).val($selectSource.val());
 			$('#affecterSelectZone').removeClass('d-none');
+			// Par défaut, le panneau client montre le MEILLEUR candidat détecté (premier de son
+			// groupe) - l'admin voit tout de suite l'historique du client le plus probable, et le
+			// panneau se met à jour dès qu'il choisit une autre facture dans la liste.
+			if (type === 'facture') {
+				var idClientDefaut = $('<div>').html(html).find('optgroup[label^="Candidat"] option[data-client]').first().data('client');
+				affecterAfficherInfosClient(idClientDefaut);
+			} else {
+				$('#affecterClientInfos').addClass('d-none');
+			}
 		}
 		affecterBasculerZoneNouvelleCharge(false);
 
@@ -1166,6 +1362,7 @@ $(function () {
 				$('#affecterSelectZone').addClass('d-none');
 			}
 			$affecterSelect.select2({ dropdownParent: $('#affecterModal'), width: '100%' });
+			affecterAfficherInfosClient('');
 			return;
 		}
 
@@ -1181,6 +1378,7 @@ $(function () {
 		}
 		$('#affecterSelectZone').removeClass('d-none');
 		$affecterSelect.select2({ dropdownParent: $('#affecterModal'), width: '100%' });
+		affecterAfficherInfosClient(idClient);
 	}
 
 	$(document).on('change', '#affecterClientSelect', function () {
@@ -1194,6 +1392,9 @@ $(function () {
 
 	$(document).on('change', '#affecterSelect', function () {
 		affecterBasculerZoneNouvelleCharge(affecterTypeCourant === 'charge' && $(this).val() === '__nouvelle__');
+		if (affecterTypeCourant === 'facture') {
+			affecterAfficherInfosClient($(this).find(':selected').data('client'));
+		}
 	});
 
 	$('#affecterConfirmerBtn').on('click', function () {
@@ -1228,9 +1429,63 @@ $(function () {
 		}
 
 		var $selectSource = affecterLigneCourante.find(affecterTypeCourant === 'facture' ? '.rapprochement-facture-select' : '.rapprochement-charge-select');
+
+		if (affecterTypeCourant === 'facture') {
+			var libelleFacture = $('#affecterSelect option:selected').text();
+			var creditLigne = $.trim(affecterLigneCourante.find('td:nth-child(4)').text());
+			$('#affecterModal').modal('hide');
+			demanderConfirmationRapprochement(
+				'Le crédit de <strong>' + escHtml(creditLigne) + '</strong> sera lié à :<br><strong>' + escHtml(libelleFacture) + '</strong><br><span class="text-muted" style="font-size:0.8rem;">Un nouveau règlement sera créé pour cette facture.</span>',
+				function () {
+					$selectSource.val(valeur);
+					affecterLigneCourante.find('.rapprochement-valider').trigger('click');
+				}
+			);
+			return;
+		}
+
 		$selectSource.val(valeur);
 		$('#affecterModal').modal('hide');
 		affecterLigneCourante.find('.rapprochement-valider').trigger('click');
+	});
+
+	// "Associer ce règlement" : le crédit correspond à un paiement déjà saisi manuellement pour ce
+	// client (panneau "Règlements déjà enregistrés") - on lie directement, sans passer par le
+	// <select> de factures ni créer un nouveau règlement en doublon.
+	$(document).on('click', '.rapprochement-associer-reglement', function () {
+		var idPayment = $(this).data('payment-id');
+		var texteReglement = $(this).closest('.list-group-item').find('span').first().text().trim();
+		var $ligneCourante = affecterLigneCourante;
+		$('#affecterModal').modal('hide');
+		demanderConfirmationRapprochement(
+			'Ce crédit sera associé au règlement déjà enregistré :<br><strong>' + escHtml(texteReglement) + '</strong><br><span class="text-muted" style="font-size:0.8rem;">Aucun nouveau paiement ne sera créé.</span>',
+			function () {
+				$ligneCourante.find('.rapprochement-facture-select').val('');
+				$ligneCourante.find('.rapprochement-payment-existant').val(idPayment);
+				$ligneCourante.find('.rapprochement-valider').trigger('click');
+			}
+		);
+	});
+
+	// "Annuler ce rapprochement" (ligne "Facture rapprochée") : retour à "à valider" - voir
+	// annulerRapprochementFacture() côté contrôleur pour la logique de suppression conditionnelle
+	// du règlement (jamais s'il s'agissait d'un règlement du client déjà existant).
+	$(document).on('click', '.rapprochement-annuler-facture', function () {
+		var $tr = $(this).closest('tr');
+		var id = $tr.data('id');
+		var libelle = $tr.data('libelle');
+		demanderAnnulationRapprochement(
+			'La ligne <strong>' + escHtml(libelle) + '</strong> redeviendra "à valider".<br><span class="text-muted" style="font-size:0.8rem;">Si un nouveau règlement avait été créé pour ce rapprochement, il sera supprimé et la facture recalculée. Un règlement déjà existant du client, lui, ne sera jamais supprimé — seulement délié.</span>',
+			function () {
+				$.post('components/com_rapprochement/controleurs/router.php?task=annulerRapprochementFacture', { id: id }, function (response) {
+					if (response.success) {
+						window.location.reload();
+					} else {
+						alert(response.message || "Erreur lors de l'annulation");
+					}
+				});
+			}
+		);
 	});
 
 	// ---- Supprimer un import entier (annulation complète du lot) ----------------------------
@@ -1258,6 +1513,9 @@ $(function () {
 		}
 		if (resume && resume.nb_charges_liees > 0) {
 			html += '<li>' + resume.nb_charges_liees + ' charge(s) existante(s) simplement déliée(s) (créées avant cet import, jamais supprimées)</li>';
+		}
+		if (resume && resume.nb_paiements_lies > 0) {
+			html += '<li>' + resume.nb_paiements_lies + ' règlement(s) existant(s) du client simplement délié(s) (déjà enregistrés avant cet import, jamais supprimés)</li>';
 		}
 		html += '</ul>';
 		$('#supprimerLotResume').html(html);
@@ -1310,12 +1568,13 @@ $(function () {
 		var matchType = $tr.data('match-type');
 		var idFacture = $tr.find('.rapprochement-facture-select').val();
 		var idChargeExistante = $tr.find('.rapprochement-charge-select').val();
+		var idPaymentExistant = $tr.find('.rapprochement-payment-existant').val();
 
 		if (matchType === 'debit_charge_existante' && !idChargeExistante) {
 			ouvrirAffecterModal($tr, 'charge');
 			return;
 		}
-		if (matchType === 'credit_ambigu' && !idFacture) {
+		if (matchType === 'credit_ambigu' && !idFacture && !idPaymentExistant) {
 			ouvrirAffecterModal($tr, 'facture');
 			return;
 		}
@@ -1333,6 +1592,9 @@ $(function () {
 
 		function envoyerValiderDirect(force) {
 			var payload = { id: id, id_facture: idFacture, id_charge_existante: idChargeExistante };
+			if (idPaymentExistant) {
+				payload.id_payment_existant = idPaymentExistant;
+			}
 			if (force) {
 				payload.force_reaffectation = 1;
 			}
@@ -1345,6 +1607,9 @@ $(function () {
 					return;
 				}
 				alert(response.message || 'Erreur lors de la validation');
+				// Le choix de règlement échoué (introuvable/refusé) ne doit pas rester collé à la
+				// ligne pour un prochain essai - la prochaine ouverture du modal doit repartir propre.
+				$tr.find('.rapprochement-payment-existant').val('');
 			});
 		}
 		envoyerValiderDirect(false);

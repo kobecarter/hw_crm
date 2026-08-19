@@ -360,6 +360,19 @@ function paymentForm($data)
         <form method="post" action="<?php echo $action; ?>" id="paymentForm" enctype="multipart/form-data">
             <div class="msgbox"></div>
 
+            <!-- Rappel contextuel : quelle facture (et, si elle existe, quel devis d'origine) ce
+                 paiement concerne - utile en particulier depuis la fiche client (task=showDetails),
+                 où ce formulaire est ouvert hors du contexte de la facture elle-même. -->
+            <div class="alert alert-light border mb-3 py-2 px-3" style="font-size:0.85rem;">
+                <i class="fa fa-file-invoice text-primary mr-1"></i> Facture
+                <a href="index.php?option=com_facture&task=show&id=<?php echo $facture->getId(); ?>" target="_blank"><strong>N°<?php echo $facture->getNumero(); ?></strong></a>
+                <?php if ($facture->getDevis() && $facture->getDevis()->getId() != 0) : ?>
+                    <span class="mx-2">·</span>
+                    <i class="fa fa-file-invoice-dollar text-primary mr-1"></i> Devis
+                    <a href="index.php?option=com_devis&task=edit&id=<?php echo $facture->getDevis()->getId(); ?>" target="_blank"><strong>N°<?php echo $facture->getDevis()->getNumero(); ?></strong></a>
+                <?php endif; ?>
+            </div>
+
             <div class="row">
                 <div class="col-sm-6">
                     <div class="form-group">

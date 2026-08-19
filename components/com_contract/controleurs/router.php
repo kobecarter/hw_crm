@@ -54,6 +54,21 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
                 include_once ("contract/controleur.php");
             }
             break;
+        case 'remplacerContratGenere' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_contract')) {
+                include_once ("contract/controleur.php");
+            }
+            break;
+        case 'importerContratDepuisFichier' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_contract')) {
+                include_once ("contract/controleur.php");
+            }
+            break;
+        case 'regenererCorpsDepuisDevis' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_contract')) {
+                include_once ("contract/controleur.php");
+            }
+            break;
         case 'envoyerContratSlack' :
             if ($_SESSION['user']->hasDroit('view', 'com_contract')) {
                 include_once ("contract/controleur.php");

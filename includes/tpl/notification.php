@@ -84,7 +84,7 @@ if ($afficherAlertes) {
 			<a href="javascript:void(0)">Voir tout les notifications</a>
 		</div>
 	</div>
-	<a href="javascript:void(0)" class="dropdown-toggle nav-link" data-toggle="dropdown">
+	<a href="javascript:void(0)" class="dropdown-toggle nav-link" data-toggle="dropdown" data-display="static">
 		<i class="fa fa-comments"></i> <?php if (sizeof($notifications) > 0) : ?> <span class="badge badge-pill"><?php echo $cpt; ?></span> <?php endif; ?>
 	</a>
 	<?php if ($afficherAlertes) : ?>
