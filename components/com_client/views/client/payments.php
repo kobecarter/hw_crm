@@ -9,6 +9,7 @@
 				<thead class="thead-light">
 					<tr>
 						<th>ID</th>
+						<th>Facture</th>
 						<th>Montant</th>
 						<th>Méthode</th>
 						<th>Date réception</th>
@@ -23,17 +24,22 @@
 						<?php foreach ($payments as $payment) : ?>
 							<tr>
 								<td><?php echo $payment->getId(); ?></td>
+								<td><a href="index.php?option=com_facture&task=show&id=<?php echo $payment->getFacture()->getId(); ?>">#<?php echo $payment->getFacture()->getNumero(); ?></a></td>
 								<td><?php echo number_format($payment->getMontant(), 2, ',', ' ') . ' ' . $payment->getFacture()->getDevise(); ?></td>
 								<td><?php echo $payment->getMethodePayment(); ?></td>
 								<td data-sort="<?= strtotime($payment->getDatePayment())?>"><?php echo normaldate($payment->getDatePayment()); ?></td>
 								<td data-sort="<?= strtotime($payment->getDateValidation())?>"><?php echo normaldate($payment->getDateValidation()); ?></td>
 								<td class="text-right">
 									<?php if($payment->getRegImg() != ''): ?>
-										<a href="images/reglements/<?php echo $payment->getRegImg(); ?>" data-fancybox class="btn btn-sm btn-white text-success mr-2" data-toggle="tooltip" data-placement="top" data-original-title="Reglement"><i class="fa fa-file-alt"></i></a> 
+										<a href="images/reglements/<?php echo $payment->getRegImg(); ?>" data-fancybox class="btn btn-sm btn-white text-success mr-2" data-toggle="tooltip" data-placement="top" data-original-title="Reglement"><i class="fa fa-file-alt"></i></a>
 									<?php endif; ?>
-									
+
 									<?php if ($_SESSION['user']->hasDroit('edit', 'com_facture')) :?>
-										<a href="javascript:void(0);" class="btn btn-sm btn-white text-warning mr-2 paymentForm" data-toggle="tooltip" data-placement="top" data-original-title="Modifier" data-id="<?= $payment->getId(); ?>"><i class="fa fa-pencil-alt"></i></a>
+										<!-- data-id-facture porté par CHAQUE ligne (jamais la variable $facture de la boucle
+										     PHP englobante, qui vaut toujours la DERNIÈRE facture itérée une fois le <script>
+										     ci-dessous atteint) - sans ça, modifier un paiement d'une facture qui n'est pas la
+										     dernière du client réaffectait silencieusement ce paiement à la mauvaise facture. -->
+										<a href="javascript:void(0);" class="btn btn-sm btn-white text-warning mr-2 paymentForm" data-toggle="tooltip" data-placement="top" data-original-title="Modifier" data-id="<?= $payment->getId(); ?>" data-id-facture="<?= $payment->getFacture()->getId(); ?>"><i class="fa fa-pencil-alt"></i></a>
 									<?php endif;?>
 									<?php if ($_SESSION['user']->hasDroit('delete', 'com_facture')) :?>
 										<a href="javascript:void(0);" class="btn btn-sm btn-white text-danger mr-2 delete" data-toggle="tooltip" data-placement="top" data-original-title="Supprimer" data-id="<?= $payment->getId(); ?>"><i class="far fa-trash-alt"></i></a>
@@ -95,7 +101,7 @@
 			var $btn = $(this);
 			var id = $btn.attr("data-id");
 			var title = id != '0' ? 'Modifier paiement' : 'Ajouter paiement';
-			var order = 'id=' + id + '&id_facture=<?php echo isset($facture) ? $facture->getId() : NULL; ?>';
+			var order = 'id=' + id + '&id_facture=' + $btn.attr("data-id-facture");
 			$.post("components/com_facture/controleurs/router.php?task=paymentForm", order, function(theResponse) {
 				$(".modal-title").html(title);
 				$(".modal-body").html(theResponse);

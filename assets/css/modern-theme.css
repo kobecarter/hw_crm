@@ -77,6 +77,19 @@ h1, h2, h3, h4, h5, h6,
 	border-color: var(--border-soft);
 	background: transparent;
 }
+/* En-têtes "Titre + bouton" (ex: 'Factures récentes' / 'Voir tout') : la .row Bootstrap qui les
+   sépare n'a pas align-items-center - le titre et le bouton s'alignaient donc en haut du bloc au
+   lieu d'être centrés verticalement l'un par rapport à l'autre. Le texte du bouton lui-même est
+   déjà centré par .btn (Bootstrap), mais rendu explicite ici en flex pour être robuste même si
+   l'icône/texte a une hauteur de ligne différente. */
+.card-header > .row {
+	align-items: center;
+}
+.card-header .btn-right {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
 .card .card-title {
 	font-weight: 700;
 	color: var(--ink);
@@ -233,6 +246,42 @@ h1, h2, h3, h4, h5, h6,
 .row.global-stats .card,
 .row.stats-result .card {
 	width: 100%;
+}
+
+/* "Statistiques" / "Statistiques globales" / sélecteur d'année en haut du dashboard : 3 éléments
+   indépendants en float:right (com_dashboard/views/dashboard/list.php) - se chevauchaient/
+   passaient à la ligne sous 992px, le float ne gérant pas de repli propre à 3 largeurs fixes sur
+   un écran étroit. Convertis en ligne flex qui partage l'espace en 3 parts égales, avec ellipsis
+   en filet de sécurité si un libellé reste malgré tout trop long pour sa part. */
+@media (max-width: 991.98px) {
+	.dashboard-toolbar-mobile {
+		display: flex;
+		flex-wrap: nowrap;
+		align-items: center;
+		gap: 6px;
+		margin-bottom: 0.75rem;
+	}
+	.dashboard-toolbar-mobile > a,
+	.dashboard-toolbar-mobile > .dropdown {
+		float: none !important;
+		margin: 0 !important;
+		width: auto !important;
+		flex: 1 1 0;
+		min-width: 0;
+	}
+	.dashboard-toolbar-mobile > a,
+	.dashboard-toolbar-mobile .dropdown-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		font-size: 0.72rem;
+		padding: 0.45rem 0.4rem;
+		text-align: center;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
 }
 
 /* ---- Boutons : dégradé de marque -------------------------------------------- */
@@ -663,18 +712,24 @@ label {
 	justify-content: center;
 }
 /* Bascule de la sidebar, déplacée à côté du logo (dans .header-left) - même chip "verre"
-   circulaire que les icônes du bandeau, pour rester cohérent visuellement. */
-.header .header-left #toggle_btn {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 34px;
-	height: 34px;
-	border-radius: 50%;
-	background: rgba(99, 102, 241, 0.1);
-	color: var(--brand-2, #6366f1);
-	flex-shrink: 0;
-	transition: background-color 0.15s var(--ease), color 0.15s var(--ease);
+   circulaire que les icônes du bandeau, pour rester cohérent visuellement. Réservé au desktop
+   (min-width:992px, même seuil que style.css) : sans ce garde-fou, "display:inline-flex" ici
+   l'emporte sur le "#toggle_btn{display:none}" mobile de style.css (spécificité égale, cascade
+   plus tardive) et le fait réapparaître par-dessus #mobile_btn (le vrai hamburger mobile),
+   doublant inutilement la zone cliquable du coin haut-gauche du bandeau. */
+@media (min-width: 992px) {
+	.header .header-left #toggle_btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 34px;
+		height: 34px;
+		border-radius: 50%;
+		background: rgba(99, 102, 241, 0.1);
+		color: var(--brand-2, #6366f1);
+		flex-shrink: 0;
+		transition: background-color 0.15s var(--ease), color 0.15s var(--ease);
+	}
 }
 .header .header-left #toggle_btn:hover {
 	background: var(--brand-grad);
@@ -799,6 +854,75 @@ label {
 	}
 }
 
+/* Recherche mobile : ancrée en bas de l'écran (jamais dans le bandeau, trop étroit sous 992px pour
+   accueillir un champ de recherche en plus des icônes) - toujours atteignable au pouce, contexte
+   verre cohérent avec le reste de l'app. Masquée par défaut (desktop) ; la règle ci-dessus la
+   masquerait aussi (elle porte .top-nav-search) sans le sélecteur à deux classes ci-dessous, plus
+   spécifique, qui la réaffiche uniquement sous 992px. */
+.top-nav-search-mobile {
+	display: none;
+}
+@media (max-width: 991.98px) {
+	.top-nav-search.top-nav-search-mobile {
+		display: block !important;
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 1050;
+		float: none;
+		margin: 0 !important;
+		padding: 10px 12px;
+		padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+		background: rgba(255, 255, 255, 0.86);
+		backdrop-filter: blur(20px) saturate(180%);
+		-webkit-backdrop-filter: blur(20px) saturate(180%);
+		border-top: 1px solid var(--border-soft);
+		box-shadow: 0 -6px 20px rgba(30, 30, 60, 0.08);
+	}
+	.top-nav-search-mobile form {
+		width: 100%;
+		min-width: 0;
+		max-width: none;
+		margin-top: 0 !important;
+		position: relative;
+	}
+	.top-nav-search-mobile .form-control {
+		width: 100%;
+		height: 46px;
+		padding-right: 46px;
+	}
+	.top-nav-search-mobile .btn {
+		position: absolute;
+		right: 4px;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 36px;
+		height: 36px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	/* .global-search-panel (assets/js/global-search.js) s'ouvre par défaut vers le BAS
+	   (top:calc(100% + 6px), cf. règle plus haut) - correct pour la barre desktop, mais la barre
+	   mobile est elle-même déjà collée au bord bas de l'écran : ouvrir encore plus bas la ferait
+	   apparaître hors du viewport, invisible. Inversée ici pour s'ouvrir vers le HAUT à la place. */
+	.top-nav-search-mobile .global-search-panel {
+		top: auto;
+		bottom: calc(100% + 6px);
+		transform-origin: bottom center;
+	}
+	/* La recherche mobile flotte par-dessus le bas de page - on lui laisse la place plutôt que de
+	   masquer le dernier bloc de contenu derrière elle. */
+	.page-wrapper {
+		padding-bottom: 72px;
+	}
+}
+[data-theme="dark"] .top-nav-search-mobile.top-nav-search {
+	background: rgba(20, 20, 28, 0.86);
+	border-top-color: var(--border-soft);
+}
+
 /* Icônes du bandeau haut (chat, Rappels(Urgent), ...) : même badge circulaire "glass" pour
    toutes - les variantes de teinte (Rappels(Urgent) selon l'urgence) surchargent juste ensuite. */
 /* 44px partout (icônes, drapeaux, avatar) : même hauteur que le champ de recherche à côté, pour
@@ -907,7 +1031,13 @@ label {
 /* ---- Centre d'alertes ("Rappels(Urgent)") : panneau clair, cohérent avec le reste de l'app -
    les alertes "danger" (en retard / sans justificatif...) ressortent en rouge (fond teinté +
    liseré + puce), les "warning" restent neutres, pour une hiérarchie visuelle immédiate entre ce
-   qui est réellement urgent et ce qui est simplement à traiter. ------------------------------- */
+   qui est réellement urgent et ce qui est simplement à traiter. Recherche + puces de filtre par
+   catégorie (verre, défilement horizontal) au-dessus d'une liste de groupes repliables (cartes
+   verre, accent rouge si le groupe contient au moins une urgence, triés urgence-d'abord côté PHP
+   - voir includes/tpl/bottom.php) : pensé pour qu'aucune alerte ne se perde quand plusieurs
+   catégories sont actives à la fois (jusqu'à 8 catégories possibles, sans plafond du nombre
+   d'items par catégorie - la recherche/les puces filtrent en JS pur, jamais de perte de donnée,
+   juste du masquage). ---------------------------------------------------------------------- */
 /* Verre dépoli plutôt qu'un blanc opaque : la modale flotte, floutée, au-dessus du fond assombri
    par le backdrop Bootstrap - même esprit que le bandeau haut / la carte de login. Les lignes
    d'alerte gardent leur propre fond (.alert-center-item, quasi-opaque) donc restent lisibles
@@ -920,17 +1050,158 @@ label {
 	border: 1px solid rgba(255, 255, 255, 0.6);
 	box-shadow: var(--shadow-lg);
 }
-.alert-center-modal .modal-header {
+/* En-tête étendu (titre + résumé + recherche + puces), toujours visible pendant que seul le
+   corps défile - un panneau à 8 catégories/dizaines d'items ne doit jamais faire perdre de vue
+   les outils de filtrage en scrollant. align-items:stretch écrase le align-items:flex-start posé
+   par Bootstrap sur .modal-header (cette div porte les deux classes) - sans lui, .alert-center-
+   chips (comme tout enfant flex) se dimensionne à son CONTENU plutôt qu'à la largeur du conteneur,
+   et min-width:0/overflow-x:auto ci-dessous n'ont alors plus aucun effet : les puces débordaient
+   carrément hors de la carte de la modale au lieu d'y défiler. */
+.alert-center-header {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 0.7rem;
+	min-width: 0;
 	border-bottom: 1px solid var(--border-soft);
+	padding: 1.1rem 1.5rem;
+}
+.alert-center-header-top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
 }
 .alert-center-modal .modal-title {
 	color: var(--ink);
 	font-weight: 700;
 }
+.alert-center-summary {
+	margin: -0.3rem 0 0;
+	font-size: 0.82rem;
+	color: var(--ink-soft);
+}
+.alert-center-summary-sep {
+	margin: 0 0.15rem;
+	opacity: 0.6;
+}
+.alert-center-summary-danger {
+	color: #b91c1c;
+	font-weight: 600;
+}
+/* Recherche : pilule verre avec loupe intégrée, même famille visuelle que .top-nav-search. */
+.alert-center-search {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+.alert-center-search i {
+	position: absolute;
+	left: 0.9rem;
+	font-size: 0.8rem;
+	color: var(--ink-soft);
+	pointer-events: none;
+}
+.alert-center-search input {
+	width: 100%;
+	background: rgba(255, 255, 255, 0.6);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	border: 1px solid var(--border-soft);
+	border-radius: 999px;
+	padding: 0.5rem 0.9rem 0.5rem 2.15rem;
+	font-size: 0.85rem;
+	color: var(--ink);
+	outline: none;
+	transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease), background-color 0.2s var(--ease);
+}
+.alert-center-search input::placeholder {
+	color: var(--ink-soft);
+	opacity: 0.8;
+}
+.alert-center-search input:focus {
+	border-color: var(--brand-2, #6366f1);
+	box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.14);
+	background: rgba(255, 255, 255, 0.85);
+}
+/* Puces de filtre : défilement horizontal (pas de retour à la ligne moche si 8 catégories +
+   Tout + Urgentes tiennent pas dans la largeur), pilule verre inactive -> dégradé marque actif.
+   min-width:0 est nécessaire (piège flexbox classique) : sans lui, un enfant flex garde par
+   défaut min-width:auto = la largeur de son CONTENU, et pousse .alert-center-header (son parent,
+   lui aussi flex) à s'élargir au lieu de laisser overflow-x:auto entrer en jeu - les puces
+   débordaient alors carrément hors de la carte de la modale plutôt que de défiler dedans. */
+.alert-center-chips {
+	display: flex;
+	gap: 0.4rem;
+	min-width: 0;
+	overflow-x: auto;
+	padding-bottom: 0.15rem;
+	scrollbar-width: thin;
+}
+.alert-center-chips::-webkit-scrollbar {
+	height: 4px;
+}
+.alert-center-chips::-webkit-scrollbar-thumb {
+	background: rgba(99, 102, 241, 0.25);
+	border-radius: 999px;
+}
+.alert-center-chip {
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	max-width: 260px;
+	padding: 0.55rem 1rem;
+	border-radius: 999px;
+	border: 1px solid var(--border-soft);
+	background: rgba(255, 255, 255, 0.55);
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+	color: var(--ink-soft);
+	font-size: 0.88rem;
+	font-weight: 600;
+	white-space: nowrap;
+	cursor: pointer;
+	transition: transform 0.15s var(--ease), background-color 0.15s var(--ease), color 0.15s var(--ease), border-color 0.15s var(--ease);
+}
+.alert-center-chip span:not(.alert-center-chip-count) {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+.alert-center-chip i {
+	font-size: 0.82rem;
+	opacity: 0.85;
+}
+.alert-center-chip:hover {
+	transform: translateY(-1px);
+	border-color: rgba(99, 102, 241, 0.35);
+	color: var(--ink);
+}
+.alert-center-chip.active {
+	background: var(--brand-grad);
+	border-color: transparent;
+	color: #fff;
+	box-shadow: 0 6px 16px rgba(79, 70, 229, 0.32);
+}
+.alert-center-chip.active .alert-center-chip-count {
+	background: rgba(255, 255, 255, 0.28);
+	color: #fff;
+}
+.alert-center-chip-danger.active {
+	background: linear-gradient(135deg, #f87171, #b91c1c);
+	box-shadow: 0 6px 16px rgba(185, 28, 28, 0.32);
+}
+.alert-center-chip-count {
+	background: rgba(99, 102, 241, 0.12);
+	color: var(--brand-2, #6366f1);
+	font-size: 0.76rem;
+	font-weight: 700;
+	padding: 0.1rem 0.55rem;
+	border-radius: 999px;
+}
 .alert-center-modal .modal-body {
-	max-height: 70vh;
+	max-height: 60vh;
 	overflow-y: auto;
-	padding: 1.25rem 1.5rem;
+	padding: 1.1rem 1.5rem 1.5rem;
 }
 .alert-center-vide {
 	text-align: center;
@@ -943,27 +1214,63 @@ label {
 	color: #10b981;
 	margin-bottom: 0.6rem;
 }
+.alert-center-vide-filtre i {
+	color: var(--brand-2, #6366f1);
+}
+/* Groupe = carte verre repliable (bouton-titre pleine largeur, jamais un simple séparateur comme
+   avant) - l'accent rouge signale, sans avoir à déplier, qu'une urgence se cache dans ce groupe. */
 .alert-center-groupe {
-	margin-bottom: 1.4rem;
+	margin-bottom: 0.7rem;
+	border-radius: var(--radius-md, 16px);
+	background: rgba(255, 255, 255, 0.5);
+	border: 1px solid var(--border-soft);
+	overflow: hidden;
+	transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
 .alert-center-groupe:last-child {
 	margin-bottom: 0;
 }
+.alert-center-groupe-danger {
+	border-color: rgba(239, 68, 68, 0.28);
+	box-shadow: 0 4px 18px rgba(239, 68, 68, 0.08);
+}
 .alert-center-groupe-titre {
 	display: flex;
 	align-items: center;
-	gap: 0.5rem;
-	font-size: 0.8rem;
+	gap: 0.6rem;
+	width: 100%;
+	font-size: 0.85rem;
 	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	color: var(--ink-soft);
-	margin: 0 0 0.6rem;
-	padding-bottom: 0.4rem;
-	border-bottom: 1px solid var(--border-soft);
+	color: var(--ink);
+	margin: 0;
+	padding: 0.7rem 0.9rem;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	text-align: left;
 }
-.alert-center-groupe-titre i {
+.alert-center-groupe-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	flex-shrink: 0;
+	border-radius: 50%;
+	background: rgba(99, 102, 241, 0.12);
 	color: var(--brand-2, #6366f1);
+	font-size: 0.8rem;
+}
+.alert-center-groupe-danger .alert-center-groupe-icon {
+	background: rgba(239, 68, 68, 0.14);
+	color: #b91c1c;
+}
+.alert-center-groupe-label {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 .alert-center-groupe-count {
 	background: rgba(99, 102, 241, 0.12);
@@ -972,12 +1279,25 @@ label {
 	font-weight: 700;
 	padding: 0.05rem 0.55rem;
 	border-radius: 999px;
-	margin-left: auto;
+}
+.alert-center-groupe-danger .alert-center-groupe-count {
+	background: rgba(239, 68, 68, 0.14);
+	color: #b91c1c;
+}
+.alert-center-groupe-chevron {
+	font-size: 0.7rem;
+	color: var(--ink-soft);
+	transition: transform 0.25s var(--ease);
+	flex-shrink: 0;
+}
+.alert-center-groupe-collapsed .alert-center-groupe-chevron {
+	transform: rotate(-90deg);
 }
 .alert-center-liste {
 	display: flex;
 	flex-direction: column;
-	gap: 0.4rem;
+	gap: 0.35rem;
+	padding: 0 0.6rem 0.6rem;
 }
 .alert-center-item {
 	display: flex;
@@ -985,9 +1305,7 @@ label {
 	gap: 0.75rem;
 	padding: 0.6rem 0.85rem;
 	border-radius: 10px;
-	background: rgba(255, 255, 255, 0.55);
-	backdrop-filter: blur(8px);
-	-webkit-backdrop-filter: blur(8px);
+	background: rgba(255, 255, 255, 0.65);
 	border-left: 3px solid transparent;
 	color: var(--ink);
 	transition: background-color 0.15s var(--ease), transform 0.15s var(--ease), border-color 0.15s var(--ease);
@@ -1010,14 +1328,18 @@ label {
 	color: #b91c1c;
 }
 .alert-center-item-puce {
-	width: 8px;
-	height: 8px;
+	width: 11px;
+	height: 11px;
 	border-radius: 50%;
 	flex-shrink: 0;
 }
 .alert-center-item-danger .alert-center-item-puce {
 	background: #ef4444;
 	box-shadow: 0 0 6px 1px rgba(239, 68, 68, 0.5);
+	animation: bellUrgentBlink 1.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+	.alert-center-item-danger .alert-center-item-puce { animation: none; }
 }
 .alert-center-item-warning .alert-center-item-puce {
 	background: #f59e0b;
@@ -1466,30 +1788,60 @@ label {
 		margin: 0.75rem;
 	}
 	/* Audit responsive 2026-08-04 : la ligne "En MAD/Euro/Pound/Dollar/AED/Charges" du dashboard
-	   (.ca-box) déborde de son conteneur sur mobile (6 valeurs sur une seule ligne, chacune avec
-	   sa propre marge) - MAIS .das-chart-content (son parent) est déjà overflow-x:scroll, donc
-	   les valeurs tronquées à l'écran (Dollar/AED/Charges) restent réellement atteignables au
-	   doigt, ce n'est pas une perte de données. Seul vrai problème : rien ne signale que c'est
-	   swipeable - un dégradé de fondu au bord droit sert d'indice visuel, sans toucher à la
-	   mise en page du graphique lui-même (plus risqué à modifier ici). */
-	.das-chart-content {
-		position: relative;
+	   (.ca-box, style.css : "width:670px" en dur, hérité du template d'origine) et le graphique
+	   ApexCharts juste en dessous (#sales_chart, dont .das-chart-content .das-chart{width:max-
+	   content} en hérite la largeur puisqu'il n'a pas de largeur propre) débordaient tous les deux
+	   de leur conteneur sur mobile - traité un temps en ajoutant juste un indice visuel "ça se fait
+	   glisser" (dégradé de fondu) plutôt qu'en touchant la largeur, jugé plus risqué. Fixé
+	   pour de vrai ici : .ca-box repasse en pleine largeur et autorise l'enroulement de ses 6
+	   valeurs (chacune reste "white-space:nowrap" individuellement, seule la ligne globale
+	   s'enroule), et .das-chart n'hérite plus d'une largeur imposée - ApexCharts (qui mesure son
+	   conteneur au moment du .render()) se retrouve alors avec une largeur réellement mobile dès
+	   le premier rendu, sans qu'aucun scroll horizontal ne soit plus nécessaire. */
+	.ca-box {
+		width: 100% !important;
+		height: auto !important;
+		flex-wrap: wrap !important;
+		row-gap: 0.75rem;
+		column-gap: 0;
 	}
-	.das-chart-content::after {
-		content: "";
-		position: absolute;
-		top: 0;
-		right: 0;
-		bottom: 0;
-		width: 24px;
-		background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.9));
-		pointer-events: none;
+	/* Les 6 valeurs (En MAD/Euro/Pound/Dollar/Aed/Charges) sont des <div> sans largeur propre -
+	   flex-wrap seul les laisse aussi larges que leur contenu, rangées en dents de scie. Forcées à
+	   1/3 de largeur chacune = vraie grille 3 colonnes x 2 lignes, alignée et lisible. Le mr-5
+	   (3rem, hérité du template desktop où les 6 tenaient sur une seule ligne) n'a plus de sens
+	   une fois en grille et ne fait plus que pousser le texte hors de sa colonne - neutralisé ici. */
+	.ca-box > div {
+		flex: 0 0 33.333%;
+		max-width: 33.333%;
+		margin: 0 !important;
+		box-sizing: border-box;
+		padding-right: 0.4rem;
+	}
+	.ca-box > div p {
+		margin-right: 0 !important;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.das-chart-content {
+		overflow-x: visible;
+	}
+	.das-chart-content .das-chart {
+		width: 100%;
 	}
 	/* Légendes ApexCharts (générique, tous les graphiques de l'app) : la légende horizontale par
 	   défaut de la librairie ne tient pas compte de la largeur du conteneur et pousse le graphique
-	   en dehors de sa carte sur mobile - elle doit pouvoir passer à la ligne comme le reste. */
+	   en dehors de sa carte sur mobile - elle doit pouvoir passer à la ligne comme le reste. Centrée
+	   et espacée uniformément (au lieu de chips de largeur variable collées les unes aux autres) pour
+	   rester lisible une fois qu'elle tient sur plusieurs lignes. */
 	.apexcharts-legend {
 		flex-wrap: wrap !important;
+		justify-content: center !important;
+		row-gap: 0.4rem !important;
+		column-gap: 0.75rem !important;
+	}
+	.apexcharts-legend .apexcharts-legend-series {
+		margin: 0 !important;
 	}
 	/* En-têtes de carte avec titre + recherche + barre d'outils sur une seule ligne
 	   (.card-header.d-flex, ex: "Liste des clients") : sans wrap, le groupe de boutons
@@ -1744,6 +2096,51 @@ label {
 	}
 }
 
+@media (max-width: 767.98px) {
+	/* .holiday-widget/-panel étaient positionnés en % de la hauteur de viewport (top:20%), pensé
+	   pour des hauteurs desktop confortables - sur un écran mobile plus court, le panneau (centré
+	   sur ce point via translateY(-50%)) débordait au-dessus du viewport. Bougé un temps près du
+	   BAS de l'écran (au-dessus de la recherche mobile fixe), mais ça masquait alors des boutons/
+	   graphiques proches du bas de page (ex: sélecteur d'année, actions de tableau) - déplacé au
+	   MILIEU de l'écran à la place.
+	   Centré ici SANS "transform" (top:0;bottom:0;height:50px;margin:auto 0 - centre verticalement
+	   une boîte à hauteur fixe entre deux bornes fixes, sans passer par translateY) : un
+	   "transform" sur cet élément - même translateY(-50%) tout seul - crée un nouveau "containing
+	   block" pour tout descendant en position:fixed (piège CSS déjà rencontré 2 fois ce jour pour
+	   .header/backdrop-filter), et le panneau (position:fixed, cf. plus bas) se positionnait alors
+	   par rapport à cette pastille de 50px et non au vrai viewport - débordait hors écran malgré
+	   ses propres top/bottom explicites. */
+	.holiday-widget {
+		top: 0;
+		bottom: 0;
+		margin-top: auto;
+		margin-bottom: auto;
+		transform: none;
+	}
+	/* Le panneau restait ancré "bas de son propre parent, grandit vers le haut" (hérité de l'époque
+	   où .holiday-widget était collé au bas de l'écran, où grandir vers le haut avait toujours
+	   assez de place) - une fois le parent remonté au milieu de l'écran (ci-dessus), un panneau de
+	   60vh grandissant depuis ce point milieu déborde AU-DESSUS du viewport (mesuré : jusqu'à
+	   y=-49px, premières lignes du calendrier invisibles). Détaché de la position du parent :
+	   position:fixed avec des bornes haut/bas explicites par rapport au VRAI viewport, quel que
+	   soit l'endroit où le petit onglet de 50px se trouve. "height" plutôt que compter sur un
+	   étirement automatique top+bottom (constaté peu fiable ici, cf. .dropdown-menu.show/top.php -
+	   même prudence). */
+	.holiday-widget-panel {
+		position: fixed;
+		top: 80px;
+		bottom: auto;
+		right: 12px;
+		height: calc(100vh - 160px);
+		height: calc(100dvh - 160px);
+		max-height: none;
+		transform: translateX(calc(100% + 20px));
+	}
+	.holiday-widget.open .holiday-widget-panel {
+		transform: translateX(0);
+	}
+}
+
 /* Toast "un jour férié approche" : bulle rouge au-dessus de l'onglet, reste
    affichée tant que l'utilisateur ne clique pas sur sa croix de fermeture
    (pas de disparition automatique, pilotée uniquement par la classe .show). */
@@ -1796,6 +2193,24 @@ label {
 .holiday-widget-toast-close:hover {
 	color: #fff;
 }
+@media (max-width: 767.98px) {
+	/* Doit rester APRÈS la règle de base ci-dessus (même sélecteur/spécificité que .holiday-widget-
+	   toast : à égalité, la cascade CSS donne la victoire à la règle la plus tardive dans le
+	   fichier, jamais à la plus spécifique par media query) - sinon "top"/"max-width" retombent sur
+	   les valeurs desktop (calc(20% - 90px)/270px) même sous 768px, ce qui recouvre le titre de
+	   page (mesuré : boîte de ~620px de haut, tirée entre l'ancien top ET le nouveau bottom). */
+	.holiday-widget-toast {
+		top: auto;
+		bottom: 145px;
+		right: 12px;
+		left: 12px;
+		max-width: none;
+	}
+	.holiday-widget-toast::after {
+		top: auto;
+		bottom: -6px;
+	}
+}
 
 /* ---- Widget flottant "Assistant" (dashboard) — même patron que .holiday-widget ci-dessus
    (onglet collé à droite, panneau qui se déploie au clic), décalé verticalement pour ne pas se
@@ -1809,6 +2224,23 @@ label {
 	z-index: 1060;
 	width: 50px;
 	height: 50px;
+}
+@media (max-width: 767.98px) {
+	/* .holiday-widget (jours fériés) est repositionné au MILIEU du viewport sur mobile (top:50%,
+	   cf. règle plus haut dans ce fichier) - ce widget-ci doit suivre exactement le même
+	   déplacement pour rester la même paire empilée qu'en desktop (même écart de 58px), sinon les
+	   deux se désynchronisent verticalement sur mobile. */
+	/* Comme .holiday-widget juste au-dessus : plus de "transform" ici (translateY(-50%) créait un
+	   containing block pour le panneau descendant en position:fixed, cf. commentaire détaillé sur
+	   .holiday-widget). .holiday-widget est maintenant centré exactement au milieu du viewport via
+	   margin:auto (50px de haut, donc de [milieu-25] à [milieu+25]) - ce widget-ci est calé juste
+	   en dessous (milieu+25 + 8px d'écart = milieu+33), sans transform, sa hauteur (50px) faisant le
+	   reste. */
+	.assistant-float-widget {
+		top: calc(50% + 33px);
+		bottom: auto;
+		transform: none;
+	}
 }
 .assistant-float-widget-tab {
 	position: relative;
@@ -1927,8 +2359,24 @@ label {
 	padding-top: 0.8rem;
 }
 @media (max-width: 991.98px) {
+	/* Même correctif que .holiday-widget-panel juste au-dessus : centré verticalement sur son
+	   propre parent (top:50%;transform:translateY(-50%), hérité du desktop), le panneau peut
+	   déborder en haut ou en bas du viewport selon sa hauteur réelle (nombre de tâches) une fois ce
+	   parent lui-même positionné au milieu de l'écran sur mobile. Détaché de la position du parent :
+	   bornes haut/bas explicites par rapport au vrai viewport. */
 	.assistant-float-widget-panel {
 		width: 82vw;
+		position: fixed;
+		top: 80px;
+		bottom: auto;
+		right: 12px;
+		height: calc(100vh - 160px);
+		height: calc(100dvh - 160px);
+		max-height: none;
+		transform: translateX(calc(100% + 20px));
+	}
+	.assistant-float-widget.open .assistant-float-widget-panel {
+		transform: translateX(0);
 	}
 }
 
@@ -2382,6 +2830,41 @@ label {
 .pill-tabs.nav-tabs {
 	padding: 1.25rem 1.5rem 0.75rem;
 }
+/* Sous 992px, les 5 onglets (Clients/Devis/Contrats/Factures/Paiements) ne tiennent pas sur une
+   largeur d'écran mobile et s'enroulaient sur plusieurs lignes (flex-wrap hérité de .nav-tabs
+   ci-dessus) - une seule ligne défilante horizontalement à la place, même traitement que
+   .user-menu (bandeau haut) pour rester cohérent. */
+@media (max-width: 991.98px) {
+	.pill-tabs.nav-tabs {
+		/* !important nécessaire : sous 992px quelque chose retombe sur "display:block" pour cet
+		   élément (constaté en debug, pas identifié avec certitude côté source) - sans forcer flex
+		   ici, les onglets s'empilent en pleine largeur au lieu de rester sur une ligne. Même
+		   contournement déjà en place pour .user-menu (bandeau haut, cf. style.css) face à un souci
+		   de nature similaire. */
+		display: flex !important;
+		flex-wrap: nowrap;
+		/* PAS de overflow-x:auto ici : ces onglets sont cliquables (data-toggle="tab"), et un
+		   conteneur scrollable autour d'éléments cliquables casse le tap sur mobile réel (le
+		   moindre micro-mouvement du doigt est pris pour un scroll, le click ne se déclenche jamais
+		   - même bug que .user-menu, cf. style.css). Les 5 onglets sont donc réduits ci-dessous
+		   pour tenir sans avoir besoin de scroller du tout, pas juste rendus scrollables. */
+	}
+	.pill-tabs.nav-tabs .nav-link {
+		white-space: nowrap;
+		flex: 0 0 auto;
+		padding: 0.35rem 0.4rem;
+		margin: 0 0.1rem 0.35rem 0;
+		font-size: 0.76rem;
+	}
+	/* Avec les 5 libellés complets ("Clients"..."Paiements") + leur badge de comptage, même très
+	   resserrés, le total dépasse encore la largeur dispo sur les téléphones les plus étroits
+	   (mesuré : ~495px de contenu pour ~360px dispo) - le compte lui-même est une info secondaire
+	   ici (le nombre total est déjà visible ailleurs sur la page), masqué sur mobile plutôt que de
+	   continuer à rétrécir le texte jusqu'à l'illisible. */
+	.pill-tabs.nav-tabs .nav-link .badge {
+		display: none;
+	}
+}
 
 /* Les vues incluses (devis/factures/paiements/rappels/relances) rendent chacune
    leur propre .card.card-table : à l'intérieur d'un onglet, on aplatit cette carte
@@ -2405,6 +2888,35 @@ label {
 .rh-live-search {
 	position: relative;
 	min-width: 220px;
+}
+@media (max-width: 767.98px) {
+	/* Sous 767.98px, 220px de large pour la seule recherche laisse rarement assez de place pour le
+	   titre + le filtre de statut à côté sur une même ligne - réduit pour laisser le flex se
+	   partager l'espace disponible (voir aussi ".card-header.flex-wrap" ci-dessous, spécifique à
+	   l'en-tête "Personnel" de com_resourcehumaine, qui force explicitement la ligne unique). */
+	.client-live-search,
+	.rh-live-search {
+		min-width: 0;
+		flex: 1 1 auto;
+	}
+	/* "Personnel" + recherche + filtre "Actifs uniquement" (com_resourcehumaine/views/
+	   resourcehumaine/list.php) : la classe utilitaire Bootstrap ".flex-wrap" (toujours
+	   !important) les envoyait sur 2 lignes dès que la recherche (min-width 220px) ne laissait
+	   plus de place au filtre - resserré ici pour que les 3 tiennent sur une ligne, quitte à ce
+	   que la recherche se contracte davantage que sur desktop. */
+	.card-header.flex-wrap {
+		flex-wrap: nowrap !important;
+		gap: 6px;
+	}
+	.card-header.flex-wrap .card-title {
+		font-size: 1rem;
+		white-space: nowrap;
+		margin-right: 6px !important;
+	}
+	.card-header.flex-wrap #rh-status-filter {
+		max-width: 118px;
+		font-size: 0.75rem;
+	}
 }
 .client-live-search i,
 .rh-live-search i {
@@ -2851,9 +3363,13 @@ label {
 	color: #fff;
 }
 @media (max-width: 700px) {
+	/* PAS de overflow-x:auto : ces onglets sont des <a> cliquables - un conteneur scrollable autour
+	   d'éléments cliquables casse le tap sur mobile réel (cf. le même piège déjà rencontré et
+	   corrigé sur .user-menu et .pill-tabs.nav-tabs). 8 onglets ne peuvent pas tenir lisiblement
+	   sur une seule ligne mobile de toute façon - laissés s'enrouler sur plusieurs lignes plutôt
+	   que scroller, contrairement à .pill-tabs (5 onglets, rétréciables jusqu'à tenir). */
 	.employee-hero-tabs {
-		flex-wrap: nowrap;
-		overflow-x: auto;
+		flex-wrap: wrap;
 	}
 }
 
@@ -4558,7 +5074,6 @@ table.table td h2.table-avatar span.avatar-sleep-badge {
 .header-left,
 .glass-page .card:not(:has(.modal)),
 .alert-center-modal .modal-content,
-.global-search-panel,
 .login-wrapper .loginbox,
 .sidebar-menu li a {
 	position: relative;
@@ -4567,7 +5082,6 @@ table.table td h2.table-avatar span.avatar-sleep-badge {
 .header-left::after,
 .glass-page .card:not(:has(.modal))::after,
 .alert-center-modal .modal-content::after,
-.global-search-panel::after,
 .login-wrapper .loginbox::after,
 .sidebar-menu li a::after {
 	content: "";
@@ -4584,7 +5098,6 @@ table.table td h2.table-avatar span.avatar-sleep-badge {
 .header-left:hover::after,
 .glass-page .card:not(:has(.modal)):hover::after,
 .alert-center-modal .modal-content:hover::after,
-.global-search-panel:hover::after,
 .login-wrapper .loginbox:hover::after,
 .sidebar-menu li a:hover::after {
 	opacity: 1;
@@ -4598,7 +5111,6 @@ table.table td h2.table-avatar span.avatar-sleep-badge {
 	.header-left::after,
 	.glass-page .card::after,
 	.alert-center-modal .modal-content::after,
-	.global-search-panel::after,
 	.login-wrapper .loginbox::after,
 	.sidebar-menu li a::after {
 		display: none;
@@ -4652,12 +5164,12 @@ table.table td h2.table-avatar span.avatar-sleep-badge {
 	gap: 2px;
 	background: rgba(99, 102, 241, 0.06);
 	border-radius: 999px;
-	padding: 3px;
+	padding: 1px;
 	backdrop-filter: blur(10px);
 	-webkit-backdrop-filter: blur(10px);
 }
 .glass-icon-group > a.nav-link {
-	padding: 0 6px !important;
+	padding: 0px 2px !important;
 	height: auto !important;
 }
 .glass-icon-group > a.nav-link > i {
@@ -4769,6 +5281,22 @@ table.table td h2.table-avatar span.avatar-sleep-badge {
 	background-color: var(--paper-raised) !important;
 	border-color: var(--border-soft);
 }
+/* Fiche employé (.employee-hero, cf. resourcehumaine/_profile_header.php - "Profil/Fichiers/
+   Absences/Demandes/Bonus/..." partagent tous cet en-tête) : fond blanc en dur, jamais adapté au
+   mode sombre - le nom/poste (h3/.text-muted) hérite pourtant bien la couleur claire du body en
+   mode sombre (règle globale ci-dessus), texte clair sur fond resté blanc = quasiment invisible.
+   Même traitement que .card ci-dessus (var(--paper-raised)), sur mobile ET desktop (aucune media
+   query ici, .employee-hero est identique aux deux tailles). */
+[data-theme="dark"] .employee-hero {
+	background: var(--paper-raised);
+}
+[data-theme="dark"] .employee-hero-avatar {
+	background: var(--paper-raised);
+}
+[data-theme="dark"] .employee-hero-info h3 {
+	color: var(--ink);
+}
+
 [data-theme="dark"] .globalstats-filter-card,
 [data-theme="dark"] .globalstats-chart-card {
 	background-color: var(--paper-raised) !important;
@@ -4855,6 +5383,54 @@ table.table td h2.table-avatar span.avatar-sleep-badge {
 [data-theme="dark"] .modal-header,
 [data-theme="dark"] .modal-footer {
 	border-color: var(--border-soft);
+}
+
+/* Centre d'alertes : la carte/recherche/puces sont des surfaces "verre" bespoke (pas de simples
+   .card/.modal-content déjà couverts ci-dessus) - assombries dans le même esprit que le reste du
+   thème sombre plutôt que de rester figées en blanc translucide. */
+[data-theme="dark"] .alert-center-search input {
+	background: rgba(255, 255, 255, 0.06);
+	border-color: var(--border-soft);
+	color: var(--ink);
+}
+[data-theme="dark"] .alert-center-search input:focus {
+	background: rgba(255, 255, 255, 0.1);
+}
+[data-theme="dark"] .alert-center-chip {
+	background: rgba(255, 255, 255, 0.06);
+	border-color: var(--border-soft);
+}
+[data-theme="dark"] .alert-center-chip:hover {
+	color: var(--ink);
+}
+[data-theme="dark"] .alert-center-groupe {
+	background: var(--paper-raised);
+	border-color: var(--border-soft);
+}
+[data-theme="dark"] .alert-center-groupe-danger {
+	border-color: rgba(239, 68, 68, 0.4);
+}
+[data-theme="dark"] .alert-center-item {
+	background: rgba(255, 255, 255, 0.04);
+}
+[data-theme="dark"] .alert-center-item:hover {
+	background: rgba(99, 102, 241, 0.14);
+}
+[data-theme="dark"] .alert-center-item-danger {
+	background: rgba(239, 68, 68, 0.1);
+}
+[data-theme="dark"] .alert-center-item-danger:hover {
+	background: rgba(239, 68, 68, 0.18);
+}
+/* #b91c1c (rouge "danger" clair) tombe sous 3:1 de contraste sur les fonds sombres ci-dessus -
+   éclairci vers #f87171 (déjà utilisé pour ce même sens "danger" par le dégradé de la puce
+   ".alert-center-chip-danger.active" et par "wizard-danger") uniquement pour le TEXTE/icônes ;
+   les fonds/bordures teintés rouge ci-dessus restent inchangés, déjà assez contrastés. */
+[data-theme="dark"] .alert-center-summary-danger,
+[data-theme="dark"] .alert-center-item-danger .alert-center-item-titre,
+[data-theme="dark"] .alert-center-groupe-danger .alert-center-groupe-icon,
+[data-theme="dark"] .alert-center-groupe-danger .alert-center-groupe-count {
+	color: #f87171;
 }
 
 /* En-tête + sidebar (surfaces "verre" déjà translucides sur fond clair - on assombrit la
@@ -4969,4 +5545,18 @@ table.table td h2.table-avatar span.avatar-sleep-badge {
 }
 #devis-acompte-montant{
 	border-radius: var(--radius-sm) 0 0 var(--radius-sm) !important;
+}
+/* ---- Séparateur "Autre moyen de se connecter" (page de login) — .span-or/.login-or existaient
+   déjà dans style.css (gabarit "OR" du template d'origine, jamais utilisé jusqu'ici : largeur fixe
+   de 42px + recentrage par margin-left négatif, calibrés pour un texte court de type "OU"). Notre
+   texte est plus long : largeur libre + recentrage par transform, qui fonctionne quelle que soit
+   la longueur du texte. ------------------------------------------------------------------- */
+.login-right .span-or {
+	width: auto;
+	max-width: 90%;
+	left: 50%;
+	margin-left: 0;
+	transform: translateX(-50%);
+	padding: 0 0.75rem;
+	white-space: nowrap;
 }

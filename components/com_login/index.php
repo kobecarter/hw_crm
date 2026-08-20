@@ -23,6 +23,10 @@ switch ($task)
             }
         }
         break;
+    case 'resetPassword' :
+        $tokenReset = isset($_GET['token']) ? $_GET['token'] : '';
+        include_once("views/login/resetpassword.php");
+        break;
     default :
 		include_once("views/login/login.php");
         break;

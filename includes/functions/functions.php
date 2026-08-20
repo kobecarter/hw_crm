@@ -1093,7 +1093,8 @@ function getAlertesUrgentes($agence)
                     'titre' => trim($rappel->getDomaine() . ' ' . $rappel->getType()),
                     'sous_titre' => 'Expire dans ' . $rappel->getDaysLeft() . ' jour(s)',
                     'url' => 'index.php?option=com_rappel&highlight=' . $rappel->getId(),
-                    'urgence' => $rappel->getDaysLeft() <= 7 ? 'danger' : 'warning'
+                    'urgence' => $rappel->getDaysLeft() <= 7 ? 'danger' : 'warning',
+                    'date_add' => $rappel->getDateAdd()
                 );
             }
         }
@@ -1110,7 +1111,8 @@ function getAlertesUrgentes($agence)
                     'titre' => 'Facture N°' . $f->getNumero(),
                     'sous_titre' => 'Expire dans ' . $f->getDaysLeft() . ' jour(s)',
                     'url' => 'index.php?option=com_facture&task=show&id=' . $f->getId(),
-                    'urgence' => $f->getDaysLeft() <= 7 ? 'danger' : 'warning'
+                    'urgence' => $f->getDaysLeft() <= 7 ? 'danger' : 'warning',
+                    'date_add' => $f->getDateAdd()
                 );
             }
         }
@@ -1128,7 +1130,8 @@ function getAlertesUrgentes($agence)
                     'titre' => $nom !== '' ? $nom : '(sans nom)',
                     'sous_titre' => 'En attente de validation',
                     'url' => 'index.php?option=com_fournisseur&task=edit&id=' . $f->getId(),
-                    'urgence' => 'warning'
+                    'urgence' => 'warning',
+                    'date_add' => $f->getDateAdd()
                 );
             }
         }
@@ -1153,7 +1156,8 @@ function getAlertesUrgentes($agence)
                     'titre' => $nomCompte . ' — ' . $lot->getPeriodeLibelle(),
                     'sous_titre' => $nbATraiter . ' ligne(s) à traiter' . ($compteurs['sans_justificatif'] > 0 ? ' (dont ' . $compteurs['sans_justificatif'] . ' sans justificatif)' : ''),
                     'url' => 'index.php?option=com_rapprochement',
-                    'urgence' => $compteurs['sans_justificatif'] > 0 ? 'danger' : 'warning'
+                    'urgence' => $compteurs['sans_justificatif'] > 0 ? 'danger' : 'warning',
+                    'date_add' => $lot->getDateAdd()
                 );
             }
         }
@@ -1173,7 +1177,8 @@ function getAlertesUrgentes($agence)
                 'titre' => $nomClient . ($facture ? ' — Facture N°' . $facture->getNumero() : ''),
                 'sous_titre' => $joursRestants < 0 ? 'En retard de ' . abs($joursRestants) . ' jour(s)' : 'Relance ' . $r->getEtape() . ' dans ' . $joursRestants . ' jour(s)',
                 'url' => 'index.php?option=com_relance&highlight=' . $r->getId(),
-                'urgence' => $joursRestants < 0 ? 'danger' : 'warning'
+                'urgence' => $joursRestants < 0 ? 'danger' : 'warning',
+                'date_add' => $r->getDateAdd()
             );
         }
         if (!empty($items)) {
@@ -1200,7 +1205,11 @@ function getAlertesUrgentes($agence)
                 'titre' => 'Déclaration TVA — ' . $periodeCloturee['libelle'],
                 'sous_titre' => $joursAvantEcheance < 0 ? 'En retard de ' . abs($joursAvantEcheance) . ' jour(s)' : 'À déposer dans ' . $joursAvantEcheance . ' jour(s)',
                 'url' => 'index.php?option=com_accounting&task=tva',
-                'urgence' => $joursAvantEcheance < 0 ? 'danger' : 'warning'
+                'urgence' => $joursAvantEcheance < 0 ? 'danger' : 'warning',
+                // Item unique de ce groupe (jamais plusieurs déclarations en attente à la fois) - pas
+                // de vraie "date d'ajout" pertinente ici, le tri secondaire par date ne joue de toute
+                // façon aucun rôle sur un groupe à un seul item.
+                'date_add' => date('Y-m-d')
             ));
             $groupes['tva'] = array('label' => 'TVA à déclarer', 'icon' => 'fa-file-invoice-dollar', 'items' => $items);
         }
@@ -1218,7 +1227,8 @@ function getAlertesUrgentes($agence)
                         'titre' => $employe->getFirstName() . ' ' . $employe->getLastName() . ' — ' . $demande->getTitle(),
                         'sous_titre' => 'Demande en attente depuis le ' . date('d/m/Y', strtotime($demande->getDateAdd())),
                         'url' => 'index.php?option=com_resourcehumaine&task=request&id=' . $employe->getId(),
-                        'urgence' => 'warning'
+                        'urgence' => 'warning',
+                        'date_add' => $demande->getDateAdd()
                     );
                 }
             }
@@ -1246,7 +1256,10 @@ function getAlertesUrgentes($agence)
                 'titre' => $nomStale,
                 'sous_titre' => $joursDepuis !== null ? 'Non revérifié depuis ' . $joursDepuis . ' jour(s)' : 'Jamais vérifié',
                 'url' => 'index.php?option=com_client&task=socialAccounts&id=' . $stale['id_client'],
-                'urgence' => ($joursDepuis === null || $joursDepuis >= 120) ? 'danger' : 'warning'
+                'urgence' => ($joursDepuis === null || $joursDepuis >= 120) ? 'danger' : 'warning',
+                // Pas de vraie "date d'ajout" disponible ici (findStaleByAgence() renvoie un agrégat,
+                // pas un objet clientsocial) - la dernière vérification est le meilleur proxy dispo.
+                'date_add' => $stale['derniere_verif']
             );
         }
         if (!empty($items)) {
@@ -1454,8 +1467,17 @@ function envoyerEmailDocumentsManquantsRH($employe, $manquants)
         $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
         $mail->CharSet = 'UTF-8';
 
-        $mail->setFrom(SMTP_USERNAME, 'Hello World');
+        // Expéditeur explicitement direction@ (et non sales@/SMTP_USERNAME, l'identité d'envoi
+        // partagée par défaut pour le reste de l'app) - demandé pour que l'employé voie ces
+        // relances comme venant de la direction. setFrom() ne dépend pas de SMTP_USERNAME/
+        // SMTP_PASSWORD (qui restent l'identité AUTHENTIFIÉE côté serveur SMTP) : la plupart des
+        // fournisseurs acceptent un From différent du compte authentifié tant qu'il est sur le
+        // même domaine ("send as"), ce qui est le cas ici.
+        $mail->setFrom('direction@helloworld-agency.com', 'Hello World - Direction');
         $mail->addAddress($employe->getEmail(), trim($employe->getFirstName() . ' ' . $employe->getLastName()));
+        // La direction doit voir passer ces relances (personnel ET stagiaires) dans sa propre
+        // boîte - être l'expéditeur (From, ci-dessus) ne garantit pas en soi une copie reçue.
+        $mail->addCC('direction@helloworld-agency.com');
         $mail->isHTML(true);
 
         $listeHtml = '';
@@ -1553,4 +1575,18 @@ function pointageIpAutorisee()
         }
     }
     return false;
+}
+
+// Ajoute "?v=<date de modification du fichier>" à un chemin d'asset local (CSS/JS sous assets/) -
+// aucun des <link>/<script> de includes/tpl/top.php|bottom.php n'a de cache-buster, et il n'y a
+// pas de .htaccess définissant de Cache-Control pour ces fichiers : un navigateur mobile (Safari
+// iOS en particulier, plus agressif que desktop sur le cache heuristique) peut continuer à servir
+// une version CSS/JS obsolète en cache pendant longtemps après une modification côté serveur, sans
+// aucun moyen pour l'utilisateur de le savoir - un simple correctif qui "ne marche pas" peut donc
+// n'être qu'un problème de cache, pas de code. $relatif est le même chemin que celui déjà écrit en
+// dur dans les balises (ex: "assets/css/style.css"), relatif à la racine du projet.
+function assetVersion($relatif)
+{
+    $absolu = __DIR__ . '/../../' . $relatif;
+    return $relatif . (file_exists($absolu) ? '?v=' . filemtime($absolu) : '');
 }

@@ -116,13 +116,20 @@ Version      : 1.0
 			wheelStep: 10,
 			touchScrollStep: 100
 		});
-		var wHeight = $(window).height() - 60;
-		$slimScrolls.height(wHeight);
-		$('.sidebar .slimScrollDiv').height(wHeight);
+		// Hauteur dispo = fenêtre moins le header réellement affiché (.sidebar est positionné
+		// "top: <hauteur du header>" en CSS) - un chiffre fixe ("- 60") se désynchronise dès que le
+		// header change de hauteur (desktop vs mobile, ou toute évolution future) : le menu
+		// débordait alors invisiblement sous l'écran, sans way de l'atteindre en scrollant, le
+		// slimScroll interne étant lui-même dimensionné sur la même valeur fausse.
+		function hauteurSidebarDispo() {
+			var headerHeight = $('.header').outerHeight() || 66;
+			return $(window).height() - headerHeight;
+		}
+		$slimScrolls.height(hauteurSidebarDispo());
+		$('.sidebar .slimScrollDiv').height(hauteurSidebarDispo());
 		$(window).resize(function () {
-			var rHeight = $(window).height() - 60;
-			$slimScrolls.height(rHeight);
-			$('.sidebar .slimScrollDiv').height(rHeight);
+			$slimScrolls.height(hauteurSidebarDispo());
+			$('.sidebar .slimScrollDiv').height(hauteurSidebarDispo());
 		});
 	}
 	

@@ -121,7 +121,7 @@
 		// deux ensemble. getBoundingClientRect() à chaque mousemove est volontaire : ces
 		// surfaces ne bougent jamais pendant le survol (pas de layout thrash réel), et ça
 		// évite de garder un ResizeObserver actif juste pour ce détail cosmétique.
-		var GLASS_SHINE_SELECTOR = '.header-left, .glass-page .card, .alert-center-modal .modal-content, .global-search-panel, .login-wrapper .loginbox, .btn-primary, .top-nav-search .btn, .sidebar-menu li a';
+		var GLASS_SHINE_SELECTOR = '.header-left, .glass-page .card, .alert-center-modal .modal-content, .login-wrapper .loginbox, .btn-primary, .top-nav-search .btn, .sidebar-menu li a';
 		document.addEventListener('mousemove', function (e) {
 			var el = e.target.closest ? e.target.closest(GLASS_SHINE_SELECTOR) : null;
 			if (!el) return;
@@ -169,11 +169,79 @@
 				}
 			});
 
-			// Centre d'alertes : entrée en cascade des lignes, groupe par groupe.
+			// ---- Centre d'alertes : recherche + puces de filtre + groupes repliables -----------
+			// Tout est déjà dans le DOM (rendu PHP unique par chargement de page, voir
+			// includes/tpl/bottom.php) - recherche/puces ne font QUE masquer/afficher via classe
+			// .d-none, jamais retirer d'élément : aucune alerte ne peut disparaître par erreur.
+			function alertCenterAppliquerFiltres($modal) {
+				var texte = ($.trim($modal.find('#alertCenterSearch').val() || '')).toLowerCase();
+				var filtreActif = $modal.find('.alert-center-chip.active').data('filtre') || 'tout';
+				var totalVisible = 0;
+
+				$modal.find('.alert-center-groupe').each(function () {
+					var $groupe = $(this);
+					var groupeCle = String($groupe.data('groupe'));
+					var groupeCorrespondFiltre = (filtreActif === 'tout') || (filtreActif === 'urgent') || (filtreActif === groupeCle);
+					var groupeAAuMoinsUnItemVisible = false;
+
+					$groupe.find('.alert-center-item').each(function () {
+						var $item = $(this);
+						var estUrgent = $item.hasClass('alert-center-item-danger');
+						var correspondTexte = !texte || (String($item.data('texte') || '')).indexOf(texte) !== -1;
+						var correspondFiltre = groupeCorrespondFiltre && (filtreActif !== 'urgent' || estUrgent);
+						var visible = correspondTexte && correspondFiltre;
+						$item.toggleClass('d-none', !visible);
+						if (visible) { groupeAAuMoinsUnItemVisible = true; totalVisible++; }
+					});
+
+					$groupe.toggleClass('d-none', !groupeAAuMoinsUnItemVisible);
+				});
+
+				$modal.find('#alertCenterEmptyFiltre').toggleClass('d-none', totalVisible > 0);
+			}
+
+			jQuery(document).on('input', '#alertCenterSearch', function () {
+				alertCenterAppliquerFiltres(jQuery(this).closest('.modal'));
+			});
+
+			jQuery(document).on('click', '.alert-center-chip', function () {
+				var $chip = jQuery(this);
+				$chip.closest('.alert-center-chips').find('.alert-center-chip').removeClass('active');
+				$chip.addClass('active');
+				alertCenterAppliquerFiltres($chip.closest('.modal'));
+			});
+
+			// Un groupe déjà passé en revue peut être replié pour dégager de la place à l'écran -
+			// jamais replié par défaut à l'ouverture (voir show.bs.modal ci-dessous) : la priorité
+			// reste de tout montrer d'emblée, le repli n'est qu'un confort optionnel de l'utilisateur.
+			jQuery(document).on('click', '[data-toggle-groupe]', function () {
+				var $groupe = jQuery(this).closest('.alert-center-groupe');
+				$groupe.toggleClass('alert-center-groupe-collapsed');
+				$groupe.find('.alert-center-liste').stop(true, true).slideToggle(200);
+			});
+
+			jQuery(document).on('show.bs.modal', '#alertCenterModal', function () {
+				var $modal = jQuery(this);
+				$modal.find('#alertCenterSearch').val('');
+				$modal.find('.alert-center-chip').removeClass('active');
+				$modal.find('.alert-center-chip[data-filtre="tout"]').addClass('active');
+				$modal.find('.alert-center-groupe').removeClass('alert-center-groupe-collapsed');
+				$modal.find('.alert-center-liste').show();
+				alertCenterAppliquerFiltres($modal);
+			});
+
+			// Entrée en cascade : les CARTES de groupe (unité visuelle désormais, plutôt que chaque
+			// ligne individuellement - un panneau à plusieurs dizaines d'items au total resterait
+			// lisible mais l'animation ligne-par-ligne serait superflue/plus lente à percevoir), puis
+			// les puces de filtre juste avant, plus rapide et plus discret.
 			jQuery(document).on('shown.bs.modal', '#alertCenterModal', function () {
-				var items = this.querySelectorAll('.alert-center-item');
-				if (items.length) {
-					gsap.from(items, { opacity: 0, x: -10, duration: 0.3, stagger: { amount: 0.35, from: 'start' }, ease: 'power2.out', clearProps: 'all' });
+				var groupes = this.querySelectorAll('.alert-center-groupe');
+				if (groupes.length) {
+					gsap.from(groupes, { opacity: 0, y: 10, duration: 0.35, stagger: { amount: 0.3, from: 'start' }, ease: 'power2.out', clearProps: 'all' });
+				}
+				var chips = this.querySelectorAll('.alert-center-chip');
+				if (chips.length) {
+					gsap.from(chips, { opacity: 0, scale: 0.85, duration: 0.25, stagger: { amount: 0.2, from: 'start' }, ease: 'back.out(1.7)', clearProps: 'all' });
 				}
 			});
 		}

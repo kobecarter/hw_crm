@@ -38,7 +38,16 @@ function switchUnitiesByLangauge(lang){
 (function ($) {
 	"use strict";
 
-	$(".chosen-select").select2();
+	// Protégé (jamais appelé sur la page de login, qui n'a aucun .chosen-select) : select2 est
+	// chargé depuis un CDN externe (includes/tpl/bottom-login.php) - une coupure réseau/un
+	// bloqueur qui empêche ce script de charger (bien plus probable sur mobile que sur un poste de
+	// dev stable) laissait $.fn.select2 indéfini, et l'appeler faisait planter tout le reste de
+	// cette IIFE avant même d'atteindre le ajaxForm() du formulaire de connexion juste en dessous -
+	// "Login" semblait alors ne plus rien faire au clic (le POST natif du <form> partait bien,
+	// mais vers une page nue affichant juste "0"/"1"/"2", jamais interceptée en AJAX).
+	if (typeof $.fn.select2 === 'function' && $(".chosen-select").length) {
+		$(".chosen-select").select2();
+	}
 
 
 	$('form#loginForm').ajaxForm({
@@ -65,6 +74,13 @@ function switchUnitiesByLangauge(lang){
 			else {
 				$('#loginForm .msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> Erreur lors de l\'execution de l\'opération<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
 			}
+		},
+		// Sans ce callback, une requête qui échoue (mauvaise origine/hôte, coupure réseau...)
+		// échouait en silence : le bouton "Login" restait bloqué sur son état de chargement, sans
+		// aucun message - impossible à distinguer d'un clic qui "ne fait rien".
+		error: function () {
+			$("#loginForm .loading").hide();
+			$('#loginForm .msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> Impossible de contacter le serveur. Vérifiez votre connexion et réessayez.<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
 		}
 	});
 
@@ -96,6 +112,10 @@ function switchUnitiesByLangauge(lang){
 			else {
 				$('#eloginForm .msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> Erreur lors de l\'execution de l\'opération<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
 			}
+		},
+		error: function () {
+			$("#eloginForm .loading").hide();
+			$('#eloginForm .msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> Impossible de contacter le serveur. Vérifiez votre connexion et réessayez.<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
 		}
 	});
 
@@ -158,6 +178,35 @@ function switchUnitiesByLangauge(lang){
 			}
 		});
 	})
-	
+
+	// Sous 992px, ".dropdown-menu.show" passe en position:fixed (cf. includes/tpl/top.php) pour se
+	// positionner par rapport au vrai viewport plutôt qu'au déclencheur - mais .header a
+	// backdrop-filter (glassmorphism), qui crée un nouveau "containing block" pour tout descendant
+	// en position:fixed (piège CSS déjà rencontré ailleurs dans ce projet pour les modales, cf.
+	// modern-theme.js/show.bs.modal, et pour la barre de recherche mobile) : le menu se
+	// positionnait alors par rapport à .header et non au viewport, retombant hors écran malgré le
+	// CSS "position:fixed;left:12px". Fix : sortir temporairement le menu ouvert vers <body> (hors
+	// de tout ancêtre à risque), et le remettre à sa place normale une fois refermé pour que
+	// Bootstrap le retrouve au prochain clic (son code interne le cherche comme enfant direct du
+	// <li> qui porte data-toggle="dropdown"). "data-display=static" (ajouté sur ces mêmes
+	// déclencheurs) est le complément indispensable : sans lui, Popper.js réinjecte son propre
+	// positionnement en style inline et entre en conflit avec ce déplacement.
+	$(document).on('show.bs.dropdown', '.user-menu > li.dropdown', function () {
+		if (window.innerWidth > 767.98) return;
+		var $li = $(this);
+		var $menu = $li.children('.dropdown-menu');
+		if (!$menu.length) return;
+		$li.data('dropdownMenuMovedToBody', $menu);
+		$(document.body).append($menu);
+	});
+	$(document).on('hidden.bs.dropdown', '.user-menu > li.dropdown', function () {
+		var $li = $(this);
+		var $menu = $li.data('dropdownMenuMovedToBody');
+		if ($menu && $menu.parent().is('body')) {
+			$li.append($menu);
+			$li.removeData('dropdownMenuMovedToBody');
+		}
+	});
+
 
 })(jQuery);

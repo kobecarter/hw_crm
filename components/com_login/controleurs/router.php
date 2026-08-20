@@ -17,6 +17,21 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
         case 'logout' :
 			include_once ("login.php");
             break;
+        case 'resetPasswordRequest' :
+			include_once ("login.php");
+            break;
+        case 'resetPasswordSubmit' :
+			include_once ("login.php");
+            break;
+        case 'googleLogin' :
+			include_once ("login.php");
+            break;
+        case 'googleLink' :
+			include_once ("login.php");
+            break;
+        case 'googleUnlink' :
+			include_once ("login.php");
+            break;
         case 'deleteLocalisation' :
             if ($_SESSION['user']->hasDroit('delete', 'com_localisation')) {
                 include_once ("localisation/controleur.php");

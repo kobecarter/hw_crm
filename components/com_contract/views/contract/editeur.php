@@ -44,6 +44,11 @@
 							<button type="button" class="btn btn-primary" id="enregistrerContratBtn"><i class="fa fa-save mr-1"></i> Enregistrer comme brouillon</button>
 						</div>
 
+						<div class="form-group d-flex align-items-center mb-2" style="gap:10px;flex-wrap:wrap;">
+							<input type="file" class="form-control" id="inputImportFichierEditeur" accept=".doc,.docx" style="max-width:320px;">
+							<button type="button" class="btn btn-white" id="importerFichierEditeurBtn"><i class="fa fa-file-import mr-1"></i> Importer dans l'éditeur (Word)</button>
+							<span class="text-muted" style="font-size:0.8rem;">Remplace le texte ci-dessous par le contenu du fichier Word - relisez puis "Enregistrer comme brouillon" pour valider.</span>
+						</div>
 						<textarea id="corpsContratEditeur"><?= $contract->getCorpsGenere() ? $contract->getCorpsGenere() : '<p>Aucun contenu généré pour ce contrat (créé via l\'ancien formulaire) - utilisez le formulaire "Champs du contrat" ci-dessus.</p>' ?></textarea>
 						<script type="text/javascript">
 							CKEDITOR.replace('corpsContratEditeur', {
@@ -55,19 +60,49 @@
 
 						<hr class="my-4">
 
-						<h5 class="mb-3">Contrat signé</h5>
+						<h5 class="mb-3">Document du contrat</h5>
 						<?php if ($contract->getContratPDF() != '') :?>
-							<p class="text-success mb-2"><i class="fa fa-check-circle mr-1"></i> Contrat signé déposé le <?= $contract->getSignedAt() ? normaldate($contract->getSignedAt()) : '—' ?> — <a href="images/contracts/<?= htmlspecialchars($contract->getContratPDF()) ?>" target="_blank">voir le PDF</a></p>
+							<p class="mb-2">
+								<i class="fa fa-file-alt mr-1"></i>
+								<?php if ($contract->getStatus() == contract::STATUT_SIGNE) :?>
+									Contrat signé<?= $contract->getSignedByName() ? ' par ' . htmlspecialchars($contract->getSignedByName()) : '' ?> le <?= $contract->getSignedAt() ? normaldate($contract->getSignedAt()) : '—' ?><?= $contract->getSignedIp() ? ' (IP ' . htmlspecialchars($contract->getSignedIp()) . ')' : '' ?>
+								<?php else :?>
+									Document déposé (remplace le texte généré ci-dessus)
+								<?php endif;?>
+								— <a href="images/contracts/<?= htmlspecialchars($contract->getContratPDF()) ?>" target="_blank">voir le fichier</a>
+								— <button type="button" class="btn btn-link text-danger p-0 align-baseline" id="retirerDocumentContratBtn" style="font-size:0.85rem;"><i class="fa fa-trash mr-1"></i>retirer</button>
+							</p>
+							<p class="text-muted mb-3" style="font-size:0.85rem;">Tant qu'un document est déposé, les boutons "PDF" / "Word" en haut de page servent ce fichier tel quel au lieu de régénérer le contrat.</p>
 						<?php else :?>
-							<p class="text-muted mb-2">Une fois le contrat signé par le client, déposez-en le PDF ici : le devis passera automatiquement au statut "Contrat signé".</p>
+							<p class="text-muted mb-2">Aucun document déposé — les boutons "PDF" / "Word" en haut de page génèrent le contrat depuis le texte ci-dessus.</p>
 						<?php endif;?>
-						<form id="contratSigneForm">
-							<input type="hidden" name="id" value="<?= $contract->getId() ?>">
-							<div class="form-group d-flex align-items-center" style="gap:10px;">
-								<input type="file" class="form-control" name="signed_file[]" accept="application/pdf" style="max-width:400px;">
-								<button type="submit" class="btn btn-success"><i class="fa fa-upload mr-1"></i> Marquer comme signé</button>
+
+						<div class="row">
+							<div class="col-md-6">
+								<label class="text-muted mb-1 d-block" style="font-size:0.85rem;">Déposer/remplacer par un document rédigé à la main (Word ou PDF)</label>
+								<form id="contratDocumentForm">
+									<input type="hidden" name="id" value="<?= $contract->getId() ?>">
+									<div class="form-group d-flex align-items-center" style="gap:10px;">
+										<input type="file" class="form-control" name="contrat_document[]" accept=".pdf,.doc,.docx" style="max-width:320px;">
+										<button type="submit" class="btn btn-white"><i class="fa fa-upload mr-1"></i> Déposer</button>
+									</div>
+								</form>
 							</div>
-						</form>
+							<div class="col-md-6">
+								<label class="text-muted mb-1 d-block" style="font-size:0.85rem;">Déposer le contrat signé par le client (PDF) — passe le devis en "Contrat signé"</label>
+								<form id="contratSigneForm">
+									<input type="hidden" name="id" value="<?= $contract->getId() ?>">
+									<div class="form-group d-flex align-items-center" style="gap:10px;">
+										<input type="file" class="form-control" name="signed_file[]" accept="application/pdf" style="max-width:320px;">
+										<button type="submit" class="btn btn-success"><i class="fa fa-check mr-1"></i> Marquer comme signé</button>
+									</div>
+								</form>
+							</div>
+						</div>
+
+						<?php if ($contract->getStatus() != contract::STATUT_SIGNE) :?>
+						<button type="button" class="btn btn-outline-primary" id="envoyerSignatureBtn"><i class="fa fa-paper-plane mr-1"></i> Envoyer au client pour signature</button>
+						<?php endif;?>
 					</div>
 				</div>
 			</div>
@@ -93,6 +128,29 @@
 			</div>
 			<div class="modal-footer justify-content-center">
 				<button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Popup "Retirer ce document" — même habillage que la confirmation de suppression de contrat
+     (com_contract/views/contract/edit.php, #supprimerContratEditModal). -->
+<div id="retirerDocumentContratModal" class="modal custom-modal tva-confirm-modal fade" role="dialog">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+				<div class="charge-doublon-icon"><i class="fa fa-trash"></i></div>
+				<h5 class="modal-title mt-3">Retirer ce document ?</h5>
+			</div>
+			<div class="modal-body">
+				<p class="text-center mb-0" style="font-size:0.9rem;">Les boutons "PDF" / "Word" reviendront à générer le contrat depuis le texte de l'éditeur.</p>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-white" data-dismiss="modal">Annuler</button>
+				<button type="button" class="btn btn-danger" id="retirerDocumentContratConfirmerBtn"><i class="fa fa-trash mr-1"></i> Retirer</button>
 			</div>
 		</div>
 	</div>
@@ -157,6 +215,104 @@ $(function () {
 				$btn.prop('disabled', false);
 				afficherMessageStyle("Erreur lors de l'envoi.", 'error');
 			}
+		});
+	});
+
+	$('#importerFichierEditeurBtn').on('click', function () {
+		var fichier = document.getElementById('inputImportFichierEditeur').files[0];
+		if (!fichier) {
+			afficherMessageStyle("Choisissez d'abord un fichier Word (.doc ou .docx).", 'error');
+			return;
+		}
+		var $btn = $(this).prop('disabled', true);
+		var libelleInitial = $btn.html();
+		$btn.html('<i class="fa fa-spinner fa-spin mr-1"></i> Import...');
+		var formData = new FormData();
+		formData.append('id', <?= $contract->getId() ?>);
+		formData.append('fichier_import', fichier);
+		$.ajax({
+			url: 'components/com_contract/controleurs/router.php?task=importerContratDepuisFichier',
+			type: 'POST',
+			data: formData,
+			processData: false,
+			contentType: false,
+			dataType: 'json',
+			success: function (response) {
+				$btn.prop('disabled', false).html(libelleInitial);
+				if (response.success) {
+					CKEDITOR.instances.corpsContratEditeur.setData(response.html);
+					document.getElementById('inputImportFichierEditeur').value = '';
+					afficherMessageStyle("Contenu importé - relisez puis \"Enregistrer comme brouillon\" pour valider.", 'success');
+				} else {
+					afficherMessageStyle(response.message || "Erreur lors de l'import.", 'error');
+				}
+			},
+			error: function () {
+				$btn.prop('disabled', false).html(libelleInitial);
+				afficherMessageStyle("Erreur lors de l'import.", 'error');
+			}
+		});
+	});
+
+	$('#contratDocumentForm').on('submit', function (e) {
+		e.preventDefault();
+		var $btn = $(this).find('button[type=submit]').prop('disabled', true);
+		var formData = new FormData(this);
+		$.ajax({
+			url: 'components/com_contract/controleurs/router.php?task=remplacerContratGenere',
+			type: 'POST',
+			data: formData,
+			processData: false,
+			contentType: false,
+			dataType: 'json',
+			success: function (response) {
+				if (response.success) {
+					window.location.reload();
+				} else {
+					$btn.prop('disabled', false);
+					afficherMessageStyle(response.message || "Erreur lors de l'envoi.", 'error');
+				}
+			},
+			error: function () {
+				$btn.prop('disabled', false);
+				afficherMessageStyle("Erreur lors de l'envoi.", 'error');
+			}
+		});
+	});
+
+	$('#retirerDocumentContratBtn').on('click', function () {
+		$('#retirerDocumentContratModal').modal('show');
+	});
+	$('#retirerDocumentContratConfirmerBtn').on('click', function () {
+		var $btn = $(this).prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Retrait...');
+		$.post('components/com_contract/controleurs/router.php?task=removeContratPDF', {
+			id: <?= $contract->getId() ?>
+		}, function () {
+			window.location.reload();
+		}).fail(function () {
+			$btn.prop('disabled', false).html('<i class="fa fa-trash mr-1"></i> Retirer');
+			$('#retirerDocumentContratModal').modal('hide');
+			afficherMessageStyle("Erreur lors du retrait.", 'error');
+		});
+	});
+
+	$('#envoyerSignatureBtn').on('click', function () {
+		var $btn = $(this).prop('disabled', true);
+		var libelleInitial = $btn.html();
+		$btn.html('<i class="fa fa-spinner fa-spin mr-1"></i> Envoi...');
+		$.post('components/com_contract/controleurs/router.php?task=envoyerContratEmailSignature', {
+			id: <?= $contract->getId() ?>
+		}, function (response) {
+			if (response.success) {
+				afficherMessageStyle("Contrat envoyé au client pour signature.", 'success');
+				setTimeout(function () { window.location.reload(); }, 1200);
+			} else {
+				$btn.prop('disabled', false).html(libelleInitial);
+				afficherMessageStyle(response.message || "Erreur lors de l'envoi.", 'error');
+			}
+		}, 'json').fail(function () {
+			$btn.prop('disabled', false).html(libelleInitial);
+			afficherMessageStyle("Erreur lors de l'envoi.", 'error');
 		});
 	});
 });

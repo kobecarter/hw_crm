@@ -66,6 +66,21 @@ class contractGenerator
         return mb_encode_numericentity((string) $html, array(0x100, 0xffff, 0, 0xffff), 'UTF-8');
     }
 
+    // Estime le nombre d'échéances de paiement à partir du texte LIBRE "Conditions de paiement"
+    // du devis (crm_devis.condition_paiment - CKEditor, aucun champ structuré n'existe pour ça).
+    // Heuristique : compte les pourcentages ("40% à la commande, 30% ... 30% ...") - la façon
+    // quasi systématique dont ces conditions sont rédigées dans cette agence (paiement en une
+    // seule fois = 0 "%" trouvé, donc 1 échéance par défaut). Reste une ESTIMATION : la valeur
+    // pré-remplit le champ "Nombre de paiement" de l'assistant de génération de contrat, jamais
+    // appliquée aveuglément sans relecture humaine (document légal) - l'utilisateur peut toujours
+    // la corriger avant de générer.
+    public static function estimerNombreDePaiement($conditionPaiment)
+    {
+        $texte = (string) $conditionPaiment;
+        $nombre = substr_count($texte, '%');
+        return $nombre > 0 ? $nombre : 1;
+    }
+
     // Regroupe les lignes du devis par catégorie de service réelle - remplace les listes d'IDs de
     // service codées en dur de l'ancienne version (14 IDs sur 182 services au total, silencieux
     // dès qu'un devis utilisait un service en dehors de cette liste figée).

@@ -55,10 +55,10 @@
 	<link rel="stylesheet" href="assets/css/bootstrap-datetimepicker.min.css">
 
 	<!-- Main CSS -->
-	<link rel="stylesheet" href="assets/css/style.css">
+	<link rel="stylesheet" href="<?= assetVersion('assets/css/style.css') ?>">
 
 	<!-- Modern Theme (surcouche additive : ne modifie aucune structure/fichier de vue) -->
-	<link rel="stylesheet" href="assets/css/modern-theme.css">
+	<link rel="stylesheet" href="<?= assetVersion('assets/css/modern-theme.css') ?>">
 
 	<!--[if lt IE 9]>
 			<script src="assets/js/html5shiv.min.js"></script>
@@ -176,18 +176,49 @@
 							}
 
 							.user-menu.nav>li>a {
-								padding: 0 10px;
+								padding: 0;
 							}
 
 							.user-menu.nav>li>a>i {
 								font-size: 1rem;
 							}
 
+							/* Ancien calcul "right:0 + translate3d(40px, 60px, 0)" supposait implicitement
+							   que le menu ouvert était toujours le MÊME <li> (le plus à droite) - correct
+							   pour l'avatar, mais pour company-nav/langue (les premiers <li> du groupe,
+							   donc les plus à GAUCHE) "right:0" les ancre déjà à leur PROPRE bord droit
+							   (proche du bord gauche de l'écran), et +40px ne suffit pas à compenser : le
+							   menu partait hors écran (jusqu'à -154px), recouvrant le titre de page en
+							   dessous. Remplacé par un positionnement fixe par rapport au VIEWPORT (pas
+							   au déclencheur) - un seul calcul, jamais hors écran quel que soit le <li>
+							   qui l'a ouvert.
+
+							   Ce bloc CSS ne suffit cependant pas seul : Popper.js (moteur de
+							   positionnement des dropdowns Bootstrap) pose son PROPRE positionnement en
+							   style inline ("position:absolute; transform:translate3d(Xpx,Ypx,0)"), et
+							   quand ce transform se retrouve en désaccord avec le "position:fixed" imposé
+							   ici, Popper le recalcule en boucle sur la position déjà faussée par le
+							   transform précédent - le menu finit à un x aléatoire selon le moment
+							   observé, jamais x=12 attendu, MÊME si getComputedStyle().transform répond
+							   bien "none" (la cascade CSS gagne "sur le papier", mais Popper réécrit son
+							   inline juste après). Fix réel : "data-display=static" sur chaque déclencheur
+							   data-toggle="dropdown" (top.php + notification.php) - dit à Bootstrap de ne
+							   PAS invoquer Popper du tout, seul ce CSS positionne alors le menu. */
 							.dropdown-menu.show {
-								right: 0;
-								left: auto !important;
-								transform: translate3d(40px, 60px, 0px) !important;
-								max-width: 300px;
+								position: fixed !important;
+								/* 66px (.header, même hauteur qu'en desktop - les icônes défilent
+								   horizontalement sur une ligne au lieu de s'enrouler, voir .user-menu
+								   dans assets/css/style.css) + 8px de marge. */
+								top: 74px !important;
+								left: 12px !important;
+								right: 12px !important;
+								transform: none !important;
+								/* "width:auto" ne s'étire PAS jusqu'à combler l'espace entre left/right
+								   ici (constaté : reste à 200px, la valeur de ".user-menu .dropdown-menu
+								   {min-width:200px}" - .notifications déborde alors hors écran) - calc()
+								   explicite plutôt que de compter sur cette résolution automatique. */
+								width: calc(100vw - 24px) !important;
+								max-width: none !important;
 							}
 
 						}
@@ -195,7 +226,7 @@
 					<!-- Company - icône drapeau (Maroc/Émirats) plutôt qu'un bâtiment générique : aucun
 					     champ pays sur l'agence, cf. agenceFlagEmoji() dans functions.php. -->
 					<li class="nav-item dropdown has-arrow company-nav">
-						<a class="nav-link dropdown-toggle px-0 px-sm-2" data-toggle="dropdown" href="#" role="button">
+						<a class="nav-link dropdown-toggle px-0 px-sm-2" data-toggle="dropdown" data-display="static" href="#" role="button">
 							<span class="btn btn-sm d-inline-block flag-emoji-btn"><?= agenceFlagEmoji($currentAgence->getId()) ?></span> <span><?= $currentAgence->getNom() ?></span>
 						</a>
 						<div class="dropdown-menu dropdown-menu-right">
@@ -213,7 +244,7 @@
 					     disque, chemin relatif erroné - 404 sur chaque page) - cf. langueFlagEmoji(). -->
 					<li class="nav-item dropdown has-arrow">
 						<?php $currentlang = langue::findByCode($_SESSION['langue']); ?>
-						<a class="nav-link dropdown-toggle" data-toggle="dropdown" href="#" role="button">
+						<a class="nav-link dropdown-toggle" data-toggle="dropdown" data-display="static" href="#" role="button">
 							<span class="flag-emoji-btn"><?= langueFlagEmoji($currentlang->getCode()) ?></span> <span><?php echo $currentlang->getNom(); ?></span>
 						</a>
 						<div class="dropdown-menu dropdown-menu-right">
@@ -252,7 +283,7 @@
 
 				<!-- User Menu -->
 				<li class="nav-item dropdown has-arrow main-drop">
-					<a href="#" class="dropdown-toggle nav-link" data-toggle="dropdown">
+					<a href="#" class="dropdown-toggle nav-link" data-toggle="dropdown" data-display="static">
 						<span class="user-img">
 							<?php $avatar = $_SESSION['user']->getPhoto() != '' ? ($_SESSION['user']->isResourceHumaine() ? 'images/resourceshumaines/' : 'images/users/') . $_SESSION['user']->getPhoto() : 'assets/img/profiles/avatar-01.jpg'; ?>
 							<img src="<?php echo $avatar; ?>" alt="<?php echo $_SESSION['user']->getName(); ?>">
@@ -295,3 +326,26 @@
 			<div style="width:100%;height:100%;<?= "background:" . $currentAgence->getColor() . "30" ?>"></div>
 		</div>
 		<!-- /Header -->
+
+		<?php if (!$_SESSION['user']->isResourceHumaine()) : ?>
+		<!-- Recherche mobile : .top-nav-search disparaît sous 992px (pas la place dans le bandeau
+		     réduit aux icônes) - sans équivalent, la recherche était totalement inaccessible au
+		     tactile. Ancrée en bas de l'écran (position:fixed, cf. modern-theme.css) pour rester
+		     facilement atteignable au pouce. DOIT rester un FRÈRE de .header, jamais un enfant : le
+		     "backdrop-filter" du header (glassmorphism) crée un nouveau bloc de confinement pour
+		     tout descendant position:fixed (même piège que backdrop-filter/transform/filter/
+		     will-change ailleurs dans ce fichier/modern-theme.css) - à l'intérieur de .header, ce
+		     bloc ne se positionnait plus par rapport au VIEWPORT mais par rapport aux 66px du
+		     header lui-même, recouvrant tout le bandeau (hamburger, drapeaux...) et rendant tout
+		     inatteignable au clic. Même classe .top-nav-search que la version desktop (juste un
+		     modificateur -mobile en plus) : assets/js/global-search.js s'attache à CHAQUE
+		     .top-nav-search de la page, pas seulement au premier trouvé - un seul script pour les
+		     deux. -->
+		<div class="top-nav-search top-nav-search-mobile">
+			<form>
+				<input type="text" class="form-control" placeholder="<?= htmlspecialchars($placeholderRecherche) ?>">
+				<button class="btn" type="submit"><i class="fas fa-search"></i></button>
+			</form>
+		</div>
+		<!-- /Recherche mobile -->
+		<?php endif; ?>

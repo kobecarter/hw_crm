@@ -13,13 +13,31 @@
 		return $('<div>').text(s === undefined || s === null ? '' : s).html();
 	}
 
+	// Une seule barre "logique" (desktop) jusqu'à l'ajout de la variante mobile ancrée en bas
+	// d'écran (.top-nav-search-mobile, includes/tpl/top.php) - la page porte maintenant DEUX
+	// éléments .top-nav-search (l'un masqué par media query selon la largeur d'écran), donc chaque
+	// champ doit être câblé indépendamment plutôt que de ne prendre que le premier trouvé.
 	$(function () {
-		var $input = $('.top-nav-search input').first();
+		$('.top-nav-search').each(function () {
+			initialiserRechercheGlobale($(this).find('input').first());
+		});
+	});
+
+	function initialiserRechercheGlobale($input) {
 		if (!$input.length) {
 			return;
 		}
 		var $wrap = $input.closest('.top-nav-search');
-		$wrap.css('position', 'relative');
+		// .global-search-panel (absolute) a besoin d'un ancêtre non-static pour s'ancrer dessus - la
+		// barre desktop n'en a aucun par défaut (d'où ce fallback), MAIS la barre mobile a déjà
+		// position:fixed posé par CSS (modern-theme.css, .top-nav-search-mobile) pour rester ancrée
+		// en bas d'écran ; un style inline "relative" ici l'écraserait silencieusement (les styles
+		// inline gagnent sur toute règle de feuille de style sans !important), la faisant remonter
+		// dans le flux normal du bandeau et recouvrir le hamburger. On ne force donc "relative" que
+		// si l'élément n'a PAS déjà une position non-static définie ailleurs.
+		if ($wrap.css('position') === 'static') {
+			$wrap.css('position', 'relative');
+		}
 		$input.closest('form').on('submit', function (e) { e.preventDefault(); });
 
 		var $panel = $('<div class="global-search-panel"></div>').appendTo($wrap);
@@ -136,5 +154,5 @@
 				fermer();
 			}
 		});
-	});
+	}
 })(window.jQuery);

@@ -89,7 +89,17 @@
 		<div class="col-md-4">
 			<div class="form-group">
 				<label>Nombre de paiement <span class="text-danger"> * </span></label>
-				<input type="number" min="0" placeholder="0" class="form-control" name="nombre_de_paiement" value="<?php if (isset($contract)) echo $contract->getNombreDePaiement();?>" required>
+				<input type="number" min="0" placeholder="0" class="form-control" id="inputNombreDePaiement" name="nombre_de_paiement" value="<?php if (isset($contract)) echo $contract->getNombreDePaiement();?>" required>
+				<?php if (isset($contract) && $contract->getDevis()) :
+					$nombreDetecte = contractGenerator::estimerNombreDePaiement($contract->getDevis()->getConditionPaiment());
+				?>
+				<small class="form-text text-muted">
+					Détecté depuis les conditions de paiement du devis #<?= htmlspecialchars($contract->getDevis()->getNumero()) ?> : <strong><?= $nombreDetecte ?></strong>
+					<?php if ($nombreDetecte != $contract->getNombreDePaiement()) : ?>
+						— <a href="#" id="utiliserNombreDetecteBtn" data-valeur="<?= $nombreDetecte ?>">utiliser cette valeur</a>
+					<?php endif; ?>
+				</small>
+				<?php endif; ?>
 			</div>
 		</div>
 
@@ -108,6 +118,15 @@
 		<div class="col-md-12">
 			<div class="form-group">
 				<label>Texte <span class="text-danger d-none"> * </span></label>
+				<?php if (isset($contract) && $contract->getId()) : ?>
+				<div class="d-flex align-items-center mb-2" style="gap:10px;flex-wrap:wrap;">
+					<button type="button" class="btn btn-white btn-sm" id="regenererDepuisDevisBtn"><i class="fa fa-sync mr-1"></i> Régénérer depuis le devis</button>
+					<span class="text-muted">ou</span>
+					<input type="file" class="form-control form-control-sm d-inline-block" id="inputImportFichierTexte" accept=".doc,.docx" style="max-width:240px;">
+					<button type="button" class="btn btn-white btn-sm" id="importerFichierTexteBtn"><i class="fa fa-file-import mr-1"></i> Importer un fichier Word</button>
+					<span class="text-muted" style="font-size:0.8rem;">Remplace le texte ci-dessous - à valider avec "Enregistrer" en bas.</span>
+				</div>
+				<?php endif; ?>
 				<textarea name="texte" id="texte"><?php if (isset($contract)) echo $contract->getTexte(); ?></textarea>
                 <script type="text/javascript">
                     CKEDITOR.replace('texte', {
@@ -136,18 +155,20 @@
 		<!-- /Toggle Switch -->
 		<div class="col-md-6">
 			<div class="form-group">
-				<label for="photo" class="col-sm-3 col-form-label input-label">Contrat signé</label>
+				<label for="photo" class="col-sm-3 col-form-label input-label">Contrat (fichier)</label>
 				<div class="col-sm-9">
 					<div class="d-flex align-items-center">
 						<label class="avatar avatar-xl profile-cover-avatar m-0" for="edit_img">
 							<?php $photoLink = isset($contract) && $contract->getContratPDF() != '' ? "images/contracts/" . $contract->getContratPDF() : "assets/img/profiles/avatar-02.jpg"; ?>
 							<?php $filename = isset($contract) ? explode('.',$contract->getContratPDF()) : '';?>
-							<?php if(isset($filename[1]) && strtolower($filename[1]) == 'pdf'): ?>
+							<?php // doc/docx traités comme le pdf (icône générique) - ce ne sont pas des images, les
+							// afficher via <img src="$photoLink"> comme le fait la branche "else" casserait l'aperçu. ?>
+							<?php if(isset($filename[1]) && in_array(strtolower($filename[1]), array('pdf', 'doc', 'docx'))): ?>
 								<a href="<?php echo $photoLink;?>" target="_blank"><img id="avatarImg" class="avatar-img" src="assets/img/pdf.png" alt="Profile Image"></a>
 							<?php else: ?>
 								<a href="<?php echo $photoLink;?>"data-fancybox><img id="avatarImg" class="avatar-img" src="<?php echo $photoLink; ?>" alt="Profile Image"></a>
 							<?php endif; ?>
-							<input type="file" name="contrat_pdf[]" id="edit_img">
+							<input type="file" name="contrat_pdf[]" id="edit_img" accept=".pdf,.doc,.docx,image/*">
 							
 							<span class="avatar-edit" style="bottom:0;color:green;">
 								<i data-feather="edit-2" class="fa fa-upload shadow-soft"></i>
@@ -175,6 +196,68 @@
 
 <script>
     $(function () {
+
+		$(document).on("click", "#utiliserNombreDetecteBtn", function(e) {
+			e.preventDefault();
+			$('#inputNombreDePaiement').val($(this).data('valeur'));
+		});
+
+		$(document).on("click", "#regenererDepuisDevisBtn", function() {
+			if (!confirm("Régénérer le texte depuis le devis ? Le contenu actuel de l'éditeur ci-dessous sera remplacé (rien n'est perdu tant que vous n'enregistrez pas le formulaire).")) {
+				return;
+			}
+			var $btn = $(this).prop('disabled', true);
+			var libelleInitial = $btn.html();
+			$btn.html('<i class="fa fa-spinner fa-spin mr-1"></i> Régénération...');
+			$.post('components/com_contract/controleurs/router.php?task=regenererCorpsDepuisDevis', {
+				id: $('input[name=id]').val()
+			}, function (response) {
+				$btn.prop('disabled', false).html(libelleInitial);
+				if (response.success) {
+					CKEDITOR.instances.texte.setData(response.html);
+				} else {
+					alert(response.message || "Erreur lors de la régénération.");
+				}
+			}, 'json').fail(function () {
+				$btn.prop('disabled', false).html(libelleInitial);
+				alert("Erreur lors de la régénération.");
+			});
+		});
+
+		$(document).on("click", "#importerFichierTexteBtn", function() {
+			var fichier = document.getElementById('inputImportFichierTexte').files[0];
+			if (!fichier) {
+				alert("Choisissez d'abord un fichier Word (.doc ou .docx).");
+				return;
+			}
+			var $btn = $(this).prop('disabled', true);
+			var libelleInitial = $btn.html();
+			$btn.html('<i class="fa fa-spinner fa-spin mr-1"></i> Import...');
+			var formData = new FormData();
+			formData.append('id', $('input[name=id]').val());
+			formData.append('fichier_import', fichier);
+			$.ajax({
+				url: 'components/com_contract/controleurs/router.php?task=importerContratDepuisFichier',
+				type: 'POST',
+				data: formData,
+				processData: false,
+				contentType: false,
+				dataType: 'json',
+				success: function (response) {
+					$btn.prop('disabled', false).html(libelleInitial);
+					if (response.success) {
+						CKEDITOR.instances.texte.setData(response.html);
+						document.getElementById('inputImportFichierTexte').value = '';
+					} else {
+						alert(response.message || "Erreur lors de l'import.");
+					}
+				},
+				error: function () {
+					$btn.prop('disabled', false).html(libelleInitial);
+					alert("Erreur lors de l'import.");
+				}
+			});
+		});
 
 		$(document).on("click", ".avatar-remove", function() {
 			var $btn = $(this);

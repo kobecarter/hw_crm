@@ -347,6 +347,45 @@ class releveLigne
         return null;
     }
 
+    // Règlements déjà liés à une ligne de relevé (peu importe l'agence) - même patron que
+    // findAllIdChargeLies() ci-dessus, pour ne jamais proposer deux fois le même règlement
+    // existant du client comme justificatif d'un crédit (fenêtre "Choisir la facture").
+    public static function findAllIdPaymentLies()
+    {
+        global $db;
+        $ids = array();
+        $result = $db->queryS("SELECT id_payment FROM " . static::$table . " WHERE id_payment IS NOT NULL");
+        foreach ($result as $row) {
+            $ids[] = $row['id_payment'];
+        }
+        return $ids;
+    }
+
+    // Sécurité anti-doublon (réaffectation) : ce règlement est-il déjà rattaché à une AUTRE ligne
+    // de relevé ? Même patron que findLigneParCharge() ci-dessus, utilisé avant de lier un
+    // règlement existant du client à une nouvelle ligne (validerLigne()).
+    public static function findLigneParPayment($idPayment, $excludeLigneId = null)
+    {
+        global $db;
+        if (empty($idPayment)) {
+            return null;
+        }
+        $SQLselect = sprintf(
+            "SELECT * FROM " . static::$table . " WHERE id_payment = %s AND statut = 'matched_facture'",
+            GetSQLValueString($idPayment, "int")
+        );
+        if (!empty($excludeLigneId)) {
+            $SQLselect .= sprintf(" AND id != %s", GetSQLValueString($excludeLigneId, "int"));
+        }
+        $SQLselect .= " LIMIT 1";
+        $result = $db->query($SQLselect);
+        if ($db->num_rows($result) == 1) {
+            $data = $db->fetch_assoc($result);
+            return static::build($data);
+        }
+        return null;
+    }
+
     // Identifie le lot le plus récemment importé pour une agence - utilisé pour afficher par
     // défaut le résultat du dernier import à l'ouverture de la page.
     public static function findDernierLot($agence)

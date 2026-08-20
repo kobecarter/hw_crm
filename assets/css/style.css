@@ -1547,12 +1547,12 @@ button.bg-danger:hover {
 	right: 0;
 	top: 0;
 	z-index: 2;
-	height: 60px;
+	height: 66px;
 	border-radius: 0 0 20px 20px;
 }
 .header .header-left {
 	float: left;
-	height: 60px;
+	height: 66px;
 	padding: 0 20px;
 	position: relative;
 	text-align: center;
@@ -1562,7 +1562,7 @@ button.bg-danger:hover {
 }
 .header .header-left .logo {
 	display: inline-block;
-	line-height: 60px;
+	line-height: 66px;
 }
 .header .header-left .logo img {
 	max-height: 45px;
@@ -1613,9 +1613,9 @@ button.bg-danger:hover {
 .user-menu.nav > li > a {
 	color: #333;
 	font-size: 14px;
-	line-height: 58px;
+	line-height: 64px;
 	padding: 0 15px;
-	height: 60px;
+	height: 66px;
 }
 .user-menu.nav > li > a:hover i,
 .user-menu.nav > li > a:focus i {
@@ -1704,7 +1704,7 @@ button.bg-danger:hover {
 	height: 100%;
 	left: 0;
 	position: fixed;
-	top: 60px;
+	top: 66px;
 	width: 100%;
 	z-index: 1000;
 }
@@ -2319,12 +2319,12 @@ html.menu-opened body {
 -----------------------*/
 
 .sidebar {
-	background-color: #fff; 
+	background-color: #fff;
 	bottom: 0;
 	left: 0;
 	margin-top: 0;
 	position: fixed;
-	top: 90px;
+	top: 96px;
 	transition: all 0.2s ease-in-out 0s;
 	width: 240px;
 	z-index: 1001;
@@ -2719,7 +2719,7 @@ html.menu-opened body {
 	background-color: #fff;
 }
 .note-editor.note-frame.fullscreen {
-	top: 60px;
+	top: 66px;
 }
 .note-editor.note-frame .btn-light {
     background-color: #f9f9f9;
@@ -2902,10 +2902,17 @@ table.table-inbox tbody tr.checked {
 	width: 100%;
 	height: 100vh;
 	min-height: 100vh;
+	/* dvh (hauteur de viewport DYNAMIQUE) après vh, jamais à la place : navigateurs qui ne
+	   connaissent pas "dvh" ignorent silencieusement la déclaration et gardent 100vh au-dessus -
+	   ceux qui le connaissent l'utilisent à la place, s'ajustant en direct à la barre d'adresse
+	   mobile qui apparaît/disparaît au scroll (100vh seul reste figé à la hauteur MAX, laissant un
+	   vide ou poussant du contenu sous la barre d'adresse repliée). */
+	height: 100dvh;
+	min-height: 100dvh;
 }
 .page-wrapper {
 	margin-left: 240px;
-	padding-top: 60px;
+	padding-top: 66px;
 	position: relative;
 	transition: all 0.4s ease;
 }
@@ -2939,6 +2946,8 @@ table.table-inbox tbody tr.checked {
 	display: table;
 	height: 100vh;
 	min-height: 100vh;
+	height: 100dvh;
+	min-height: 100dvh;
 }
 .logo-dark{
 	max-width: 180px;
@@ -3159,11 +3168,11 @@ table.table-inbox tbody tr.checked {
 }
 .user-menu.nav > li > a > i {
 	font-size: 1.5rem;
-	line-height: 60px;
+	line-height: 66px;
 }
 .user-menu.nav > li > a > svg {
 	font-size: 1.5rem;
-	line-height: 60px;
+	line-height: 66px;
 }
 .noti-details {
 	color: #989c9e;
@@ -3801,6 +3810,19 @@ div.table-responsive > div.dataTables_wrapper > div.row:first-child{
   margin-top: 20px;
   border: 0;
 }
+/* Le générique "@media(max-width:767.98px){ .nav{display:block} }" plus bas dans ce fichier
+   (écrit pour un autre nav, jamais scopé) s'applique à TOUT élément .nav de l'app, y compris ces
+   4 étapes (Devis/Contrat/Facture/Paiements) : les <li> perdent leur mise en page flex et
+   s'empilent chacun sur 100% de la largeur du parent - les 4 ronds, tous "position:absolute;
+   left:50%" par rapport à leur propre <li>, se retrouvent alors tous centrés au MÊME endroit
+   (leur <li> ayant chacun la même largeur/position), d'où le chevauchement total signalé par
+   l'utilisateur. Restauré ici spécifiquement pour le wizard plutôt que de toucher la règle
+   générique ".nav" (risque de régression sur d'autres nav-tabs/nav-pills de l'app non audités). */
+@media (max-width: 767.98px) {
+  .wizard .nav-tabs {
+    display: flex !important;
+  }
+}
 .wizard .nav-tabs li:after {
   content: "";
   width: 75%;
@@ -3886,19 +3908,20 @@ div.table-responsive > div.dataTables_wrapper > div.row:first-child{
   color: #5156be;
   top: 50%;
   font-size: 20px;
-  -webkit-transform: translateY(-50%);
-  transform: translateY(-50%);
+  /* translateY seul ne centrait le rond QUE verticalement : horizontalement, "left:50%" plaçait son
+     bord GAUCHE (pas son centre) au milieu du <li>, débordant de 28px vers la droite dans le <li>
+     suivant. Invisible sur desktop (les <li> larges laissaient assez de marge pour masquer le
+     décalage), flagrant sur mobile où les 4 <li> "flex-fill" (Devis/Contrat/Facture/Paiements)
+     sont trop étroits pour absorber ce débordement - les ronds se chevauchaient littéralement.
+     translateX(-50%) ajouté pour un vrai centrage sur les deux axes, à toute largeur d'écran. */
+  -webkit-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
   border: 1px solid rgba(81, 86, 190, 0.2);
 }
 .wizard .nav-item .nav-link.active {
   background: #e9e9ef;
   color: #5156be;
   border: 1px solid rgba(81, 86, 190, 0.2);
-}
-@media (max-width: 320px) {
-  .wizard .nav-item .nav-link {
-    left: 20%;
-  }
 }
 @media (max-width: 768px) {
   .wizard .nav-item .nav-link {
@@ -4202,6 +4225,98 @@ div.table-responsive > div.dataTables_wrapper > div.row:first-child{
 		position: absolute;
 		width: 100%;
 	}
+	/* Bug réel : .user-menu a "display:flex !important" (règle plus haut) - un conteneur flex
+	   "blockifie" toujours son propre "float" en "none" (spec CSS), donc son "float:right" est
+	   silencieusement ignoré. Comme .header-left passe en position:absolute juste au-dessus (sorti
+	   du flux normal), .user-menu devient alors le SEUL enfant en flux normal de .header et
+	   s'étire sur 100% de sa largeur - avec z-index:99, il recouvre alors le hamburger
+	   (#mobile_btn/#toggle_btn, coin haut-gauche) et intercepte tous les clics dessus, même si rien
+	   n'y est visuellement affiché à cet endroit (seule la puce agence/langue, tout à droite, réagit
+	   visuellement). Sorti du flux ici aussi et repositionné explicitement à droite, exactement
+	   comme le float d'origine était censé le faire, pour que sa zone cliquable retrouve sa largeur
+	   réelle (celle de ses icônes) au lieu de toute la largeur du bandeau. */
+	.user-menu {
+		position: absolute;
+		top: 0;
+		right: 0;
+		/* "width:auto" seul ne suffit pas : si le contenu (6 icônes) ne tient pas sur une seule
+		   ligne dans la largeur disponible, un bloc absolument positionné avec width:auto s'étire
+		   pour combler tout l'espace du bloc englobant au lieu de se limiter à la largeur de son
+		   contenu - repassant alors par-dessus le hamburger (#mobile_btn, 51px de large, coin
+		   haut-gauche) exactement comme avant ce correctif. "left" borne explicitement le bord
+		   gauche pour qu'il ne puisse plus jamais empiéter sur cette zone, quel que soit le nombre
+		   de lignes sur lesquelles les icônes finissent par s'enrouler. */
+		left: 90px;
+		width: auto;
+		/* Sous 992px, tout doit tenir SANS défiler (une tentative précédente utilisait
+		   overflow-x:auto ici - RÉGRESSION réelle sur mobile tactile : dès qu'un tap sur une icône
+		   s'accompagne du moindre micro-mouvement du doigt, ce qui est quasi systématique sur un
+		   vrai écran tactile, le navigateur l'interprète comme un scroll du conteneur et supprime
+		   le click qui aurait dû suivre - plus aucune icône n'était cliquable, agence/langue/thème/
+		   profil/chat inclus. Retiré : chaque icône est réduite (cf. règles ci-dessous) pour que
+		   tout tienne réellement sur une ligne sans avoir besoin de scroller.) */
+		flex-wrap: nowrap;
+		height: 66px;
+		/* La base (hors media query) porte "padding-right:20px" (pensé pour le float desktop) -
+		   sous 992px ça laissait un vide à droite de l'avatar au lieu de le coller au bord de
+		   l'écran comme demandé. */
+		padding-right: 0;
+	}
+	/* Icônes (confidentialité, thème, chat/rappels, avatar) réalignées sur la MÊME taille que les
+	   ronds drapeau (agence/langue, .flag-emoji-btn) - celui-ci n'a jamais eu d'override mobile et
+	   restait donc au 44px desktop pendant que les icônes avaient été réduites à 28px en dessous,
+	   créant un bandeau à deux tailles visiblement incohérentes. 40px (contre le 44px desktop) +
+	   padding quasi nul ci-dessous suffit à faire tenir les 7 cibles de tap (2 drapeaux + 4 icônes +
+	   avatar) sur une ligne même à 375-390px de large, tout en restant très proche du 44px desktop
+	   demandé comme référence. */
+	/* !important nécessaire : modern-theme.css (chargé après style.css) porte sa propre règle
+	   inconditionnelle ".user-menu > li > a > i { width:44px; height:44px; }" (même sélecteur,
+	   même spécificité) qui gagne sinon quel que soit le viewport - un @media ne donne aucune
+	   priorité de cascade en soi, seul l'ordre de déclaration/l'!important départagent à
+	   spécificité égale. Même chose pour .flag-emoji-btn, dont la règle desktop est déjà !important. */
+	.user-menu > li > a > i {
+		width: 40px !important;
+		height: 40px !important;
+		font-size: 1rem !important;
+	}
+	/* ".user-menu " en préfixe (plutôt que ".flag-emoji-btn"/".user-img img" seuls) : ces deux
+	   sélecteurs portent DÉJÀ !important côté modern-theme.css (contrairement à ".user-menu > li >
+	   a > i" juste au-dessus, qui lui n'en a pas et se laisse donc écraser sans effort) - à
+	   !important égal des deux côtés, c'est l'ORDRE DE CHARGEMENT qui décide (modern-theme.css
+	   après style.css dans le <head> = gagne), pas le @media. Préfixer avec ".user-menu" ajoute une
+	   classe de spécificité (0,1,0 → 0,2,x), qui l'emporte cette fois indépendamment de l'ordre -
+	   plus robuste que de compter sur le fait d'être !important ET dernier dans le fichier. */
+	.user-menu .flag-emoji-btn {
+		width: 40px !important;
+		height: 40px !important;
+		font-size: 1.05rem !important;
+	}
+	.user-menu.nav > li > a {
+		padding: 0;
+	}
+	.user-img {
+		margin-right: 0;
+	}
+	.user-menu .user-img img {
+		width: 40px !important;
+		height: 40px !important;
+	}
+	.glass-icon-group > a.nav-link {
+		padding: 0 !important;
+	}
+	/* Le dernier élément (avatar, .main-drop) collé au bord droit de l'écran - même logique que
+	   padding-right:0 ci-dessus. */
+	.user-menu > li.main-drop {
+		margin-right: 0 !important;
+	}
+	/* Logo réduit + petit logo repositionné pour laisser un peu plus de place à gauche à
+	   .user-menu (left:90px ci-dessus) sur les écrans mobiles les plus étroits. */
+	.header .header-left .logo img {
+		max-height: 22px;
+	}
+	.header-left .logo.logo-small {
+		left: 30px;
+	}
 	.add-item {
 		margin-top: 10px;
 	}
@@ -4213,9 +4328,9 @@ div.table-responsive > div.dataTables_wrapper > div.row:first-child{
 		cursor: pointer;
 		display: block;
 		font-size: 24px;
-		height: 60px;
+		height: 66px;
 		left: 0;
-		line-height: 60px;
+		line-height: 66px;
 		padding: 0 15px;
 		position: absolute;
 		text-align: center;
@@ -4237,6 +4352,11 @@ div.table-responsive > div.dataTables_wrapper > div.row:first-child{
 		width: 50%;
 	}
 	.sidebar {
+		/* Sans override, .sidebar hérite du "top:96px" desktop (pensé pour un header plus haut avec
+		   fil d'Ariane) alors que le header mobile ne fait que 66px - ça laissait ~30px de vide gris
+		   entre le bas du bandeau et le haut du menu ouvert. 71px = 66px (hauteur réelle du header
+		   mobile) + 5px d'espace, demandé explicitement. */
+		top: 71px;
 		margin-left: -225px;
 		width: 225px;
 		-webkit-transition: all 0.4s ease;
@@ -4245,6 +4365,7 @@ div.table-responsive > div.dataTables_wrapper > div.row:first-child{
 		z-index: 1041;
 	}
 	.page-wrapper {
+		padding-top: 66px;
 		margin-left: 0;
 		padding-left: 0;
 		padding-right: 0;
@@ -4284,6 +4405,29 @@ div.table-responsive > div.dataTables_wrapper > div.row:first-child{
 	}
 	.chat-window.chat-slide .chat-cont-right {
 		right: 0;
+	}
+}
+/* Sous ~400px (iPhone mini/SE et plus étroit), le bandeau d'icônes (336px de contenu, cf. règles
+   ci-dessus) ne tient plus dans l'espace restant une fois le logo (jusqu'à 84px) dégagé - réduit
+   une dernière fois spécifiquement pour ces écrans, sans repartir de zéro sur le 430px déjà
+   correctement ajusté au-dessus. */
+@media (max-width: 400px) {
+	.user-menu > li > a > i {
+		width: 32px !important;
+		height: 32px !important;
+		font-size: 0.85rem !important;
+	}
+	.user-menu .flag-emoji-btn {
+		width: 32px !important;
+		height: 32px !important;
+		font-size: 0.9rem !important;
+	}
+	.user-menu .user-img img {
+		width: 32px !important;
+		height: 32px !important;
+	}
+	.user-menu.nav > li > a {
+		padding: 0;
 	}
 }
 @media (max-width: 767.98px) {
@@ -4382,7 +4526,8 @@ div.table-responsive > div.dataTables_wrapper > div.row:first-child{
 		display: inline-block;
 	}
 	.dash-widget-header{
-		display: block;
+		display: flex;
+		align-items: center;
 	}
 	.nav {
 		display: block;
@@ -4403,6 +4548,16 @@ div.table-responsive > div.dataTables_wrapper > div.row:first-child{
 	}
 	.card-header {
 		padding: .75rem 1.25rem;
+	}
+	/* Les en-têtes de carte type "Titre + bouton 'Voir tout'" utilisent une .row Bootstrap
+	   (marges négatives -15px de série) à l'intérieur - sur les cartes pleine largeur du mobile, ça
+	   ne laissait quasi aucune marge entre le bouton et le bord de la carte (20px de padding ici -
+	   15px de marge négative = 5px net), au point de sembler collé/coupé visuellement. */
+	.card-header .row {
+		margin-right: -5px;
+	}
+	.card-header .row > [class*="col"] {
+		padding-right: 5px;
 	}
 	.card-footer {
 		padding: .75rem 1.25rem;

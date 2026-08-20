@@ -30,8 +30,9 @@
 						case '2' : $statu = '<span class="badge bg-success-light">Accepté</span>'; break;
 						case '3' : $statu = '<span class="badge bg-primary-light">Contrat en attente de signature</span>'; break;
 						case '4' : $statu = '<span class="badge bg-success text-white">Paiement effectué</span>'; break;
-						case '4' : $statu = '<span class="badge bg-danger text-white">Paiement Refusé</span>'; break;
-						default : $statu = '<span class="badge bg-warning-light">Brouillon</span>'; break;	
+						case '5' : $statu = '<span class="badge bg-danger text-white">Devis Refusé</span>'; break;
+						case '6' : $statu = '<span class="badge bg-success text-white">Contrat signé</span>'; break;
+						default : $statu = '<span class="badge bg-warning-light">Brouillon</span>'; break;
 					}
 					$activity = "Ajouté par " . $devis->getUserAdded()->getNom() . " | Modifié par " . $devis->getUserEdited()->getNom();
 					?>

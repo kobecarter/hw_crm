@@ -1656,7 +1656,10 @@ $(function () {
 		dwzIdContract = null;
 		$('.dwzMsgbox').empty();
 		$('#dwzTitre, #dwzDuration, #dwzGarantie, #dwzVille, #dwzTribunal, #dwzNombreDePaiement').val('');
-		$('#dwzNombreDePaiement').val(1);
+		<?php // Pré-rempli depuis les conditions de paiement du devis (même heuristique que le
+		// serveur, contractGenerator::estimerNombreDePaiement() - juste affichée ici pour que
+		// l'utilisateur la voie et puisse la corriger AVANT de générer, jamais imposée en aveugle). ?>
+		$('#dwzNombreDePaiement').val(<?= (int) contractGenerator::estimerNombreDePaiement($devis->getConditionPaiment()) ?>);
 		dwzAllerEtape(1);
 		$('#genererContratWizardModal').modal('show');
 	});

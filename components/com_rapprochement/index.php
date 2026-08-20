@@ -18,17 +18,24 @@ if ($_SESSION['user']->hasDroit('view', 'com_rapprochement')) {
 
         // Résumé affiché dans la fenêtre "Supprimer cet import" - calculé ici plutôt qu'en JS
         // pour que la fenêtre annonce EXACTEMENT ce que supprimerLot() va faire (jamais une
-        // suppression en aveugle) : une charge "existante trouvée" (debit_charge_existante) était
-        // déjà là avant cet import - elle est seulement déliée, jamais supprimée ; les autres
-        // charges référencées par une ligne de ce lot ont, elles, été créées PAR cet import.
+        // suppression en aveugle) : une charge "existante trouvée" (debit_charge_existante) ou un
+        // règlement "déjà enregistré" associé (credit_reglement_existant, voir "Associer ce
+        // règlement") étaient déjà là avant cet import - ils sont seulement déliés, jamais
+        // supprimés ; les autres charges/paiements référencés par une ligne de ce lot ont, eux,
+        // été créés PAR cet import.
         $idsChargeASupprimer = array();
         $idsPaymentASupprimer = array();
         $idsTvaARevert = array();
         $nbChargesExistantesLiees = 0;
+        $nbPaiementsExistantsLies = 0;
         foreach ($lignes as $l) {
             $infosL = $l->getDonneesMatchingArray();
-            if ($l->getIdPayment() && !in_array($l->getIdPayment(), $idsPaymentASupprimer)) {
-                $idsPaymentASupprimer[] = $l->getIdPayment();
+            if ($l->getIdPayment()) {
+                if (isset($infosL['type']) && $infosL['type'] === 'credit_reglement_existant') {
+                    $nbPaiementsExistantsLies++;
+                } elseif (!in_array($l->getIdPayment(), $idsPaymentASupprimer)) {
+                    $idsPaymentASupprimer[] = $l->getIdPayment();
+                }
             }
             if ($l->getIdCharge()) {
                 if (isset($infosL['type']) && $infosL['type'] === 'debit_charge_existante') {
@@ -51,7 +58,8 @@ if ($_SESSION['user']->hasDroit('view', 'com_rapprochement')) {
                 'nb_charges' => count($idsChargeASupprimer),
                 'nb_paiements' => count($idsPaymentASupprimer),
                 'nb_tva' => count($idsTvaARevert),
-                'nb_charges_liees' => $nbChargesExistantesLiees
+                'nb_charges_liees' => $nbChargesExistantesLiees,
+                'nb_paiements_lies' => $nbPaiementsExistantsLies
             )
         );
     }
@@ -77,6 +85,52 @@ if ($_SESSION['user']->hasDroit('view', 'com_rapprochement')) {
     // l'agence pour une recherche par nom, puis filtrage des factures ci-dessus par client choisi
     // (tout en JS, aucun aller-retour AJAX supplémentaire nécessaire).
     $clientsPourRapprochement = client::findAll(true, false, $_SESSION['agence']);
+
+    // Fenêtre "Choisir la facture" : dès qu'un client est identifié pour la ligne (candidat
+    // auto-détecté ou recherche manuelle), on affiche AUSSI toutes ses factures et tous ses
+    // règlements déjà enregistrés - jamais une affectation à l'aveugle, l'admin voit tout l'historique
+    // du client avant de confirmer. Regroupées par client une seule fois ici (même convention "tout
+    // charger au chargement de la page, filtrer en JS" que $facturesOuvertes/$chargesDisponibles).
+    $facturesParClient = array();
+    foreach ($facturesOuvertes as $fParClient) {
+        $cParClient = $fParClient->getClient();
+        if (!$cParClient) {
+            continue;
+        }
+        $facturesParClient[$cParClient->getId()][] = array(
+            'id' => $fParClient->getId(),
+            'numero' => $fParClient->getNumero(),
+            'date' => $fParClient->getDateFacture(),
+            'total' => round((float) $fParClient->getTotal(), 2),
+            'reste' => round((float) $fParClient->getReste(), 2),
+            'devise' => $fParClient->getDevise()
+        );
+    }
+
+    // "Associer ce règlement" (panneau ci-dessus) : un règlement déjà rattaché à une AUTRE ligne
+    // de relevé reste sélectionnable (comme les charges "déjà affectées") mais son badge le
+    // signale, et le serveur bloque avec une confirmation avant réaffectation (même patron que
+    // verifierReaffectationCharge(), voir verifierReaffectationPayment() côté contrôleur).
+    $idsPaymentDejaLies = releveLigne::findAllIdPaymentLies();
+
+    $reglementsParClient = array();
+    foreach (payment::findAll(false, true, $_SESSION['agence']) as $pParClient) {
+        $factureDuReglement = $pParClient->getFacture();
+        $cDuReglement = $factureDuReglement ? $factureDuReglement->getClient() : null;
+        if (!$cDuReglement) {
+            continue;
+        }
+        $reglementsParClient[$cDuReglement->getId()][] = array(
+            'id' => $pParClient->getId(),
+            'date' => $pParClient->getDatePayment(),
+            'montant' => round((float) $pParClient->getMontant(), 2),
+            'methode' => $pParClient->getMethodePayment(),
+            'facture_numero' => $factureDuReglement->getNumero(),
+            'devise' => $factureDuReglement->getDevise(),
+            'deja_lie' => in_array($pParClient->getId(), $idsPaymentDejaLies)
+        );
+    }
+
     $idsChargeDejaLies = releveLigne::findAllIdChargeLies();
     $toutesLesChargesRapprochement = charge::findAll(true, $_SESSION['agence']);
     $chargesDisponibles = array_values(array_filter($toutesLesChargesRapprochement, function ($c) use ($idsChargeDejaLies) {

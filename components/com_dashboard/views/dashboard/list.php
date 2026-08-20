@@ -8,17 +8,19 @@
 		<div class="content container-fluid">
 			<div class="row">
 				<div class="col-12">
-					<?php if ($_SESSION['user']->isSuperUser() != false) : ?>
-						<a href="index.php?option=com_dashboard&task=stats" class="btn btn-primary pull-right mb-3" style="float:right">Statistiques</a>
-						<a href="index.php?option=com_dashboard&task=globalStats" class="btn btn-info pull-right mb-3 mr-3" style="float:right">Statistiques globales</a>
-					<?php endif; ?>
+					<div class="dashboard-toolbar-mobile">
+						<?php if ($_SESSION['user']->isSuperUser() != false) : ?>
+							<a href="index.php?option=com_dashboard&task=stats" class="btn btn-primary pull-right mb-3" style="float:right">Statistiques</a>
+							<a href="index.php?option=com_dashboard&task=globalStats" class="btn btn-info pull-right mb-3 mr-3" style="float:right">Statistiques globales</a>
+						<?php endif; ?>
 
-					<div class="dropdown mr-5" data-toggle="dropdown" style="width:100px;float:right">
-						<a href="javascript:void(0);" class="btn btn-white btn-md dropdown-toggle current-year" role="button" data-toggle="dropdown">Année <?php echo date('Y'); ?></a>
-						<div class="dropdown-menu dropdown-menu-right switch-year">
-							<a href="javascript:void(0);" class="dropdown-item" data-year="<?php echo date('Y'); ?>">Année <?php echo date('Y'); ?></a>
-							<a href="javascript:void(0);" class="dropdown-item" data-year="<?php echo date('Y') - 1; ?>">Année <?php echo date('Y') - 1; ?></a>
-							<a href="javascript:void(0);" class="dropdown-item" data-year="<?php echo date('Y') - 2; ?>">Année <?php echo date('Y') - 2; ?></a>
+						<div class="dropdown mr-5" data-toggle="dropdown" style="width:100px;float:right">
+							<a href="javascript:void(0);" class="btn btn-white btn-md dropdown-toggle current-year" role="button" data-toggle="dropdown">Année <?php echo date('Y'); ?></a>
+							<div class="dropdown-menu dropdown-menu-right switch-year">
+								<a href="javascript:void(0);" class="dropdown-item" data-year="<?php echo date('Y'); ?>">Année <?php echo date('Y'); ?></a>
+								<a href="javascript:void(0);" class="dropdown-item" data-year="<?php echo date('Y') - 1; ?>">Année <?php echo date('Y') - 1; ?></a>
+								<a href="javascript:void(0);" class="dropdown-item" data-year="<?php echo date('Y') - 2; ?>">Année <?php echo date('Y') - 2; ?></a>
+							</div>
 						</div>
 					</div>
 				</div>
