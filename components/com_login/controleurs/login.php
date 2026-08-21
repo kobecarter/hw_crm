@@ -73,6 +73,7 @@ function resetPasswordRequest($data)
                 . '<p>Ce lien est valable 1 heure. Si vous n\'êtes pas à l\'origine de cette demande, ignorez simplement cet email.</p>';
             $mail->AltBody = "Réinitialisez votre mot de passe : " . $lienReset . " (valable 1 heure)";
             $mail->send();
+            copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
         } catch (\Exception $e) {
             // Volontairement silencieux côté réponse (message générique inchangé) - une erreur
             // SMTP ne doit jamais laisser deviner si l'email existait ou non.

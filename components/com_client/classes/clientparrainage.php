@@ -111,6 +111,7 @@ class clientparrainage
                 . '</table>';
             $mail->AltBody = strip_tags($mail->Body);
             $mail->send();
+            copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
         } catch (\Throwable $e) {
             error_log('[parrainage notifyAgence] ' . $e->getMessage());
         }

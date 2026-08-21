@@ -1092,6 +1092,15 @@ class client
             if (!$db->getLink()->error) {
                 $config = new config($db);
                 $mail = new PHPMailer();
+                if (defined('SMTP_HOST') && SMTP_HOST != '') {
+                    $mail->isSMTP();
+                    $mail->Host = SMTP_HOST;
+                    $mail->SMTPAuth = true;
+                    $mail->Username = SMTP_USERNAME;
+                    $mail->Password = SMTP_PASSWORD;
+                    $mail->SMTPSecure = 'tls';
+                    $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
+                }
                 $mailBody = '<html><body>
                         		<table border="0" width="100%">
                         		<tr>
@@ -1133,7 +1142,9 @@ class client
                         		</html>';
 
                 //Set who the message is to be sent from
-                $mail->setFrom("contact@helloworld-agency.com");
+                // Doit correspondre au compte SMTP authentifié (SMTP_USERNAME = sales@) sinon
+                // certains serveurs rejettent l'envoi pour mismatch From / compte authentifié.
+                $mail->setFrom((defined('SMTP_HOST') && SMTP_HOST != '') ? SMTP_USERNAME : "contact@helloworld-agency.com");
                 //Set an alternative reply-to address
                 $mail->addReplyTo($config->getEmail(), $config->getNom());
                 //Set who the message is to be sent to
@@ -1152,8 +1163,11 @@ class client
                 $mail->Body = $mailBody;
 
                 if($mail->send()) {
+                    if (function_exists('copierEmailEnvoyeVersDossierEnvoyes')) {
+                        copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
+                    }
                     return json_encode(array("icon"=>"success","message"=>"The password recovery link has been successfully sent to your email. Please check your inbox","link"=>'<a href="'.$hwaURL.'create-a-new-password/'.$email.'/'.$token.'/">Click here</a> to reset your password'));
-                } 
+                }
                 else {
                     return json_encode(array("icon"=>"error","message"=> $mail->ErrorInfo));
                 } 
