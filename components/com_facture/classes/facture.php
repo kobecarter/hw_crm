@@ -2097,7 +2097,10 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
         if (getToken()) {
             global $db;
             $items = array();
-            $SQLselect = "SELECT A.id as ID,A.*,B.* FROM " . static::$table . " A INNER JOIN " . static::$table5 . " B ON B.id = A.id_client INNER JOIN " . static::$table4 . " C ON C.id =B.id_agence where (A.proforma = 0 or  A.proforma is null)";
+            // Une facture proforma est visible côté client seulement si elle est
+            // en devise étrangère (AED/USD/EUR/GBP...) — les proforma en DH (MAD,
+            // la devise locale) restent des documents internes non finalisés.
+            $SQLselect = "SELECT A.id as ID,A.*,B.* FROM " . static::$table . " A INNER JOIN " . static::$table5 . " B ON B.id = A.id_client INNER JOIN " . static::$table4 . " C ON C.id =B.id_agence where (A.proforma = 0 or A.proforma is null or (A.proforma = 1 and A.devise is not null and A.devise <> '' and A.devise <> 'DH'))";
 
             if ($clientID) {
                 $SQLselect .= " AND A.id_client = " . intval($clientID);
@@ -2131,6 +2134,31 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
                 array_push($items, $facture);
             }
             //var_dump($items);
+            return $items;
+        } else {
+            return json_encode(array("icon" => "error", "message" => "Unauthorized"));
+        }
+    }
+
+    // Historique des paiements d'un client, tous devises confondues, pour la
+    // courbe "solde restant dû" de l'espace client — mêmes filtres proforma/
+    // archived que findAllByClientApi() pour rester cohérent avec la liste de
+    // factures qu'il voit (sinon des paiements sans facture visible feraient
+    // baisser le solde affiché de manière incohérente).
+    public static function getPaymentsByClientApi($clientID = 0)
+    {
+        if (getToken()) {
+            global $db;
+            $items = array();
+            $SQLselect = "SELECT P.date_payment as date, P.montant as montant, F.devise as devise FROM " . static::$table3 . " P INNER JOIN " . static::$table . " F ON F.id = P.id_facture INNER JOIN " . static::$table5 . " B ON B.id = F.id_client INNER JOIN " . static::$table4 . " C ON C.id = B.id_agence WHERE (F.proforma = 0 or F.proforma is null or (F.proforma = 1 and F.devise is not null and F.devise <> '' and F.devise <> 'DH')) AND (F.archived = 0 OR F.archived IS NULL)";
+            if ($clientID) {
+                $SQLselect .= " AND F.id_client = " . intval($clientID);
+            }
+            $SQLselect .= " ORDER BY P.date_payment ASC";
+            $result = $db->queryS($SQLselect);
+            foreach ($result as $data) {
+                $items[] = array('date' => $data['date'], 'montant' => (float) $data['montant'], 'devise' => $data['devise']);
+            }
             return $items;
         } else {
             return json_encode(array("icon" => "error", "message" => "Unauthorized"));

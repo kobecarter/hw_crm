@@ -214,6 +214,34 @@ class clientsocial
         return $clientsocial;
     }
 
+    // Vue client (API à jeton) : jamais le mot de passe (password_enc n'est
+    // même pas sélectionné) — juste de quoi savoir quels accès l'agence gère
+    // pour ce client.
+    public static function findAllByClientApi($id_client)
+    {
+        if (!getToken()) return array();
+        global $db;
+        $items = array();
+        $rows = $db->queryS(sprintf(
+            "SELECT plateforme, login, lien, email_recuperation, telephone_recuperation, remarque, date_add FROM " . static::$table . " WHERE id_client = %s ORDER BY plateforme ASC",
+            GetSQLValueString((int) $id_client, "int")
+        ));
+        if (is_array($rows)) {
+            foreach ($rows as $row) {
+                $items[] = array(
+                    'plateforme' => $row['plateforme'],
+                    'login' => $row['login'],
+                    'lien' => $row['lien'],
+                    'email_recuperation' => $row['email_recuperation'],
+                    'telephone_recuperation' => $row['telephone_recuperation'],
+                    'remarque' => $row['remarque'],
+                    'date_add' => $row['date_add'],
+                );
+            }
+        }
+        return $items;
+    }
+
     public static function findAllByClient($id_client, $agence = false)
     {
         global $db;
