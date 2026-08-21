@@ -1,4 +1,9 @@
 <?php
+// Sans cet autoload, getToken()/getInfoFromToken() (JWT) échouent silencieusement
+// (Throwable avalé -> null) quand ce contrôleur est atteint directement via l'API
+// serveur-à-serveur du site (pas via index.php, qui le charge déjà ailleurs) —
+// même correctif que com_facture/controleurs/facture/controleur.php.
+require_once dirname(__DIR__, 4) . '/vendor/autoload.php';
 if (isset($task) && !empty($task)) {
     switch ($task) {
         case 'addClient':
@@ -57,6 +62,30 @@ if (isset($task) && !empty($task)) {
             break;
         case "updateProfileApi":
             updateProfileApi($_POST);
+            break;
+        case "addAttestation":
+            addAttestation($_POST);
+            break;
+        case "deleteAttestation":
+            deleteAttestation($_POST);
+            break;
+        case "findAttestationsByClientApi":
+            findAttestationsByClientApi($_GET);
+            break;
+        case "signAttestationApi":
+            signAttestationApi($_POST);
+            break;
+        case "pdfAttestationApi":
+            pdfAttestationApi($_GET);
+            break;
+        case "countPendingAttestationsApi":
+            countPendingAttestationsApi($_GET);
+            break;
+        case "findClientSocialsByClientApi":
+            findClientSocialsByClientApi($_GET);
+            break;
+        case "downloadAttestationAdmin":
+            downloadAttestationAdmin($_GET);
             break;
     }
 }
@@ -634,4 +663,91 @@ function findClientByIdApi($data)
 function updateProfileApi($data)
 {
     echo client::updateProfileApi($data);
+}
+
+function addAttestation($data)
+{
+    $idClient = isset($data['id_client']) ? (int) $data['id_client'] : 0;
+    $titre = isset($data['titre']) ? trim($data['titre']) : '';
+    $message = isset($data['message']) ? trim($data['message']) : '';
+    if ($idClient <= 0 || $titre === '') {
+        echo "0";
+        return;
+    }
+    $fichier = attestation::handleUpload('fichier');
+    if ($fichier === null) {
+        // Pas de fichier valide (absent, ou extension non autorisée) : le
+        // document est le cœur de l'attestation, on n'enregistre pas sans lui.
+        echo "3";
+        return;
+    }
+    $a = new attestation();
+    $a->setIdClient($idClient)
+      ->setIdAgence(isset($_SESSION['agence']) ? $_SESSION['agence'] : 1)
+      ->setTitre($titre)
+      ->setMessage($message !== '' ? $message : null)
+      ->setFichier($fichier)
+      ->setIdUserAdded(isset($_SESSION['user']) ? $_SESSION['user']->getId() : null);
+    $a->add();
+    echo "1";
+}
+
+function deleteAttestation($data)
+{
+    $id = isset($data['id']) ? (int) $data['id'] : 0;
+    echo ($id > 0 && attestation::deleteApi($id)) ? "1" : "0";
+}
+
+function findAttestationsByClientApi($data)
+{
+    $items = attestation::findAllByClientApi(isset($data['client']) ? $data['client'] : 0);
+    array_walk_recursive($items, function (&$item) {
+        if (is_string($item)) {
+            $item = mb_convert_encoding($item, 'UTF-8', 'UTF-8');
+        }
+    });
+    echo json_encode($items);
+}
+
+// Accès admin réservé à hasDroit('view','com_client') côté router.php — permet
+// à l'agence de rouvrir le document envoyé, signé ou non, pour vérifier ce
+// qu'elle a réellement transmis au client.
+function downloadAttestationAdmin($data)
+{
+    $id = isset($data['id']) ? (int) $data['id'] : 0;
+    if ($id <= 0 || !attestation::streamFileAdmin($id)) {
+        header('HTTP/1.1 404 Not Found');
+        echo 'Document introuvable.';
+    }
+}
+
+function signAttestationApi($data)
+{
+    $idClient = isset($data['client']) ? $data['client'] : 0;
+    $idAttestation = isset($data['id']) ? $data['id'] : 0;
+    $nom = isset($data['nom']) ? $data['nom'] : '';
+    echo json_encode(attestation::signApi($idClient, $idAttestation, $nom));
+}
+
+function pdfAttestationApi($data)
+{
+    $idClient = isset($data['client']) ? $data['client'] : 0;
+    $idAttestation = isset($data['id']) ? $data['id'] : 0;
+    echo json_encode(attestation::pdfApi($idClient, $idAttestation));
+}
+
+function countPendingAttestationsApi($data)
+{
+    echo json_encode(array("count" => attestation::countPendingByClientApi(isset($data['client']) ? $data['client'] : 0)));
+}
+
+function findClientSocialsByClientApi($data)
+{
+    $items = clientsocial::findAllByClientApi(isset($data['client']) ? $data['client'] : 0);
+    array_walk_recursive($items, function (&$item) {
+        if (is_string($item)) {
+            $item = mb_convert_encoding($item, 'UTF-8', 'UTF-8');
+        }
+    });
+    echo json_encode($items);
 }

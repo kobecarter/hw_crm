@@ -1091,7 +1091,8 @@ function sendViaMailDevis($file_name = ""){
 
     public static function ApiFindById($id)
     {
-        if(getToken()){
+        $token = getToken();
+        if($token){
             global $db;
             $devis = new devis();
             $SQLselect = sprintf(
@@ -1101,6 +1102,10 @@ function sendViaMailDevis($file_name = ""){
             $result = $db->query($SQLselect);
             if ($db->num_rows($result) == 1) {
                 $data = $db->fetch_assoc($result);
+                // Un client ne doit voir/télécharger que SES PROPRES devis.
+                if ((int) $data['id_client'] !== (int) $token->id) {
+                    return json_encode(array("icon"=>"error","message"=>"Unauthorized"));
+                }
                 $devis = static::buildApi($data);
             }
             return $devis;
@@ -1111,7 +1116,8 @@ function sendViaMailDevis($file_name = ""){
 
     public static function findByIdApi($id)
     {
-        if(getToken()){
+        $token = getToken();
+        if($token){
             global $db;
             $devis = new devis();
             $SQLselect = sprintf(
@@ -1121,6 +1127,10 @@ function sendViaMailDevis($file_name = ""){
             $result = $db->query($SQLselect);
             if ($db->num_rows($result) == 1) {
                 $data = $db->fetch_assoc($result);
+                // Un client ne doit voir/télécharger que SES PROPRES devis.
+                if ((int) $data['id_client'] !== (int) $token->id) {
+                    return json_encode(array("icon"=>"error","message"=>"Unauthorized"));
+                }
                 $devis = static::buildApi($data);
             }
             return $devis;
@@ -1131,9 +1141,13 @@ function sendViaMailDevis($file_name = ""){
 
     public static function findAllByClientApi($clientID = 0, $statu = false, $ordre = false, $limit = false)
     {
-        if(getToken()){
+        $token = getToken();
+        if($token){
             global $db;
             $items = array();
+            // Un client ne doit voir que SES PROPRES devis : on ignore le
+            // clientID fourni par l'appelant et on scope sur le token vérifié.
+            $clientID = (int) $token->id;
             $SQLselect = "SELECT A.id as ID,A.*,B.* FROM " . static::$table . " A INNER JOIN " . static::$table5 . " B ON B.id = A.id_client INNER JOIN " . static::$table4 . " C ON C.id =B.id_agence";
             if ($clientID) {
                 $SQLselect .= " AND A.id_client = " . intval($clientID);
@@ -1183,6 +1197,11 @@ function sendViaMailDevis($file_name = ""){
     if (isset($id) && !empty($id)) {
         $dirPath = "../../../";
         $devis = devis::findByIdApi($id);
+        if (!is_array($devis)) {
+            // Devis introuvable ou n'appartenant pas au client authentifié
+            // (findByIdApi renvoie alors une chaîne JSON, pas un tableau).
+            return $devis;
+        }
         $client = $devis["client"];
         $agence = $client["agence"];
 		$items = devis::getItemsApi($devis["id"]);

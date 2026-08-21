@@ -131,6 +131,9 @@ if (isset($_GET['task']) && !empty($_GET['task'])) {
         case 'findAllByClientApi':
             include_once("facture/controleur.php");
         break;
+        case 'getPaymentsByClientApi':
+            include_once("facture/controleur.php");
+        break;
         case 'sendEmailsForeachFacture':
             include_once("facture/controleur.php");
             break;

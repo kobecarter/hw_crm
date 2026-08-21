@@ -63,6 +63,9 @@ if (isset($task) && !empty($task)) {
 		case 'findAllByClientApi':
 			findAllByClientApi($_GET);
 			break;
+		case 'getPaymentsByClientApi':
+			getPaymentsByClientApi($_GET);
+			break;
 		case 'pdfFactureApi':
 			pdfFactureApi($_GET);
 			break;
@@ -1086,6 +1089,17 @@ function findAllByClientApi($data)
         }
     });
 	echo json_encode($factures);
+}
+
+function getPaymentsByClientApi($data)
+{
+	$payments = facture::getPaymentsByClientApi($data['client']);
+	array_walk_recursive($payments, function (&$item) {
+		if (is_string($item)) {
+			$item = mb_convert_encoding($item, 'UTF-8', 'UTF-8');
+		}
+	});
+	echo json_encode($payments);
 }
 
 function pdfFactureApi($data)

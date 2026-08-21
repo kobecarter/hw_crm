@@ -2052,7 +2052,8 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
 
     public static function findByIdApi($id)
     {
-        if (getToken()) {
+        $token = getToken();
+        if ($token) {
             global $db;
             $facture = new facture();
             $SQLselect = sprintf(
@@ -2064,6 +2065,10 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
             $result = $db->query($SQLselect);
             if ($db->num_rows($result) == 1) {
                 $data = $db->fetch_assoc($result);
+                // Un client ne doit voir/télécharger que SES PROPRES factures.
+                if ((int) $data['id_client'] !== (int) $token->id) {
+                    return json_encode(array("icon" => "error", "message" => "Unauthorized"));
+                }
                 $facture = static::buildApi($data);
             }
             return $facture;
@@ -2074,7 +2079,8 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
 
     public static function findByDevisApi($id_devis)
     {
-        if (getToken()) {
+        $token = getToken();
+        if ($token) {
             global $db;
             $facture = new facture();
             $SQLselect = sprintf(
@@ -2084,6 +2090,10 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
             $result = $db->query($SQLselect);
             if ($db->num_rows($result) == 1) {
                 $data = $db->fetch_assoc($result);
+                // Un client ne doit voir/télécharger que SES PROPRES factures.
+                if ((int) $data['id_client'] !== (int) $token->id) {
+                    return json_encode(array("icon" => "error", "message" => "Unauthorized"));
+                }
                 $facture = static::buildApi($data);
             }
             return $facture;
@@ -2094,10 +2104,18 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
 
     public static function findAllByClientApi($clientID = 0, $from = false, $to = false, $ordre = false, $limit = false, $archived = false)
     {
-        if (getToken()) {
+        $token = getToken();
+        if ($token) {
+            // Un client ne doit voir que SES PROPRES factures : on ignore le
+            // clientID fourni par l'appelant (potentiellement falsifié) et on
+            // scope systématiquement sur l'identité du token vérifié.
+            $clientID = (int) $token->id;
             global $db;
             $items = array();
-            $SQLselect = "SELECT A.id as ID,A.*,B.* FROM " . static::$table . " A INNER JOIN " . static::$table5 . " B ON B.id = A.id_client INNER JOIN " . static::$table4 . " C ON C.id =B.id_agence where (A.proforma = 0 or  A.proforma is null)";
+            // Une facture proforma est visible côté client seulement si elle est
+            // en devise étrangère (AED/USD/EUR/GBP...) — les proforma en DH (MAD,
+            // la devise locale) restent des documents internes non finalisés.
+            $SQLselect = "SELECT A.id as ID,A.*,B.* FROM " . static::$table . " A INNER JOIN " . static::$table5 . " B ON B.id = A.id_client INNER JOIN " . static::$table4 . " C ON C.id =B.id_agence where (A.proforma = 0 or A.proforma is null or (A.proforma = 1 and A.devise is not null and A.devise <> '' and A.devise <> 'DH'))";
 
             if ($clientID) {
                 $SQLselect .= " AND A.id_client = " . intval($clientID);
@@ -2137,6 +2155,35 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
         }
     }
 
+    // Historique des paiements d'un client, tous devises confondues, pour la
+    // courbe "solde restant dû" de l'espace client — mêmes filtres proforma/
+    // archived que findAllByClientApi() pour rester cohérent avec la liste de
+    // factures qu'il voit (sinon des paiements sans facture visible feraient
+    // baisser le solde affiché de manière incohérente).
+    public static function getPaymentsByClientApi($clientID = 0)
+    {
+        $token = getToken();
+        if ($token) {
+            // Même règle que findAllByClientApi() : on ignore le clientID fourni
+            // par l'appelant et on scope sur l'identité du token vérifié.
+            $clientID = (int) $token->id;
+            global $db;
+            $items = array();
+            $SQLselect = "SELECT P.date_payment as date, P.montant as montant, F.devise as devise FROM " . static::$table3 . " P INNER JOIN " . static::$table . " F ON F.id = P.id_facture INNER JOIN " . static::$table5 . " B ON B.id = F.id_client INNER JOIN " . static::$table4 . " C ON C.id = B.id_agence WHERE (F.proforma = 0 or F.proforma is null or (F.proforma = 1 and F.devise is not null and F.devise <> '' and F.devise <> 'DH')) AND (F.archived = 0 OR F.archived IS NULL)";
+            if ($clientID) {
+                $SQLselect .= " AND F.id_client = " . intval($clientID);
+            }
+            $SQLselect .= " ORDER BY P.date_payment ASC";
+            $result = $db->queryS($SQLselect);
+            foreach ($result as $data) {
+                $items[] = array('date' => $data['date'], 'montant' => (float) $data['montant'], 'devise' => $data['devise']);
+            }
+            return $items;
+        } else {
+            return json_encode(array("icon" => "error", "message" => "Unauthorized"));
+        }
+    }
+
     public static function getItemsApi($id_facture)
     {
         global $db;
@@ -2166,6 +2213,11 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
 
 
         $facture = facture::findByIdApi($id);
+        if (!is_array($facture)) {
+            // Facture introuvable ou n'appartenant pas au client authentifié
+            // (findByIdApi renvoie alors une chaîne JSON, pas un tableau).
+            return $facture;
+        }
         $typefacture = $traduction['FACTURE'][$facture["langue"]];
         if ($facture["id_facture"]) {
             $facture_ref = facture::findByIdApi($facture["id_facture"]);

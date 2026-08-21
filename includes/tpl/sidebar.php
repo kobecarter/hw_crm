@@ -163,6 +163,34 @@
 					</li>
 				<?php
 				endif;
+				if ($_SESSION['user']->hasDroit('view', 'com_reclamation') || $_SESSION['user']->hasDroit('view', 'com_fidelite')) : ?>
+					<li class="submenu <?= isset($_GET['option']) && in_array($_GET['option'], ['com_reclamation', 'com_fidelite']) ? "active" : "" ?>">
+						<a href="#"><i class="fa fa-headset"></i> <span> SAV &amp; Réclamation</span> <span class="menu-arrow"></span></a>
+						<ul style="display: <?= isset($_GET['option']) && in_array($_GET['option'], ['com_reclamation', 'com_fidelite']) ? "block" : "none" ?>;" class="p-0">
+							<?php
+							$modules = module::findAllPosition("side");
+							if ($_SESSION['user']->hasDroit('view', 'com_reclamation')):
+								foreach ($modules as $module) :
+									if (in_array($module->getIdModule(), ['com_reclamation'])):
+							?>
+										<li class="<?= isset($_GET['option']) && $_GET['option'] == 'com_reclamation' ? 'active' : null ?>"><a href="index.php?option=<?= $module->getIdModule() ?>"><?= $module->getNom(); ?></a></li>
+									<?php
+									endif;
+								endforeach;
+							endif;
+							if ($_SESSION['user']->hasDroit('view', 'com_fidelite')):
+								foreach ($modules as $module) :
+									if (in_array($module->getIdModule(), ['com_fidelite'])):
+									?>
+										<li class="<?= isset($_GET['option']) && $_GET['option'] == 'com_fidelite' ? 'active' : null ?>"><a href="index.php?option=<?= $module->getIdModule() ?>"><?= $module->getNom(); ?></a></li>
+							<?php
+									endif;
+								endforeach;
+							endif ?>
+						</ul>
+					</li>
+					<?php
+				endif;
 				if ($_SESSION['user']->hasDroit('view', 'com_holiday') || $_SESSION['user']->hasDroit('view', 'com_rappel')) : ?>
 					<li class="submenu <?= isset($_GET['option']) && in_array($_GET['option'], ['com_holiday', 'com_rappel']) ? "active" : "" ?>">
 						<a href="#"><i class="fa fa-calendar-alt"></i> <span> Calendrier</span> <span class="menu-arrow"></span></a>
@@ -197,7 +225,7 @@
 					$arrowactive = isset($_GET['option']) && $_GET['option'] == $module->getIdModule() ? "subdrop" : "";
 					$submenulistactive = isset($_GET['option']) && $_GET['option'] == $module->getIdModule() ? "block" : "none";
 					if ($_SESSION['user']->hasDroit('view', $module->getIdModule())) {
-						if (!in_array($module->getIdModule(), ['com_facture', 'com_devis', 'com_contract', 'com_client', 'com_accounting', 'com_resourcehumaine', 'com_cheque', 'com_relance', 'com_holiday', 'com_rappel', 'com_rapprochement'])) {
+						if (!in_array($module->getIdModule(), ['com_facture', 'com_devis', 'com_contract', 'com_client', 'com_accounting', 'com_resourcehumaine', 'com_cheque', 'com_relance', 'com_holiday', 'com_rappel', 'com_rapprochement', 'com_reclamation', 'com_fidelite'])) {
 					?>
 
 							<li class="<?= $active ?>">

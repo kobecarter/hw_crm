@@ -97,6 +97,36 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
         case 'updateProfileApi' :
                 include_once ("client/controleur.php");
             break;
+        case 'addAttestation' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_client')) {
+                include_once ("client/controleur.php");
+            }
+            break;
+        case 'deleteAttestation' :
+            if ($_SESSION['user']->hasDroit('delete', 'com_client')) {
+                include_once ("client/controleur.php");
+            }
+            break;
+        case 'findAttestationsByClientApi' :
+                include_once ("client/controleur.php");
+            break;
+        case 'signAttestationApi' :
+                include_once ("client/controleur.php");
+            break;
+        case 'pdfAttestationApi' :
+                include_once ("client/controleur.php");
+            break;
+        case 'countPendingAttestationsApi' :
+                include_once ("client/controleur.php");
+            break;
+        case 'findClientSocialsByClientApi' :
+                include_once ("client/controleur.php");
+            break;
+        case 'downloadAttestationAdmin' :
+            if ($_SESSION['user']->hasDroit('view', 'com_client')) {
+                include_once ("client/controleur.php");
+            }
+            break;
         // Pas de contrôle hasDroit() ici pour les 4 tâches ci-dessous, contrairement au reste de ce
         // routeur : un accès temporaire (token+code, components/com_client/controleurs/
         // socialaccess/router.php) n'a PAS de $_SESSION['user'] du tout - y accéder ferait une

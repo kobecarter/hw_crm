@@ -567,13 +567,17 @@ class contract
 
     public static function ApiFindById($id , $agence=1, $langue = 'fr')
     {
-        if(getToken()){
+        $token = getToken();
+        if($token){
             global $db;
             $contract = new contract();
-            $SQLselect = sprintf("SELECT A.id as ID, A.*, B.* FROM  " . static::$table . " A inner join " . static::$table3 ." C on A.id_devis = C.id inner join " . static::$table4 ." D on C.id_client = D.id LEFT JOIN " . static::$table2 . " B ON A.id = B.id_contract AND B.langue = %s WHERE A.id = %s and D.id_agence = %s",
+            // Un client ne doit voir que SES PROPRES contrats (id_client du devis
+            // lié doit correspondre au token vérifié — pas seulement à l'agence).
+            $SQLselect = sprintf("SELECT A.id as ID, A.*, B.* FROM  " . static::$table . " A inner join " . static::$table3 ." C on A.id_devis = C.id inner join " . static::$table4 ." D on C.id_client = D.id LEFT JOIN " . static::$table2 . " B ON A.id = B.id_contract AND B.langue = %s WHERE A.id = %s and D.id_agence = %s and C.id_client = %s",
                 GetSQLValueString($langue, "text"),
                 GetSQLValueString($id, "int"),
-                GetSQLValueString($agence, "int")
+                GetSQLValueString($agence, "int"),
+                GetSQLValueString((int) $token->id, "int")
             );
             $result = $db->query($SQLselect);
             if ($db->num_rows($result) == 1) {

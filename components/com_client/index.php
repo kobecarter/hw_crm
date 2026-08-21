@@ -41,6 +41,7 @@ switch ($task)
                 $deviss = $client->getDevis();
                 $rappels = rappel::findAll(false,$_SESSION['agence'],$id);
                 $relances = relance::findByClient($id,$_SESSION['agence']);
+                $attestations = attestation::findByClient($id);
                 include_once("components/com_client/views/client/detail.php");
             }
         }

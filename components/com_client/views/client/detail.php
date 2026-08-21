@@ -318,6 +318,7 @@
 							<li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-payments">Paiements</a></li>
 							<li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-rappels">Domaines &amp; Hébergement <span class="badge badge-pill ml-1"><?php echo sizeof($rappels); ?></span></a></li>
 							<li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-relances">Relances <span class="badge badge-pill ml-1 <?php echo $relanceEnCours ? 'relance-badge-pulse' : ''; ?>"><?php echo sizeof($relances); ?></span></a></li>
+							<li class="nav-item"><a class="nav-link" data-toggle="tab" href="#tab-attestations">Attestations <span class="badge badge-pill ml-1"><?php echo sizeof($attestations); ?></span></a></li>
 						</ul>
 					</div>
 					<div class="card-body">
@@ -336,6 +337,9 @@
 							</div>
 							<div class="tab-pane fade" id="tab-relances">
 								<?php include("relances.php"); ?>
+							</div>
+							<div class="tab-pane fade" id="tab-attestations">
+								<?php include("attestations.php"); ?>
 							</div>
 						</div>
 					</div>
