@@ -9,6 +9,9 @@
 				<li class="<?= !isset($_GET['option']) && !isset($_GET['task']) ? "active" : "" ?>">
 					<a href="index.php"><i class="fa fa-home"></i> <span>Tableau de bord</span></a>
 				</li>
+				<li class="<?= isset($_GET['option']) && $_GET['option'] == "com_documentation" ? "active" : "" ?>">
+					<a href="index.php?option=com_documentation"><i class="fa fa-book"></i> <span>Documentation</span></a>
+				</li>
 				<!-- Liens documents -->
 				<?php if($_SESSION['user']->isResourceHumaine() || $_SESSION['user']->isSuperUser()) :?>
 				<li class="submenu">
