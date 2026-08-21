@@ -279,9 +279,13 @@ class reclamation
 
     public static function findAllByClientApi($clientID = false)
     {
-        if(getToken()){
+        $token = getToken();
+        if($token){
             global $db;
             $items = array();
+            // Un client ne doit voir que SES PROPRES réclamations : on ignore le
+            // clientID fourni par l'appelant et on scope sur le token vérifié.
+            $clientID = (int) $token->id;
             $SQLselect = sprintf("SELECT A.id as ID,A.* FROM " . static::$table . " A inner join " . static::$tableClient . " B on A.id_client = B.id inner join " . static::$tableAgence . " C on B.id_agence = C.id where A.id_client = %s",
                 GetSQLValueString($clientID, "int"),
             );
@@ -301,11 +305,14 @@ class reclamation
 
     public static function createReclamationApi($data)
     {
-        if(getToken()){
+        $token = getToken();
+        if($token){
             global $db;
+            // On ignore l'id_client fourni par l'appelant (falsifiable) et on
+            // attribue toujours la réclamation à l'auteur réel du token.
             $SQLinsert = sprintf(
                 "INSERT INTO " . static::$table . " (id_client, department, sujet, message, etat, date_add) VALUES (%s, %s, %s, %s, %s, %s)",
-                GetSQLValueString($data['id_client'], "int"),
+                GetSQLValueString((int) $token->id, "int"),
                 GetSQLValueString($data['department'], "text"),
                 GetSQLValueString($data['sujet'], "text"),
                 GetSQLValueString($data['message'], "text"),

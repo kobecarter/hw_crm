@@ -1,4 +1,9 @@
 <?php
+// Sans cet autoload, getToken()/getInfoFromToken() (JWT) échouent silencieusement
+// (Throwable avalé -> null) quand ce contrôleur est atteint directement via l'API
+// serveur-à-serveur du site (pas via index.php, qui le charge déjà ailleurs) —
+// même correctif que com_facture/controleurs/facture/controleur.php.
+require_once dirname(__DIR__, 4) . '/vendor/autoload.php';
 if (isset($task) && !empty($task)) {
     switch ($task) {
         case 'addClient':

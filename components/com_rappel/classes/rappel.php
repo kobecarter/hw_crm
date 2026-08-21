@@ -572,9 +572,13 @@ class rappel
 
     public static function findAllByClientApi($clientID = 0)
     {
-        if(getToken()){
+        $token = getToken();
+        if($token){
             global $db;
             $items = array();
+            // Un client ne doit voir que SES PROPRES rappels : on ignore le
+            // clientID fourni par l'appelant et on scope sur le token vérifié.
+            $clientID = (int) $token->id;
             $SQLselect = sprintf("SELECT A.id as ID,A.* FROM " . static::$table . " A INNER JOIN " . static::$tableClient . " B ON B.id = A.id_client INNER JOIN " . static::$tableAgence . " C ON C.id =B.id_agence where A.id_client = %s",
                 GetSQLValueString($clientID, "int")
             );

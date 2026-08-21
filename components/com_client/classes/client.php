@@ -933,7 +933,14 @@ class client
 
     public static function ApiFindById($id)
     {
-        if(getToken()){
+        $token = getToken();
+        if($token){
+            // Un client ne doit voir que SA PROPRE fiche (cette méthode est aussi
+            // appelée en interne par facture/devis/reclamation/rappel::buildApi(),
+            // toujours avec l'id_client déjà validé côté appelant).
+            if ((int) $id !== (int) $token->id) {
+                return json_encode(array("icon"=>"error","message"=>"Unauthorized"));
+            }
             global $db;
             $client = new client();
             $SQLselect = sprintf("SELECT A.id as ID, A.* FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id where A.id = %s",
@@ -1078,7 +1085,11 @@ class client
                 GetSQLValueString($token, "text"),
                 GetSQLValueString($data['id'], "int")
             );
-            if (!$db->query($SQLupdate)) {
+            $db->query($SQLupdate);
+            // NB : mysql::query() ne renvoie jamais rien d'exploitable (voir
+            // com_config/classes/mysql.php) — on vérifie le vrai succès via
+            // l'erreur mysqli, pas la valeur de retour de query().
+            if (!$db->getLink()->error) {
                 $config = new config($db);
                 $mail = new PHPMailer();
                 $mailBody = '<html><body>
@@ -1189,7 +1200,12 @@ class client
 
     public static function findClientByIdApi($id)
     {
-        if(getToken()){
+        $token = getToken();
+        if($token){
+            // Un client ne doit voir que SA PROPRE fiche.
+            if ((int) $id !== (int) $token->id) {
+                return json_encode(array("icon"=>"error","message"=>"Unauthorized"));
+            }
             global $db;
             $client = new client();
             $SQLselect = sprintf("SELECT A.id as ID, A.* FROM " . static::$table . " A  where A.id = %s",
@@ -1208,13 +1224,18 @@ class client
 
     public static function updateProfileApi($data)
     {
-        if(getToken()){
+        $token = getToken();
+        if($token){
             global $db;
+            // Un client ne doit pouvoir changer QUE son propre mot de passe : on
+            // ignore l'id_client fourni par l'appelant (potentiellement falsifié
+            // — sinon n'importe quel client authentifié pourrait écraser le mot
+            // de passe de n'importe quel autre client) et on scope sur le token.
             $SQLinsert = sprintf(
                 "UPDATE " . static::$table . " SET  password = %s, last_edit = %s WHERE id = %s",
                 GetSQLValueString(md5($data['password']), "text"),
                 GetSQLValueString(date("Y-m-d"), "date"),
-                GetSQLValueString($data['id_client'], "int")
+                GetSQLValueString((int) $token->id, "int")
             );
             if (!$db->query($SQLinsert)) {
                 return json_encode(array("icon"=>"success","message"=>"The profile has been successfully updated"));
