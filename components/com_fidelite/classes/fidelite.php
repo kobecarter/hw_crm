@@ -11,15 +11,16 @@ class fidelite
     private static $siteDb = null;
     private static $sitePrefix = null;
 
-    // Chemin vers le config.php du SITE, dérivé RELATIVEMENT à ce fichier
-    // plutôt qu'en dur : ce code tourne aussi bien en local (XAMPP) qu'en
-    // production tant que les deux applications restent des dossiers frères
-    // (même hypothèse déjà faite ailleurs dans ce repo — $apiURL, côté site,
-    // pointe vers "../hw_crm/components/" sur ce même principe). 4 niveaux
-    // au-dessus de ce fichier (classes/ → com_fidelite/ → components/ →
-    // hw_crm/) est la racine commune aux deux applications.
+    // Chemin vers le config.php du SITE. Le nom du dossier frère ("helloworld")
+    // n'est pas garanti identique sur chaque installation (en local sur ce poste,
+    // le site vit dans "helloworld3", pas "helloworld") - FIDELITE_SITE_CONFIG_PATH
+    // (config.secrets.php) permet de le surcharger par environnement sans toucher
+    // ce fichier ; à défaut, on retombe sur l'hypothèse dossiers-frères d'origine.
     private static function siteConfigPath()
     {
+        if (defined('FIDELITE_SITE_CONFIG_PATH') && FIDELITE_SITE_CONFIG_PATH !== '') {
+            return FIDELITE_SITE_CONFIG_PATH;
+        }
         return dirname(__DIR__, 4) . '/helloworld/hw-admin/config.php';
     }
 
@@ -30,7 +31,11 @@ class fidelite
     private static function siteCreds()
     {
         return call_user_func(function () {
-            include self::siteConfigPath();
+            // @ : le config.php du site définit lui aussi une constante __prefixe_db__ (son propre
+            // préfixe "hw_") - define() ne peut pas la redéfinir puisque le CRM a déjà la sienne
+            // ("crm_") en mémoire dans ce même process PHP. Sans incidence ici : seule la variable
+            // locale $prefixe_db (extraite juste en dessous), pas la constante, nous intéresse.
+            @include self::siteConfigPath();
             return array(
                 'host' => $host,
                 'login' => $login,
