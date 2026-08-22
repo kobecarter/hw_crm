@@ -28,7 +28,7 @@
 		$nbRapprocheesGlobal = $compteursGlobal['matched_facture'] + $compteursGlobal['matched_charge'] + $compteursGlobal['matched_tva'];
 		?>
 
-		<div class="row">
+		<div class="row mb-4">
 			<div class="col-xl-3 col-sm-6 col-12 d-flex">
 				<div class="card flex-fill mb-0">
 					<div class="card-body">
@@ -141,7 +141,7 @@
 
 		<div class="row">
 			<div class="col-sm-12">
-				<div class="card-header pl-0">
+				<div class="card-header pl-0 mb-4" style="background-color: transparent;">
 					<h4 class="card-title">Relevés importés<?= empty($lotsData) ? ' — aucun pour le moment' : '' ?></h4>
 				</div>
 

@@ -125,7 +125,11 @@ if ($_SESSION['user']->hasDroit('view', 'com_rapprochement')) {
             'date' => $pParClient->getDatePayment(),
             'montant' => round((float) $pParClient->getMontant(), 2),
             'methode' => $pParClient->getMethodePayment(),
-            'facture_numero' => $factureDuReglement->getNumero(),
+            // Numéro tel qu'imprimé sur le reçu PDF du paiement (payment::pdfPayment()) : le
+            // numéro de facture suivi du numero_sequence assigné une fois pour toutes à la
+            // création (facture::assignNextPaymentSeq()) - pas juste le numéro de facture seul,
+            // qui ne permet pas de distinguer entre eux plusieurs règlements d'une même facture.
+            'facture_numero' => $factureDuReglement->getNumero() . ($pParClient->getNumeroSequence() !== null && $pParClient->getNumeroSequence() !== '' ? '-' . $pParClient->getNumeroSequence() : ''),
             'devise' => $factureDuReglement->getDevise(),
             'deja_lie' => in_array($pParClient->getId(), $idsPaymentDejaLies)
         );
