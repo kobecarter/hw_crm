@@ -81,6 +81,24 @@ if ($task === 'accepterOffre') {
     $offer->setSignedAt(date('Y-m-d H:i:s'));
     $offer->edit();
 
+    // Copie du PDF signé dans "Mes fichiers" (espace employé, com_resourcehumaine::documentsRequis()
+    // sous la clé 'offre_emploi') - fichier séparé de celui d'images/resourceshumaines/offres/ (lu par
+    // la vue admin joboffer::list.php) car les deux vues pointent vers des dossiers différents et
+    // fileresourcehumaine::delete() ne connaît que images/resourceshumaines/files/.
+    $dossierFiles = '../../../../images/resourceshumaines/files';
+    if (!is_dir($dossierFiles)) {
+        mkdir($dossierFiles, 0755, true);
+    }
+    if (@copy("$dossierDestination/$nomFichier", "$dossierFiles/$nomFichier")) {
+        $fichierOffreSignee = new fileresourcehumaine();
+        $fichierOffreSignee->setResourcehumaine($resourcehumaine);
+        $fichierOffreSignee->setTitle("Offre d'emploi");
+        $fichierOffreSignee->setDocumentType('offre_emploi');
+        $fichierOffreSignee->setFile($nomFichier);
+        $fichierOffreSignee->setValidated(1);
+        $fichierOffreSignee->add();
+    }
+
     echo json_encode(array('ok' => true));
     exit;
 }
