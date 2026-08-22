@@ -61,6 +61,9 @@ if ($task === 'accepterOffre') {
         $nomBase = 'offre-signee-' . $resourcehumaine->getId() . '-' . $offer->getId();
         $nomBase = str_replace(array('/', '\\'), '-', $nomBase);
         $dossierDestination = '../../../../images/resourceshumaines/offres';
+        if (!is_dir($dossierDestination)) {
+            mkdir($dossierDestination, 0755, true);
+        }
         $nomFichier = $nomBase . '.pdf';
         $n = '';
         while (file_exists("$dossierDestination/$nomBase$n.pdf")) {
