@@ -497,6 +497,14 @@ function cronVerifierValidationSlackEndpoint()
         if (empty($msg['text'])) {
             continue;
         }
+        // Un message posté par le bot lui-même (annonce initiale ou relance) contient littéralement
+        // "Je ne valide pas l'offre de X" comme texte d'INSTRUCTION ("pour refuser : ...") - sans ce
+        // filtre, ce message se matche lui-même comme un refus dès le premier passage du cron, avant
+        // même qu'un humain n'ait eu la moindre chance de répondre. Slack distingue les messages bot
+        // par la présence de bot_id (absent des messages humains).
+        if (isset($msg['bot_id'])) {
+            continue;
+        }
         $texteMsg = trim($msg['text']);
 
         $estRefus = preg_match('/je\s+(?:ne\s+valide\s+pas|valide\s+pas|refuse)\s+l[\'’]offre\s+de\s+(.+)/iu', $texteMsg, $m);
