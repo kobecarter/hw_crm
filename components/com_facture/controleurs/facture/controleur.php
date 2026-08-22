@@ -193,7 +193,7 @@ function filterFacture($data)
 									<?php endif; ?>
 									<?php if ($_SESSION['user']->hasDroit('view', 'com_facture')) : ?>
 										<a class="dropdown-item text-success" href="index.php?option=com_facture&task=payment&id=<?php echo $facture->getId(); ?>"><i class="far fa-money-bill-alt mr-2"></i>Reglement</a>
-										<?php if($facture->getReste() <= 0): ?>
+										<?php if($facture->isGlobalPdfAllowed($payments)): ?>
 										<a class="dropdown-item text-danger" href="components/com_facture/controleurs/router.php?task=pdfFacture&id=<?php echo $facture->getId(); ?>" target="_blank"><i class="far fa-file-pdf mr-2"></i>PDF</a>
 										<?php endif; ?>
 									<?php endif; ?>
@@ -788,10 +788,13 @@ function pdfFacture($data)
 		require '../../../includes/traduction.php';
 
 		$facture = facture::find($data["id"], $_SESSION['agence']);
-		if($facture->getReste() <= 0)
+		if ($facture->isGlobalPdfAllowed()) {
 			$facture->pdfFacture("show");
-		else
+		} elseif ($facture->getReste() > 0) {
 			echo '<h2 align="center" style="margin-top:100px;">Vous devez régler cette facture pour pouvoir la télécharger<h2>';
+		} else {
+			echo '<h2 align="center" style="margin-top:100px;">Cette facture a été réglée en plusieurs paiements — merci de télécharger le(s) reçu(s) de paiement correspondant(s)<h2>';
+		}
 	}
 }
 

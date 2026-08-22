@@ -155,7 +155,7 @@
                                                         <?php endif;?>
                                                         <?php if ($_SESSION['user']->hasDroit('view', 'com_facture')) :?>
 														    <a class="dropdown-item text-success" href="index.php?option=com_facture&task=payment&id=<?php echo $facture->getId(); ?>"><i class="far fa-money-bill-alt mr-2"></i>Reglement</a>
-															<?php if($facture->getReste() <= 0): ?>
+															<?php if($facture->isGlobalPdfAllowed($payments)): ?>
 														    <a class="dropdown-item text-danger"  href="components/com_facture/controleurs/router.php?task=pdfFacture&id=<?php echo $facture->getId(); ?>" target="_blank"><i class="far fa-file-pdf mr-2"></i>PDF</a>
 															<?php endif; ?>
 														<?php endif;?>

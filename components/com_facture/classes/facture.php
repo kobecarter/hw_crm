@@ -435,6 +435,43 @@ class facture
         }
     }
 
+    // Attribue le prochain numéro de reçu de paiement (facture.numero + '-' + ce numéro) et avance
+    // le compteur `next_payment_seq` de façon irréversible. Volontairement jamais décrémenté à la
+    // suppression d'un paiement (contrairement à agence.numero_increment_facture) : un trou dans la
+    // séquence après suppression est acceptable fiscalement, réutiliser un numéro déjà émis à un
+    // client ne l'est pas.
+    public function assignNextPaymentSeq()
+    {
+        global $db;
+        $db->query(sprintf(
+            "UPDATE " . static::$table . " SET next_payment_seq = next_payment_seq + 1 WHERE id = %s",
+            GetSQLValueString($this->id, "int")
+        ));
+        $result = $db->query(sprintf(
+            "SELECT next_payment_seq FROM " . static::$table . " WHERE id = %s",
+            GetSQLValueString($this->id, "int")
+        ));
+        $data = $db->fetch_assoc($result);
+        return intval($data['next_payment_seq']) - 1;
+    }
+
+    // Règle d'accès au PDF de facture globale : accessible tant qu'aucun paiement n'a encore été
+    // enregistré (premier envoi avant tout règlement), ou si la facture a été soldée en un seul
+    // paiement couvrant la totalité. Dès qu'un règlement partiel existe, ou que le solde a été
+    // atteint via plusieurs paiements, la facture globale devient redondante avec les reçus de
+    // paiement individuels (qui, eux, deviennent accessibles - logique inverse, voir les vues).
+    public function isGlobalPdfAllowed($payments = null)
+    {
+        if ($payments === null) {
+            $payments = payment::findAll($this->id);
+        }
+        $count = count($payments);
+        if ($count === 0) {
+            return true;
+        }
+        return $count === 1 && abs($payments[0]->getMontant() - $this->total) < 0.01;
+    }
+
     public function increaseCountSending()
     {
         global $db;
@@ -1518,6 +1555,7 @@ mpdf-->
 <table>
 <tr><td style="font-size:8pt;">N° ' . $typefacture . '</td></tr>
 <tr><td style="border-top:#e3d3aa solid 0.5pt;"><strong style="font-size: 12pt;">' . $facture->getNumero() . '</strong></td></tr>
+<tr><td>' . ($facture->getReste() <= 0 ? '<strong style="color:#2e7d32;">' . mb_strtoupper($traduction['PAYE'][$facture->getLangue()]) . '</strong>' : '<strong style="color:#c62828;">' . mb_strtoupper($traduction['NON_PAYE'][$facture->getLangue()]) . '</strong>') . '</td></tr>
 </table>
 </td>
 </tr></table>
@@ -2316,6 +2354,7 @@ mpdf-->
 <table>
 <tr><td style="font-size:8pt;">N° ' . $typefacture . '</td></tr>
 <tr><td style="border-top:#e3d3aa solid 0.5pt;"><strong style="font-size: 12pt;">' . $facture["numero"] . '</strong></td></tr>
+<tr><td>' . ($facture["reste"] <= 0 ? '<strong style="color:#2e7d32;">' . mb_strtoupper($traduction['PAYE'][$facture["langue"]]) . '</strong>' : '<strong style="color:#c62828;">' . mb_strtoupper($traduction['NON_PAYE'][$facture["langue"]]) . '</strong>') . '</td></tr>
 </table>
 </td>
 </tr></table>

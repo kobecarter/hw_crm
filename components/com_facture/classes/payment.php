@@ -16,6 +16,7 @@ class payment
     private $date_add;
     private $last_edit;
     private $reg_img;
+    private $numero_sequence;
 
     public function __construct()
     {
@@ -72,6 +73,15 @@ class payment
         return $this->reg_img;
     }
 
+    // Numéro de reçu de paiement (facture.numero + '-' + ce numéro), attribué une seule fois à la
+    // création via facture::assignNextPaymentSeq() et jamais recalculé/décrémenté ensuite - voir
+    // ce commentaire côté facture::assignNextPaymentSeq() pour le pourquoi (éviter la réutilisation
+    // d'un numéro déjà émis après suppression d'un paiement intermédiaire).
+    public function getNumeroSequence()
+    {
+        return $this->numero_sequence;
+    }
+
     public function setId($id)
     {
         $this->id = $id;
@@ -122,11 +132,16 @@ class payment
         $this->reg_img = $reg_img;
     }
 
+    public function setNumeroSequence($numero_sequence)
+    {
+        $this->numero_sequence = $numero_sequence;
+    }
+
     public function add()
     {
         global $db;
         $SQLinsert = sprintf(
-            "INSERT INTO " . static::$table . " (id_facture, montant, reg_img, date_payment, methode_payment, date_validation, detail, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s , %s)",
+            "INSERT INTO " . static::$table . " (id_facture, montant, reg_img, date_payment, methode_payment, date_validation, detail, date_add, last_edit, numero_sequence) VALUES (%s, %s, %s, %s, %s, %s, %s, %s , %s, %s)",
             GetSQLValueString($this->facture->getId(), "int"),
             GetSQLValueString($this->montant, "double"),
             GetSQLValueString($this->reg_img, "text"),
@@ -135,8 +150,9 @@ class payment
             GetSQLValueString($this->date_validation, "date"),
             GetSQLValueString($this->detail, "text"),
             GetSQLValueString($this->date_add, "date"),
-            GetSQLValueString($this->last_edit, "date")
-            );  
+            GetSQLValueString($this->last_edit, "date"),
+            GetSQLValueString($this->numero_sequence, "int")
+            );
         if (!$db->query($SQLinsert)) {
             return 1;
         } else {
@@ -251,6 +267,7 @@ class payment
         $payment->setDetail($data['detail']);
         $payment->setDateAdd($data['date_add']);
         $payment->setLastEdit($data['last_edit']);
+        $payment->setNumeroSequence(isset($data['numero_sequence']) ? $data['numero_sequence'] : null);
         return $payment;
     }
 
@@ -348,8 +365,14 @@ class payment
 
     function pdfPayment($output="show",$indexPayment=1){
         global $db;
-        
-            
+
+            // Le numéro stocké (assigné une seule fois à la création, cf. facture::assignNextPaymentSeq())
+            // prime toujours sur le paramètre légataire $indexPayment. Le fallback ne sert plus qu'au flux
+            // "demande d'acompte" (sendPaymentRequestPdf) qui construit un payment jamais persisté.
+            if ($this->numero_sequence !== null && $this->numero_sequence !== '') {
+                $indexPayment = $this->numero_sequence;
+            }
+
             require '../../../vendor/autoload.php';
             require '../../../includes/traduction.php';
 

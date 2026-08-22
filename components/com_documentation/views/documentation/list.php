@@ -1,6 +1,6 @@
 <!-- Page Wrapper -->
 <div class="page-wrapper glass-page">
-	<div class="content container-fluid doc-page">
+	<div class="content container-fluid">
 
 		<div class="page-header">
 			<div class="row align-items-center">
@@ -33,6 +33,11 @@
 			<div class="col-lg-3">
 				<div class="card doc-toc">
 					<div class="card-body">
+						<div class="doc-search">
+							<i class="fa fa-search doc-search-icon"></i>
+							<input type="text" id="docSearchInput" class="doc-search-input" placeholder="Rechercher dans la documentation…" autocomplete="off">
+							<button type="button" id="docSearchClear" class="doc-search-clear" aria-label="Effacer la recherche">&times;</button>
+						</div>
 						<div class="doc-toc-title">Sommaire</div>
 						<nav id="docToc">
 							<div class="doc-toc-group">PRISE EN MAIN</div>
@@ -75,6 +80,10 @@
 
 			<!-- Contenu -->
 			<div class="col-lg-9">
+
+				<div id="docNoResults" class="doc-no-results" style="display:none;">
+					<i class="fa fa-search"></i> Aucun résultat pour cette recherche.
+				</div>
 
 				<section id="comment-lire" class="doc-section">
 					<div class="doc-kicker">PRISE EN MAIN</div>
@@ -419,12 +428,18 @@
 <!-- /Page Wrapper -->
 
 <style>
-.doc-page{font-family:'Raleway',sans-serif;}
 .doc-eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#8b6a22;font-weight:600;margin-bottom:8px;}
 .doc-personas{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;}
 .doc-persona{display:inline-flex;align-items:center;gap:6px;font-size:13px;background:#f7f5f2;border:1px solid rgba(0,0,0,.09);padding:6px 12px;color:#4b4640;}
 .doc-persona i{color:#8b6a22;}
-.doc-toc{position:sticky;top:20px;max-height:calc(100vh - 40px);overflow-y:auto;}
+.doc-toc{position:sticky !important;top:95px;max-height:calc(100vh - 110px);overflow-y:auto;}
+.doc-search{position:relative;margin-bottom:16px;}
+.doc-search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#8b6a22;font-size:12px;pointer-events:none;}
+.doc-search-input{width:100%;border:1px solid rgba(0,0,0,.09);background:#f7f5f2;padding:8px 28px 8px 30px;font-size:13px;font-family:'Raleway',sans-serif;color:#0d0b09;}
+.doc-search-input:focus{outline:none;border-color:#8b6a22;background:#fff;}
+.doc-search-clear{display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:none;color:#6b6460;font-size:16px;line-height:1;cursor:pointer;padding:2px 4px;}
+.doc-search-clear:hover{color:#8b6a22;}
+.doc-search.has-value .doc-search-clear{display:block;}
 .doc-toc-title{font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
 .doc-toc-group{font-size:11px;font-weight:700;color:#8b6a22;text-transform:uppercase;letter-spacing:.05em;margin:14px 0 4px;}
 .doc-toc-group:first-child{margin-top:0;}
@@ -452,6 +467,9 @@
 .doc-subblock:last-child{border-bottom:none;}
 .doc-subblock-title{font-weight:700;margin-bottom:4px;}
 .doc-subblock-title i{color:#8b6a22;margin-right:6px;}
+.doc-no-results{text-align:center;color:#6b6460;font-style:italic;padding:40px 20px;border:1px dashed rgba(0,0,0,.09);background:#f7f5f2;}
+.doc-no-results i{margin-right:8px;color:#8b6a22;}
+mark.doc-highlight{background:#f5e6c4;color:#0d0b09;padding:0 1px;}
 @media (max-width:991px){.doc-toc{position:static;max-height:none;margin-bottom:20px;}}
 </style>
 
@@ -482,5 +500,97 @@ window.addEventListener('load', function () {
 	}
 	window.addEventListener('scroll', onScroll);
 	onScroll();
+
+	/* Recherche instantanée */
+	var searchWrap = document.querySelector('.doc-search');
+	var searchInput = document.getElementById('docSearchInput');
+	var searchClear = document.getElementById('docSearchClear');
+	var noResults = document.getElementById('docNoResults');
+	var tocGroups = document.querySelectorAll('.doc-toc-group');
+	var originalHtml = new Map();
+	sections.forEach(function (sec) { originalHtml.set(sec, sec.innerHTML); });
+
+	var content = document.querySelector('.col-lg-9');
+	var clusters = [];
+	var currentCluster = null;
+	Array.prototype.forEach.call(content.children, function (el) {
+		if (el.classList.contains('doc-part-sep')) {
+			currentCluster = { headerEls: [el], sections: [] };
+			clusters.push(currentCluster);
+		} else if (currentCluster && currentCluster.sections.length === 0 &&
+			(el.classList.contains('doc-part-header') || el.classList.contains('doc-part-title') ||
+				(el.tagName === 'P' && el.classList.contains('text-muted')))) {
+			currentCluster.headerEls.push(el);
+		} else if (currentCluster && el.classList.contains('doc-section')) {
+			currentCluster.sections.push(el);
+		}
+	});
+
+	function escapeRegExp(s) {
+		return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	}
+
+	function highlight(root, query) {
+		var re = new RegExp('(' + escapeRegExp(query) + ')', 'ig');
+		var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+		var textNodes = [];
+		var node;
+		while ((node = walker.nextNode())) {
+			if (re.test(node.nodeValue)) textNodes.push(node);
+			re.lastIndex = 0;
+		}
+		textNodes.forEach(function (textNode) {
+			var span = document.createElement('span');
+			span.innerHTML = textNode.nodeValue.replace(re, '<mark class="doc-highlight">$1</mark>');
+			textNode.parentNode.replaceChild(span, textNode);
+			while (span.firstChild) span.parentNode.insertBefore(span.firstChild, span);
+			span.parentNode.removeChild(span);
+		});
+	}
+
+	function applyFilter(rawQuery) {
+		var query = rawQuery.trim().toLowerCase();
+		searchWrap.classList.toggle('has-value', query !== '');
+		var anyVisible = false;
+
+		sections.forEach(function (sec) {
+			sec.innerHTML = originalHtml.get(sec);
+			var match = query === '' || sec.textContent.toLowerCase().indexOf(query) !== -1;
+			sec.style.display = match ? '' : 'none';
+			if (match) {
+				anyVisible = true;
+				if (query !== '') highlight(sec, query);
+			}
+		});
+
+		clusters.forEach(function (cluster) {
+			var hasVisible = query === '' || cluster.sections.some(function (s) { return s.style.display !== 'none'; });
+			cluster.headerEls.forEach(function (el) { el.style.display = hasVisible ? '' : 'none'; });
+		});
+
+		links.forEach(function (link) {
+			var sec = document.querySelector(link.getAttribute('href'));
+			link.style.display = (!sec || sec.style.display !== 'none') ? '' : 'none';
+		});
+
+		tocGroups.forEach(function (group) {
+			var el = group.nextElementSibling;
+			var hasVisibleLink = false;
+			while (el && !el.classList.contains('doc-toc-group')) {
+				if (el.tagName === 'A' && el.style.display !== 'none') hasVisibleLink = true;
+				el = el.nextElementSibling;
+			}
+			group.style.display = hasVisibleLink ? '' : 'none';
+		});
+
+		noResults.style.display = (query !== '' && !anyVisible) ? '' : 'none';
+	}
+
+	searchInput.addEventListener('input', function () { applyFilter(searchInput.value); });
+	searchClear.addEventListener('click', function () {
+		searchInput.value = '';
+		applyFilter('');
+		searchInput.focus();
+	});
 });
 </script>

@@ -53,7 +53,10 @@ function addPayment($data)
 {
     $indices = array("id_facture", "montant");
     if (fieldCheck($data, $indices)) {
-        if (buildPayment($data)->add() == 1) {
+        $facturePourSequence = facture::find($data['id_facture'], $_SESSION['agence']);
+        $newPayment = buildPayment($data);
+        $newPayment->setNumeroSequence($facturePourSequence->assignNextPaymentSeq());
+        if ($newPayment->add() == 1) {
 
             $facture = facture::find($data['id_facture'],$_SESSION['agence']);
 
@@ -667,13 +670,17 @@ function pdfPayment($data)
 {
 	global $db;
 	if (isset($data["id"]) && !empty($data["id"])) {
-		
+
 		require '../../../vendor/autoload.php';
 		require '../../../includes/traduction.php';
-		
+
 		$payment = payment::find($data["id"]);
+		if ($payment->getFacture()->isGlobalPdfAllowed()) {
+			echo '<h2 align="center" style="margin-top:100px;">Cette facture a été réglée en un seul paiement — merci de télécharger la facture globale.</h2>';
+			return;
+		}
 		$payment->pdfPayment("show",$data["index"]);
 
-		
+
 	}
 }
