@@ -87,17 +87,33 @@
 			}
 		}
 		if (nav && indicator) {
+			// Le texte blanc (classe emp-nav-pill-active, voir employee-space.css) doit toujours
+			// suivre la pastille glissante plutôt que rester figé sur .active (page en cours) -
+			// sinon dès qu'on survole un autre lien, la page en cours garde son texte blanc sans
+			// la pastille colorée derrière pour le faire ressortir, et devient illisible.
+			function marquerPillActive(link) {
+				nav.querySelectorAll('.emp-nav-link.emp-nav-pill-active').forEach(function (l) {
+					l.classList.remove('emp-nav-pill-active');
+				});
+				if (link) { link.classList.add('emp-nav-pill-active'); }
+			}
 			var activeLink = nav.querySelector('.emp-nav-link.active');
 			// Positionnement immédiat (sans anim) pour éviter un "saut" visible au chargement.
 			placeIndicator(activeLink, false);
+			marquerPillActive(activeLink);
 			window.addEventListener('resize', function () {
 				placeIndicator(nav.querySelector('.emp-nav-link.active'), false);
 			});
 			nav.querySelectorAll('.emp-nav-link').forEach(function (link) {
-				link.addEventListener('mouseenter', function () { placeIndicator(link, true); });
+				link.addEventListener('mouseenter', function () {
+					placeIndicator(link, true);
+					marquerPillActive(link);
+				});
 			});
 			nav.addEventListener('mouseleave', function () {
-				placeIndicator(nav.querySelector('.emp-nav-link.active'), true);
+				var current = nav.querySelector('.emp-nav-link.active');
+				placeIndicator(current, true);
+				marquerPillActive(current);
 			});
 		}
 
