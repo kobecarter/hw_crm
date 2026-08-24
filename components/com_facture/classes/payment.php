@@ -723,7 +723,10 @@ $htmlInvoice .= '</div>
         $agence = $client["agence"];
         $items = facture::getItemsApi($facture["ID"]);
         $invoiceFor = $client["raison_social"] != '' ? $client["raison_social"] : $client["nom"] . ' ' . $client["prenom"];
-        $color = $agence["color"];
+        // Couleur volontairement fixe (#e3d3aa), pas $agence["color"] -- même choix que
+        // payment::pdfPayment() (admin) : les reçus de paiement gardent toujours ce ton,
+        // contrairement à la facture globale (facture::pdfFactureApi()) qui suit la couleur
+        // de l'agence.
         $indexPayment = ($paymentData['numero_sequence'] !== null && $paymentData['numero_sequence'] !== '') ? $paymentData['numero_sequence'] : 1;
 
         $htmlInvoice = '<html>
@@ -792,7 +795,7 @@ table thead td { background-color: #EEEEEE;
 mpdf-->
 <table width="100%">
 <tr>
-<td width="35%" style="vertical-align: middle; font-size:8pt;">' . (isset($facture_ref) ? $traduction['AVOIR_FACTURE'][$facture["langue"]] . ' N° ' . $facture_ref["numero"] : $traduction['FACTURE_POUR'][$facture["langue"]]) . '<hr style="margin:1pt 0 6pt 0;"><span style="font-weight: bold; font-size: 10pt; color:' . $color . '">' . $invoiceFor . '</span><br /><span style="font-family:dejavusanscondensed;">&#9742;</span> ' . $client["tel"] . '<br>' . $client["email"] . '<br>' . $client["ice"] . '<br /></td>
+<td width="35%" style="vertical-align: middle; font-size:8pt;">' . (isset($facture_ref) ? $traduction['AVOIR_FACTURE'][$facture["langue"]] . ' N° ' . $facture_ref["numero"] : $traduction['FACTURE_POUR'][$facture["langue"]]) . '<hr style="margin:1pt 0 6pt 0;"><span style="font-weight: bold; font-size: 10pt; color:#e3d3aa">' . $invoiceFor . '</span><br /><span style="font-family:dejavusanscondensed;">&#9742;</span> ' . $client["tel"] . '<br>' . $client["email"] . '<br>' . $client["ice"] . '<br /></td>
 <td width="30%"></td>
 
 <td width="35%" style="text-align: right;">
@@ -852,11 +855,39 @@ mpdf-->
 </tr>';
         }
 
-        $htmlInvoice .= '</tbody>
-</table>
+        $totalLabel = $facture["proforma"] ? 'TOTAL' : $traduction['TOTAL_TTC'][$facture["langue"]];
+        $htmlInvoice .= '<tr style="background:#e3d3aa;">
+<td class="totals" style="color:#FFF; border-right:0.1mm solid #e3d3aa;"><b>' . $totalLabel . '</b></td>
+<td class="totals cost" style="color:#FFF;"><strong>' . number_format((float) $paymentData['montant'], 2, ',', ' ') . ' ' . $facture["devise"] . '</strong></td>
+</tr>
+</tbody>
+</table><div style="margin-top:50t;"><p style="font-size:8pt;">';
+        if ($facture["remarque"] != '') {
+            $htmlInvoice .= '<strong>' . $traduction['REMARQUE'][$facture["langue"]] . ': </strong>' . $facture["remarque"];
+        }
+        $htmlInvoice .= '</p></div>
 <div style="margin-top:100t;">
-<h3 style="color:' . $color . ';">' . $traduction['THANK_YOU_FOR'][$facture["langue"]] . $agence["nom"] . ' !!</h3>
-</div>
+<h3 style="color:#e3d3aa;">' . $traduction['THANK_YOU_FOR'][$facture["langue"]] . $agence["nom"] . ' !!</h3>
+<p style="font-size:8pt;"><strong>' . $agence["conditions"] . '</p>
+<p style="font-size:8pt;"><strong>' . $traduction['CONDITIONS_PAYMENT'][$facture["langue"]] . ': </strong>' . $facture["condition_paiment"] . '</p>';
+        if (is_array($facture["bank"]) && !empty($facture["bank"])) {
+            $htmlInvoice .= '<p style="font-size:8pt;"><br>';
+            if ($facture["bank"]["raison_sociale"] != '') $htmlInvoice .= '<strong>' . $traduction['RAISON_SOCIALE'][$facture["langue"]] . ':</strong> ' . $facture["bank"]["raison_sociale"] . ' <br>';
+            if ($facture["bank"]["rib"] != '') $htmlInvoice .= '<strong>' . $traduction['ACCOUNT_NUMBER'][$facture["langue"]] . ':</strong> ' . $facture["bank"]["rib"] . ' <br>';
+            if ($facture["bank"]["iban_number"] != '') $htmlInvoice .= '<strong>' . $traduction['IBAN'][$facture["langue"]] . ':</strong> ' . $facture["bank"]["iban_number"] . ' <br>';
+            if ($facture["bank"]["banque"] != '') $htmlInvoice .= '<strong>' . $traduction['BRANCH'][$facture["langue"]] . ':</strong> ' . $facture["bank"]["banque"] . ' <br>';
+            if ($facture["bank"]["code_swift"] != '') $htmlInvoice .= '<strong>' . $traduction['SWIFT_CODE'][$facture["langue"]] . ':</strong> ' . $facture["bank"]["code_swift"] . ' <br>';
+            if ($facture["bank"]["currency"] != '') $htmlInvoice .= '<strong>' . $traduction['CURRENCY'][$facture["langue"]] . ':</strong> ' . $facture["bank"]["currency"] . ' <br>';
+            $htmlInvoice .= '</p>';
+        }
+
+        if ($facture["show_signature"]) {
+            $htmlInvoice .= '<div class="div-signature" style="padding-top: 50px;padding-bottom: 50px;">
+                                <img src="' . $dirPath . 'images/agences/' . $agence["signature"] . '" width="300">
+                            </div>';
+        }
+
+        $htmlInvoice .= '</div>
 </body>
 </html>';
 
@@ -883,13 +914,18 @@ mpdf-->
         ]);
 
         $mpdf->SetProtection(array('print', 'copy'));
-        $mpdf->SetTitle($traduction['FACTURE'][$facture["langue"]] . " #" . $facture["numero"] . '-' . $indexPayment);
+        $mpdf->SetTitle("Facture #" . $facture["numero"] . $indexPayment);
         $mpdf->SetAuthor("Hello World");
+        $mpdf->SetWatermarkText("");
+        $mpdf->showWatermarkText = true;
+        $mpdf->watermark_font = 'DejaVuSansCondensed';
+        $mpdf->watermarkTextAlpha = 0.05;
         $mpdf->SetDisplayMode('fullpage');
 
         $htmlInvoice = mb_convert_encoding($htmlInvoice, 'UTF-8', 'UTF-8');
         $mpdf->WriteHTML($htmlInvoice);
-        $file_name = 'payment-' . $paymentData['id'] . '-' . str_replace(array(' ', '/', '\\'), '-', trim($invoiceFor)) . '.pdf';
+        // Même schéma de nom de fichier que payment::pdfPayment() (admin).
+        $file_name = $traduction['FACTURE'][$facture["langue"]] . '-' . $facture["numero"] . $indexPayment . '-' . str_replace(array(' ', '/', '\\'), '-', trim($invoiceFor)) . '.pdf';
         if ($output == "show") {
             $mpdf->Output($file_name, 'I');
         } else {
