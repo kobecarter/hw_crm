@@ -63,7 +63,11 @@ function resetPasswordRequest($data)
             $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
             $mail->CharSet = 'UTF-8';
 
-            $mail->setFrom(SMTP_USERNAME, 'Hello World CRM');
+            // From explicitement direction@ (pas SMTP_USERNAME/sales@) -- même convention que
+            // envoyerEmailDocumentsManquantsRH() (includes/functions/functions.php) pour les
+            // emails adressés aux employés. setFrom() ne dépend pas des identifiants SMTP
+            // authentifiés (Username/Password ci-dessus), qui restent sales@.
+            $mail->setFrom('direction@helloworld-agency.com', 'Hello World CRM');
             $mail->addAddress($user->getEmail(), trim($user->getPrenom() . ' ' . $user->getNom()));
             $mail->isHTML(true);
             $mail->Subject = 'Réinitialisation de votre mot de passe';

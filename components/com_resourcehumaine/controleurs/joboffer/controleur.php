@@ -580,7 +580,11 @@ function envoyerEmailOffreValideeAuCandidat($offer, $token)
         $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
         $mail->CharSet = 'UTF-8';
 
-        $mail->setFrom(SMTP_USERNAME, $nomAgence);
+        // From explicitement direction@ (pas SMTP_USERNAME/sales@) -- même convention que
+        // envoyerEmailDocumentsManquantsRH() (includes/functions/functions.php) pour les
+        // emails adressés aux employés. setFrom() ne dépend pas des identifiants SMTP
+        // authentifiés (Username/Password ci-dessus), qui restent sales@.
+        $mail->setFrom('direction@helloworld-agency.com', $nomAgence);
         $mail->addAddress($resourcehumaine->getEmail(), $nomComplet);
         $mail->isHTML(true);
         $mail->Subject = "Votre offre d'emploi chez " . $nomAgence . " a été validée !";
