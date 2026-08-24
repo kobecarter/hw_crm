@@ -124,7 +124,11 @@
             $('#holiday-calendar').fullCalendar($.extend({
                 header: { left: 'prev,next today', center: 'title', right: 'month,agendaWeek,listYear' },
                 height: 650,
-                events: <?php echo json_encode(array_map(array('holiday', 'toCalendarEvent'), $holidays)); ?>
+                // JSON_INVALID_UTF8_SUBSTITUTE : sans ce flag, UN SEUL jour férié avec un octet
+                // invalide en base (ex. colonne encore en latin1 quelque part) fait échouer
+                // json_encode() pour TOUT le tableau -> "events:" vide -> erreur de syntaxe JS qui
+                // bloque tout le bloc <script> (calendrier ET tableau, chargé juste avant en AJAX).
+                events: <?php echo json_encode(array_map(array('holiday', 'toCalendarEvent'), $holidays), JSON_INVALID_UTF8_SUBSTITUTE); ?>
             }, window.fullCalendarFrDefaults));
         }
 	});
