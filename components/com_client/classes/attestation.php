@@ -287,6 +287,114 @@ class attestation
         );
     }
 
+    // ---- Côté client (API REST mobile, JWT via AuthController::middlware) ----
+    // Mêmes requêtes que les méthodes *Api() ci-dessus, mais sans le garde
+    // getToken() (mécanisme de jeton legacy incompatible avec le JWT de
+    // l'API REST) - l'authentification est déjà vérifiée en amont par le
+    // contrôleur Leaf. Ne modifie aucune méthode existante, pour ne pas
+    // risquer de casser un appelant legacy encore actif.
+
+    public static function findAllByClientRest($id_client)
+    {
+        return self::findAllByClientApiInternal($id_client);
+    }
+
+    private static function findAllByClientApiInternal($id_client)
+    {
+        global $db;
+        $items = array();
+        $rows = $db->queryS(sprintf(
+            "SELECT A.* FROM " . static::$table . " A INNER JOIN " . static::$tableClient . " B ON B.id = A.id_client WHERE A.id_client = %s ORDER BY A.date_add DESC",
+            GetSQLValueString((int) $id_client, "int")
+        ));
+        if (is_array($rows)) {
+            foreach ($rows as $row) {
+                $a = self::hydrate($row);
+                $items[] = array(
+                    'id' => $a->id,
+                    'titre' => $a->titre,
+                    'message' => $a->message,
+                    'has_fichier' => !empty($a->fichier),
+                    'statu' => $a->statu,
+                    'signature_nom' => $a->signature_nom,
+                    'signature_date' => $a->signature_date,
+                    'download_date' => $a->download_date,
+                    'date_add' => $a->date_add,
+                );
+            }
+        }
+        return $items;
+    }
+
+    public static function signRest($id_client, $id_attestation, $signatureNom)
+    {
+        global $db;
+        $signatureNom = trim((string) $signatureNom);
+        if ($signatureNom === '') {
+            return array("success" => false, "message" => "Nom manquant", "code" => "missing");
+        }
+        $rows = $db->queryS(sprintf(
+            "SELECT * FROM " . static::$table . " WHERE id = %s AND id_client = %s LIMIT 1",
+            GetSQLValueString((int) $id_attestation, "int"), GetSQLValueString((int) $id_client, "int")
+        ));
+        if (!is_array($rows) || count($rows) === 0) {
+            return array("success" => false, "message" => "Attestation introuvable", "code" => "notfound");
+        }
+        $a = self::hydrate($rows[0]);
+        if ($a->statu == self::STATU_SIGNEE) {
+            return array("success" => false, "message" => "Déjà signée", "code" => "already");
+        }
+        $ip = isset($_SERVER['HTTP_X_FORWARDED_FOR']) ? explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0] : (isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '');
+        $now = date("Y-m-d H:i:s");
+        $db->query(sprintf(
+            "UPDATE " . static::$table . " SET statu = 1, signature_nom = %s, signature_date = %s, signature_ip = %s WHERE id = %s",
+            GetSQLValueString($signatureNom, "text"), GetSQLValueString($now, "text"),
+            GetSQLValueString(trim((string) $ip), "text"), GetSQLValueString($a->id, "int")
+        ));
+        return array("success" => true, "message" => "Attestation signée", "id" => $a->id);
+    }
+
+    // Renvoie le document en base64 (mêmes règles que pdfApi : téléchargeable
+    // signée ou non, le premier téléchargement est daté).
+    public static function pdfRest($id_client, $id_attestation)
+    {
+        global $db;
+        $rows = $db->queryS(sprintf(
+            "SELECT * FROM " . static::$table . " WHERE id = %s AND id_client = %s LIMIT 1",
+            GetSQLValueString((int) $id_attestation, "int"), GetSQLValueString((int) $id_client, "int")
+        ));
+        if (!is_array($rows) || count($rows) === 0) {
+            return array("success" => false, "message" => "Attestation introuvable");
+        }
+        $a = self::hydrate($rows[0]);
+        if (empty($a->fichier)) {
+            return array("success" => false, "message" => "Aucun fichier");
+        }
+        $path = __DIR__ . '/../../../uploads/' . static::$uploadDir . '/' . $a->fichier;
+        if (!file_exists($path)) {
+            return array("success" => false, "message" => "Fichier introuvable sur le serveur");
+        }
+        $firstDownload = empty($a->download_date);
+        if ($firstDownload) {
+            $ip = isset($_SERVER['HTTP_X_FORWARDED_FOR']) ? explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0] : (isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '');
+            $db->query(sprintf(
+                "UPDATE " . static::$table . " SET download_date = %s, download_ip = %s WHERE id = %s",
+                GetSQLValueString(date("Y-m-d H:i:s"), "text"), GetSQLValueString(trim((string) $ip), "text"),
+                GetSQLValueString($a->id, "int")
+            ));
+        }
+        $ext = strtolower(pathinfo($a->fichier, PATHINFO_EXTENSION));
+        $mime = $ext === 'pdf' ? 'application/pdf' : ($ext === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/msword');
+        $bytes = file_get_contents($path);
+        return array(
+            "success" => true,
+            "first_download" => $firstDownload,
+            "filename" => 'attestation-' . $a->id . '.' . $ext,
+            "mime" => $mime,
+            "pdf_base64" => base64_encode($bytes),
+        );
+    }
+
     // Consultation du document par l'agence (fiche CRM du client) : contrôle
     // d'accès délégué à hasDroit('view','com_client') côté contrôleur — pas
     // besoin que l'attestation soit signée, l'agence doit pouvoir vérifier ce

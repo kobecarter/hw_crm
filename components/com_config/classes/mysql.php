@@ -111,7 +111,11 @@ class mysql extends dbfactory {
             if (!is_string($valeur) || $valeur === '') {
                 continue;
             }
-            $repare = @mb_convert_encoding($valeur, 'ISO-8859-1', 'UTF-8');
+            // Windows-1252 et non ISO-8859-1 : le charset "latin1" de MySQL est en réalité
+            // du cp1252 (quirk MySQL connu), donc les octets 0x80-0x9F (guillemets typographiques,
+            // tirets, €...) doivent être réinterprétés via cp1252 sous peine d'échouer le
+            // round-trip (et donc de laisser passer le mojibake) sur tout texte qui les contient.
+            $repare = @mb_convert_encoding($valeur, 'Windows-1252', 'UTF-8');
             if ($repare !== false && $repare !== $valeur && mb_check_encoding($repare, 'UTF-8') && mb_check_encoding($valeur, 'UTF-8')) {
                 $ligne[$cle] = $repare;
             }

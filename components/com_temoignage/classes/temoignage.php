@@ -6,8 +6,10 @@ class temoignage
     static $table2 =  __prefixe_db__ . "details_temoignage";
 
     private $id;
+    private $id_client;
     private $photo;
     private $active;
+    private $note;
     private $ordre;
     private $nom;
     private $fonction;
@@ -88,9 +90,29 @@ class temoignage
         return $this->langue;
     }
 
+    public function getIdClient()
+    {
+        return $this->id_client;
+    }
+
+    public function getNote()
+    {
+        return $this->note;
+    }
+
     public function setId($id)
     {
         $this->id = $id;
+    }
+
+    public function setIdClient($id_client)
+    {
+        $this->id_client = $id_client;
+    }
+
+    public function setNote($note)
+    {
+        $this->note = $note;
     }
 
     public function setPhoto($photo)
@@ -374,8 +396,10 @@ class temoignage
         $temoignage = new temoignage();
 
         $temoignage->setId($data['ID']);
+        $temoignage->setIdClient(isset($data['id_client']) ? $data['id_client'] : null);
         $temoignage->setPhoto($data['photo']);
         $temoignage->setActive($data['active']);
+        $temoignage->setNote(isset($data['note']) ? $data['note'] : null);
         $temoignage->setOrdre($data['ordre']);
         $temoignage->setNom($data['nom']);
         $temoignage->setFonction($data['fonction']);
@@ -453,6 +477,104 @@ class temoignage
             'author' => $this->getNom(),
             'fonction' => $this->getFonction(),
             'testimonial' => $this->getTemoignage(),
+            'note' => $this->getNote() !== null ? (int) $this->getNote() : null,
+            'active' => (bool) $this->getActive(),
         );
+    }
+
+    // API - un client n'a jamais qu'un seul témoignage : crée s'il n'en a pas
+    // encore, sinon édite le sien (repasse en modération à chaque modification).
+    public static function findByClient($clientId, $langue = 'fr')
+    {
+        global $db;
+        $temoignage = null;
+        $SQLselect = sprintf(
+            "SELECT A.id as ID, A.*, B.* FROM " . static::$table . " A LEFT JOIN " . static::$table2 . " B ON A.id = B.id_temoignage AND langue = %s WHERE A.id_client = %s",
+            GetSQLValueString($langue, "text"),
+            GetSQLValueString($clientId, "int")
+        );
+        $result = $db->query($SQLselect);
+        if ($db->num_rows($result) == 1) {
+            $data = $db->fetch_assoc($result);
+            $temoignage = static::build($data);
+        }
+        return $temoignage;
+    }
+
+    public static function createOrUpdateApi($client, $data)
+    {
+        global $db;
+        $langue = 'fr';
+        $existing = static::findByClient($client->getId(), $langue);
+        $nom = trim($client->getPrenom() . ' ' . $client->getNom());
+        if ($nom === '') {
+            $nom = $client->getRaisonSocial();
+        }
+
+        if ($existing) {
+            $SQLupdate = sprintf(
+                "UPDATE " . static::$table . " SET note = %s, active = 0, last_edit = %s WHERE id = %s",
+                GetSQLValueString($data['note'], "int"),
+                GetSQLValueString(date('Y-m-d'), "date"),
+                GetSQLValueString($existing->getId(), "int")
+            );
+            $db->query($SQLupdate);
+            $SQLselectDetails = sprintf(
+                "SELECT id FROM " . static::$table2 . " WHERE id_temoignage = %s AND langue = %s",
+                GetSQLValueString($existing->getId(), "int"),
+                GetSQLValueString($langue, "text")
+            );
+            $resultDetails = $db->query($SQLselectDetails);
+            if ($db->num_rows($resultDetails) == 1) {
+                $SQLupdateDetails = sprintf(
+                    "UPDATE " . static::$table2 . " SET fonction = %s, sujet = %s, temoignage = %s WHERE id_temoignage = %s AND langue = %s",
+                    GetSQLValueString($data['fonction'], "text"),
+                    GetSQLValueString(isset($data['sujet']) ? $data['sujet'] : '', "text"),
+                    GetSQLValueString($data['temoignage'], "text"),
+                    GetSQLValueString($existing->getId(), "int"),
+                    GetSQLValueString($langue, "text")
+                );
+                $db->query($SQLupdateDetails);
+            } else {
+                $SQLinsertDetails = sprintf(
+                    "INSERT INTO " . static::$table2 . " (id_temoignage, nom, fonction, email, sujet, temoignage, langue) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                    GetSQLValueString($existing->getId(), "int"),
+                    GetSQLValueString($nom, "text"),
+                    GetSQLValueString($data['fonction'], "text"),
+                    GetSQLValueString($client->getEmail(), "text"),
+                    GetSQLValueString(isset($data['sujet']) ? $data['sujet'] : '', "text"),
+                    GetSQLValueString($data['temoignage'], "text"),
+                    GetSQLValueString($langue, "text")
+                );
+                $db->query($SQLinsertDetails);
+            }
+            return true;
+        }
+
+        $SQLinsert = sprintf(
+            "INSERT INTO " . static::$table . " (id_client, active, note, ordre, date_add, last_edit) VALUES (%s, 0, %s, 0, %s, %s)",
+            GetSQLValueString($client->getId(), "int"),
+            GetSQLValueString($data['note'], "int"),
+            GetSQLValueString(date('Y-m-d'), "date"),
+            GetSQLValueString(date('Y-m-d'), "date")
+        );
+        // Note : la méthode query() de ce wrapper ne renvoie jamais rien (toujours NULL),
+        // succès ou échec - un échec SQL réel remonte comme exception, pas comme valeur
+        // de retour falsy. On ne peut donc pas tester son retour ici (cf. même piège dans
+        // add()/edit() plus haut dans ce fichier, où le "else" est du code mort).
+        $db->query($SQLinsert);
+        $idTemoignage = $db->last_id();
+        $SQLinsertDetails = sprintf(
+            "INSERT INTO " . static::$table2 . " (id_temoignage, nom, fonction, email, sujet, temoignage, langue) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            GetSQLValueString($idTemoignage, "int"),
+            GetSQLValueString($nom, "text"),
+            GetSQLValueString($data['fonction'], "text"),
+            GetSQLValueString($client->getEmail(), "text"),
+            GetSQLValueString(isset($data['sujet']) ? $data['sujet'] : '', "text"),
+            GetSQLValueString($data['temoignage'], "text"),
+            GetSQLValueString($langue, "text")
+        );
+        $db->query($SQLinsertDetails);
+        return true;
     }
 }

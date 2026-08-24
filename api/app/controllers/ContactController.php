@@ -12,9 +12,10 @@ class ContactController
     public function index()
     {
         try {
-            global $db;
-            $config = new \config($db, 'fr');
-            return response()->json(['success' => true, 'data' => $config->toArray()]);
+            // Coordonnées réelles du site (hw_config), pas le crm_config du
+            // CRM qui contient des valeurs obsolètes (ex: un email hérité
+            // d'un tout autre client, jamais mis à jour depuis).
+            return response()->json(['success' => true, 'data' => \siteCatalog::siteConfig()]);
         } catch (\Throwable $th) {
             return response()->json([
                 'success' => false,

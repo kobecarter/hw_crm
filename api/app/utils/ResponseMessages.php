@@ -36,6 +36,7 @@ class ResponseMessages
         'noFileUploaded' => 'Veuillez télécharger un fichier!',
         'fileExtensionNotAllowed' => 'Ce type de fichier n\'est pas autorisé',
         'fileUploadFailed' => 'Une erreur est survenue lors de l\'enregistrement de votre fichier, veuillez réessayer plus tard!',
+        'testimonialSaved' => 'Merci pour votre avis ! Il sera visible après validation.',
 
 
     ];
