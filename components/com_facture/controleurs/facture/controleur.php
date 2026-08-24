@@ -1,5 +1,5 @@
 <?php
-include_once(__DIR__ . '../../../vendor/autoload.php');
+include_once(__DIR__ . '/../../../../vendor/autoload.php');
 
 if (isset($task) && !empty($task)) {
 	switch ($task) {
@@ -1085,6 +1085,9 @@ function exportFactureTest($data)
 function findAllByClientApi($data)
 {
 	$factures = facture::findAllByClientApi($data['client'], false, false, true, false, false);
+	// findAllByClientApi() renvoie une chaîne JSON (pas un tableau) si le jeton
+	// est absent/invalide -- array_walk_recursive() sur une chaîne est fatal.
+	if (!is_array($factures)) { echo $factures; return; }
 	// Convert array to UTF-8
     array_walk_recursive($factures, function (&$item) {
         if (is_string($item)) {
@@ -1097,6 +1100,7 @@ function findAllByClientApi($data)
 function getPaymentsByClientApi($data)
 {
 	$payments = facture::getPaymentsByClientApi($data['client']);
+	if (!is_array($payments)) { echo $payments; return; }
 	array_walk_recursive($payments, function (&$item) {
 		if (is_string($item)) {
 			$item = mb_convert_encoding($item, 'UTF-8', 'UTF-8');
