@@ -20,6 +20,9 @@ if (isset($task) && !empty($task)) {
         case 'pdfPayment':
             pdfPayment($_GET);
             break;
+        case 'pdfPaymentApi':
+            pdfPaymentApi($_GET);
+            break;
         case 'getRowRappel':
             getRowRappel($_POST);
             break;
@@ -683,4 +686,12 @@ function pdfPayment($data)
 
 
 	}
+}
+
+function pdfPaymentApi($data)
+{
+	$idClient = isset($data['client']) ? (int) $data['client'] : 0;
+	$idPayment = isset($data['id']) ? (int) $data['id'] : 0;
+	$result = payment::pdfPaymentApi($idClient, $idPayment, "download");
+	echo is_array($result) ? json_encode($result) : $result;
 }

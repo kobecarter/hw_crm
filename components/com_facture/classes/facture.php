@@ -472,6 +472,23 @@ class facture
         return $count === 1 && abs($payments[0]->getMontant() - $this->total) < 0.01;
     }
 
+    // Même règle qu'isGlobalPdfAllowed(), en SQL direct plutôt que via
+    // payment::findAll() (qui dépend de $_SESSION['user']) -- pour rester
+    // appelable depuis un contexte API à jeton (payment::pdfPaymentApi()).
+    public static function isGlobalPdfAllowedApi($idFacture, $total)
+    {
+        global $db;
+        $rows = $db->queryS(sprintf(
+            "SELECT montant FROM " . static::$table3 . " WHERE id_facture = %s",
+            GetSQLValueString((int) $idFacture, "int")
+        ));
+        $count = is_array($rows) ? count($rows) : 0;
+        if ($count === 0) {
+            return true;
+        }
+        return $count === 1 && abs((float) $rows[0]['montant'] - (float) $total) < 0.01;
+    }
+
     public function increaseCountSending()
     {
         global $db;
@@ -2207,14 +2224,25 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
             $clientID = (int) $token->id;
             global $db;
             $items = array();
-            $SQLselect = "SELECT P.date_payment as date, P.montant as montant, F.devise as devise FROM " . static::$table3 . " P INNER JOIN " . static::$table . " F ON F.id = P.id_facture INNER JOIN " . static::$table5 . " B ON B.id = F.id_client INNER JOIN " . static::$table4 . " C ON C.id = B.id_agence WHERE (F.proforma = 0 or F.proforma is null or (F.proforma = 1 and F.devise is not null and F.devise <> '' and F.devise <> 'DH')) AND (F.archived = 0 OR F.archived IS NULL)";
+            // id/id_facture/numero_sequence : ajoutés pour l'affichage par facture côté
+            // espace client (regroupement + lien vers pdfPaymentApi), en plus de l'usage
+            // existant (graphique paiements, qui n'utilise que date/montant/devise).
+            $SQLselect = "SELECT P.id as id, P.id_facture as id_facture, P.numero_sequence as numero_sequence, F.total as facture_total, P.date_payment as date, P.montant as montant, F.devise as devise FROM " . static::$table3 . " P INNER JOIN " . static::$table . " F ON F.id = P.id_facture INNER JOIN " . static::$table5 . " B ON B.id = F.id_client INNER JOIN " . static::$table4 . " C ON C.id = B.id_agence WHERE (F.proforma = 0 or F.proforma is null or (F.proforma = 1 and F.devise is not null and F.devise <> '' and F.devise <> 'DH')) AND (F.archived = 0 OR F.archived IS NULL)";
             if ($clientID) {
                 $SQLselect .= " AND F.id_client = " . intval($clientID);
             }
             $SQLselect .= " ORDER BY P.date_payment ASC";
             $result = $db->queryS($SQLselect);
             foreach ($result as $data) {
-                $items[] = array('date' => $data['date'], 'montant' => (float) $data['montant'], 'devise' => $data['devise']);
+                $items[] = array(
+                    'id' => (int) $data['id'],
+                    'id_facture' => (int) $data['id_facture'],
+                    'numero_sequence' => $data['numero_sequence'],
+                    'facture_total' => (float) $data['facture_total'],
+                    'date' => $data['date'],
+                    'montant' => (float) $data['montant'],
+                    'devise' => $data['devise'],
+                );
             }
             return $items;
         } else {
