@@ -144,19 +144,20 @@ function sendPaymentConfirmationEmail($facture, $montant)
 
     $espaceClientLink = espaceClientLink($_SESSION['agence']);
     $reste = $facture->getReste();
+    $mailCreds = getMailCredentialsForAgence($client->getAgence() ? $client->getAgence()->getId() : 0);
 
     try {
         $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
         $mail->isSMTP();
-        $mail->Host = SMTP_HOST;
+        $mail->Host = $mailCreds['host'];
         $mail->SMTPAuth = true;
-        $mail->Username = SMTP_USERNAME;
-        $mail->Password = SMTP_PASSWORD;
+        $mail->Username = $mailCreds['username'];
+        $mail->Password = $mailCreds['password'];
         $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
+        $mail->Port = $mailCreds['port'];
         $mail->CharSet = 'UTF-8';
 
-        $mail->setFrom(SMTP_USERNAME, 'Hello World');
+        $mail->setFrom($mailCreds['username'], 'Hello World');
         $mail->addAddress($client->getEmail(), trim($client->getPrenom() . ' ' . $client->getNom()));
         $mail->addCC('contact@helloworld-agency.com');
 
@@ -190,7 +191,7 @@ function sendPaymentConfirmationEmail($facture, $montant)
         }
 
         $mail->send();
-        copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
+        copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage(), $mailCreds['host'], $mailCreds['username'], $mailCreds['password']);
     } catch (\Exception $e) {
         // Le paiement est déjà enregistré : un échec d'envoi d'email ne doit pas faire échouer l'opération.
     }
@@ -222,6 +223,8 @@ function sendPaymentRequestPdf($data)
 
     require_once '../../../vendor/autoload.php';
 
+    $mailCreds = getMailCredentialsForAgence($client->getAgence() ? $client->getAgence()->getId() : 0);
+
     try {
         $payment = new payment();
         $payment->setFacture($facture);
@@ -234,15 +237,15 @@ function sendPaymentRequestPdf($data)
 
         $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
         $mail->isSMTP();
-        $mail->Host = SMTP_HOST;
+        $mail->Host = $mailCreds['host'];
         $mail->SMTPAuth = true;
-        $mail->Username = SMTP_USERNAME;
-        $mail->Password = SMTP_PASSWORD;
+        $mail->Username = $mailCreds['username'];
+        $mail->Password = $mailCreds['password'];
         $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
+        $mail->Port = $mailCreds['port'];
         $mail->CharSet = 'UTF-8';
 
-        $mail->setFrom(SMTP_USERNAME, 'Hello World');
+        $mail->setFrom($mailCreds['username'], 'Hello World');
         $mail->addAddress($client->getEmail(), trim($client->getPrenom() . ' ' . $client->getNom()));
         $mail->addAttachment($filePath, $file_name);
 
@@ -281,7 +284,7 @@ function sendPaymentRequestPdf($data)
         }
 
         $mail->send();
-        copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
+        copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage(), $mailCreds['host'], $mailCreds['username'], $mailCreds['password']);
         @unlink($filePath);
         echo "1";
     } catch (\Throwable $e) {
