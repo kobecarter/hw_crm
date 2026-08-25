@@ -8,8 +8,66 @@
 // entre les deux applications.
 class fidelite
 {
-    // Liste des clients (CRM) avec leur total de points, triés par total
-    // décroissant. $agence filtre côté CRM comme le reste du module client.
+    private static $siteDb = null;
+    private static $sitePrefix = null;
+
+    // Chemin vers le config.php du SITE, dérivé RELATIVEMENT à ce fichier
+    // plutôt qu'en dur : ce code tourne aussi bien en local (XAMPP) qu'en
+    // production tant que les deux applications restent des dossiers frères
+    // (même hypothèse déjà faite ailleurs dans ce repo — $apiURL, côté site,
+    // pointe vers "../hw_crm/components/" sur ce même principe). 4 niveaux
+    // au-dessus de ce fichier (classes/ → com_fidelite/ → components/ →
+    // hw_crm/) est la racine commune aux deux applications.
+    private static function siteConfigPath()
+    {
+        return dirname(__DIR__, 4) . '/helloworld/hw-admin/config.php';
+    }
+
+    // Se connecte à la base du SITE en lisant SES identifiants directement
+    // dans son propre config.php (jamais dupliqués ici) — portée isolée dans
+    // une closure pour ne pas laisser fuir $siteURL/$apiURL/etc. définis
+    // par ce fichier.
+    private static function siteCreds()
+    {
+        return call_user_func(function () {
+            // @ : le config.php du site redéfinit __prefixe_db__ (déjà défini par celui du
+            // CRM, appelé plus tôt dans le bootstrap de l'API) - un warning PHP normalement
+            // silencieux, mais promu en exception fatale par le handler strict de Leaf dans
+            // le contexte API. On ne se sert ici que de $prefixe_db (variable locale), jamais
+            // de la constante, donc cette redéfinition est sans effet sur ce qui suit.
+            @include self::siteConfigPath();
+            return array(
+                'host' => $host,
+                'login' => $login,
+                'password' => $password,
+                'db' => $dataBaseName,
+                'prefix' => $prefixe_db,
+            );
+        });
+    }
+
+    // Publiques : réutilisées telles quelles par d'autres classes CRM qui ont
+    // besoin de lire des données réelles du site (ex: siteCatalog pour les
+    // services/formations) - une seule connexion partagée plutôt que de
+    // dupliquer la résolution d'identifiants dans chaque classe.
+    public static function siteDb()
+    {
+        if (self::$siteDb === null) {
+            $creds = self::siteCreds();
+            self::$siteDb = dbfactory::factory("mysql", $creds['host'], $creds['login'], $creds['password'], $creds['db']);
+            self::$sitePrefix = $creds['prefix'];
+        }
+        return self::$siteDb;
+    }
+
+    public static function sitePrefix()
+    {
+        self::siteDb();
+        return self::$sitePrefix;
+    }
+
+    // Liste des clients (CRM) avec leur total de points (site), triés par
+    // total décroissant. $agence filtre côté CRM comme le reste du module client.
     public static function findAllClientsWithTotals($agence)
     {
         global $db;
@@ -184,5 +242,105 @@ class fidelite
         if ($pointId <= 0) return false;
         $db->query(sprintf("DELETE FROM crm_points_client WHERE id = %d", $pointId));
         return empty($db->getLink()->error);
+    }
+
+    // --- Ajouté pour l'API REST mobile (hw_crm/api) ---
+    // Mêmes valeurs/types que clAwardPoints() côté site (components/com_client/
+    // controleurs/client/controleur.php) : CL_POINTS_AVIS=10, PARRAINAGE=15,
+    // ATTESTATION=20, SOCIAL=3 - dupliquées ici en constantes plutôt qu'incluses
+    // depuis le site, pour ne pas exécuter tout le bootstrap web (session,
+    // routing) depuis un contexte API stateless.
+    const POINTS_AVIS = 10;
+    const POINTS_PARRAINAGE = 15;
+    const POINTS_ATTESTATION = 20;
+    const POINTS_SOCIAL = 3;
+
+    public static function hasPointsOfType($idClient, $type)
+    {
+        $db = self::siteDb();
+        $rows = $db->queryS(sprintf(
+            "SELECT id FROM " . self::sitePrefix() . "points_client WHERE id_client = %d AND type = '%s' LIMIT 1",
+            (int) $idClient, $db->getLink()->real_escape_string($type)
+        ));
+        return is_array($rows) && count($rows) > 0;
+    }
+
+    // Attribution générique de points depuis un contexte API (mobile) - même
+    // insertion que clAwardPoints() côté site, pour rester sur la même source
+    // de vérité. Ne fait pas le contrôle "une seule fois" lui-même : les
+    // appelants one-shot (avis, social_follow) doivent vérifier hasPointsOfType()
+    // avant d'appeler cette méthode.
+    // Crée une recommandation (parrainage) - mêmes règles que createParrainageApi()
+    // côté site (components/com_client/controleurs/client/controleur.php) : anti
+    // auto-parrainage, anti-doublon (même parrain+email filleul), puis +15 points.
+    // L'email d'invitation au filleul (best-effort côté site) n'est PAS répliqué ici -
+    // le mobile se contente de tracer la recommandation pour l'agence.
+    public static function createParrainage($parrainClient, $filleulNom, $filleulEntreprise, $filleulEmail, $filleulTel, $message)
+    {
+        $filleulEmail = trim((string) $filleulEmail);
+        $filleulNom = trim((string) $filleulNom);
+        if ($filleulNom === '' || $filleulEmail === '') {
+            return array('success' => false, 'code' => 'missing', 'message' => 'Nom et email du filleul requis.');
+        }
+        $parrainEmail = $parrainClient->getEmail();
+        if ($parrainEmail !== null && strcasecmp($parrainEmail, $filleulEmail) === 0) {
+            return array('success' => false, 'code' => 'self', 'message' => 'Vous ne pouvez pas vous parrainer vous-même.');
+        }
+
+        $db = self::siteDb();
+        $idParrain = (int) $parrainClient->getId();
+
+        $dup = $db->queryS(sprintf(
+            "SELECT id FROM " . self::sitePrefix() . "parrainage WHERE id_parrain = %d AND filleul_email = '%s' LIMIT 1",
+            $idParrain, $db->getLink()->real_escape_string($filleulEmail)
+        ));
+        if (is_array($dup) && count($dup) > 0) {
+            return array('success' => false, 'code' => 'dup', 'message' => 'Vous avez déjà recommandé cette personne.');
+        }
+
+        $parrainNom = trim($parrainClient->getRaisonSocial()) !== ''
+            ? $parrainClient->getRaisonSocial()
+            : trim($parrainClient->getPrenom() . ' ' . $parrainClient->getNom());
+
+        $now = date('Y-m-d H:i:s');
+        $db->query(sprintf(
+            "INSERT INTO " . self::sitePrefix() . "parrainage (id_parrain, parrain_nom, parrain_email, filleul_nom, filleul_entreprise, filleul_email, filleul_tel, message, statut, recompense_donnee, date_add) VALUES (%d, '%s', '%s', '%s', '%s', '%s', '%s', '%s', 0, 0, '%s')",
+            $idParrain,
+            $db->getLink()->real_escape_string($parrainNom),
+            $db->getLink()->real_escape_string((string) $parrainEmail),
+            $db->getLink()->real_escape_string($filleulNom),
+            $db->getLink()->real_escape_string((string) $filleulEntreprise),
+            $db->getLink()->real_escape_string($filleulEmail),
+            $db->getLink()->real_escape_string((string) $filleulTel),
+            $db->getLink()->real_escape_string((string) $message),
+            $now
+        ));
+        if (!empty($db->getLink()->error)) {
+            return array('success' => false, 'code' => 'error', 'message' => 'Erreur lors de l\'enregistrement.');
+        }
+
+        self::awardPoints($idParrain, self::POINTS_PARRAINAGE, 'parrainage', 'Recommandation de ' . $filleulNom);
+
+        return array('success' => true, 'code' => 'ok', 'message' => 'Merci ! Nous contactons votre filleul rapidement.');
+    }
+
+    public static function awardPoints($idClient, $points, $type, $libelle)
+    {
+        $idClient = (int) $idClient;
+        $points = (int) $points;
+        if ($idClient <= 0 || $points === 0) {
+            return false;
+        }
+        $db = self::siteDb();
+        $now = date("Y-m-d H:i:s");
+        $db->query(sprintf(
+            "INSERT INTO " . self::sitePrefix() . "points_client (id_client, points, type, libelle, date_add) VALUES (%d, %d, '%s', '%s', '%s')",
+            $idClient, $points, $db->getLink()->real_escape_string($type), $db->getLink()->real_escape_string($libelle), $now
+        ));
+        $ok = empty($db->getLink()->error);
+        if ($ok) {
+            self::checkRewardThresholds($idClient);
+        }
+        return $ok;
     }
 }

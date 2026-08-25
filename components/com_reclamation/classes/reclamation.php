@@ -77,6 +77,20 @@ class reclamation
         return trim((string) $this->reponse) !== '';
     }
 
+    public function toArray()
+    {
+        return array(
+            "id" => $this->id,
+            "department" => $this->department,
+            "sujet" => $this->sujet,
+            "message" => $this->message,
+            "reponse" => $this->reponse,
+            "date_reponse" => $this->date_reponse,
+            "etat" => (int) $this->etat,
+            "date_add" => $this->date_add,
+        );
+    }
+
     public function setId($id)
     {
         $this->id = $id;
@@ -204,11 +218,11 @@ class reclamation
         );
 
         if ($etat) {
-            $SQLselect .= " WHERE etat = 1";
+            $SQLselect .= " AND etat = 1";
         }
 
         if ($client) {
-            $SQLselect .= " WHERE A.id_client = " . intval($client);
+            $SQLselect .= " AND A.id_client = " . intval($client);
         }
 
         $SQLselect .= " ORDER BY A.date_add DESC, id DESC";

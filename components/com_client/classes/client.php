@@ -215,6 +215,27 @@ class client
         return $this->last_edit;
     }
 
+    public function toArray()
+    {
+        return array(
+            "id" => $this->id,
+            "titre" => $this->titre,
+            "nom" => $this->nom,
+            "prenom" => $this->prenom,
+            "raison_social" => $this->raison_social,
+            "ice" => $this->ice,
+            "tel" => $this->tel,
+            "email" => $this->email,
+            "cp" => $this->cp,
+            "adresse" => $this->adresse,
+            "ville" => $this->ville,
+            "region" => $this->region,
+            "pays" => $this->pays,
+            "photo" => $this->photo,
+            "active" => (bool) $this->active,
+        );
+    }
+
     public function setId($id)
     {
         $this->id = $id;
@@ -470,7 +491,7 @@ class client
 	public static function doLogin($email,$password){
 		global $db;
         $client = new client();
-        $SQLselect = sprintf("SELECT * FROM " . static::$table . " WHERE email = %s AND password = %s AND active = %s",
+        $SQLselect = sprintf("SELECT " . static::$table . ".id AS ID, " . static::$table . ".* FROM " . static::$table . " WHERE email = %s AND password = %s AND active = %s",
             GetSQLValueString($email, "text"),
 			GetSQLValueString(md5($password), "text"),
 			GetSQLValueString(1, "int")
@@ -843,7 +864,7 @@ class client
     public static function build($data){
         $client = new client();
         $client->setId($data['ID']);
-        $client->setAgence(agence::find($data['id_agence'], $_SESSION['langue']));
+        $client->setAgence(agence::find($data['id_agence'], $_SESSION['langue'] ?? 'fr'));
         $client->setUserAdded(user::find($data['id_user_added']));
         $client->setUserEdited(user::find($data['id_user_edited']));
         $client->setActive($data['active']);

@@ -6,6 +6,7 @@ use App\Controllers\AuthController as Auth;
 use App\Utils\ResponseMessages;
 use \App\Utils\ApiException;
 use \App\Utils\GetV;
+use  Leaf\Http\Headers as rheaders;
 
 class DevisController
 {
@@ -16,6 +17,22 @@ class DevisController
     {
         Auth::middlware('auth');
     }
+
+    // Voir FacturesController::pdfUrl() - même logique, le champ 'pdf' de
+    // devis::toArray() pointe lui aussi vers une tâche admin-only inutilisable
+    // depuis l'app.
+    private static function pdfUrl($devisId)
+    {
+        $token = rheaders::get("Authorization");
+        if (!$token) {
+            $token = rheaders::get("authorization");
+        }
+        if (!$token || !preg_match('/^Bearer\s+(.*)$/i', $token, $matches)) {
+            return null;
+        }
+        return GetV::apiBaseUrl() . 'devis/' . $devisId . '/pdf?token=' . urlencode($matches[1]);
+    }
+
     public static function index()
     {
         try {
@@ -27,7 +44,9 @@ class DevisController
             $devis = \devis::ofClient($client->getId(), null, true);
             if (!$devis) throw (new ApiException(ResponseMessages::messages('noDataFound'), 404));
             foreach ($devis as $devi) {
-                array_push($data, $devi->toArray());
+                $devisData = $devi->toArray();
+                $devisData['pdf'] = self::pdfUrl($devi->getId());
+                array_push($data, $devisData);
             }
             if (count($data) == 0) throw (new ApiException(ResponseMessages::messages('noDataFound'), 404));
             return response()->json($data);
@@ -72,6 +91,7 @@ class DevisController
                 array_push($items, $item->toArray());
             }
             $devisData = $devis->toArray();
+            $devisData['pdf'] = self::pdfUrl($devis->getId());
             $devisData['total'] = GetV::formatPrice($devis->getTotal());
             $devisData['tva'] = GetV::formatPrice($devis->getTva());
             if ($devis->getDiscount() != '') {

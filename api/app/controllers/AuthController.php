@@ -74,6 +74,18 @@ class AuthController
             $token = $matches[1];
             $decoded = JWT::decode($token,  new Key(GetV::jwtSecret(), GetV::jwtAlgorithm()));
             self::$userID = $decoded->user_id;
+            // Beaucoup de classes du CRM (client, reclamation, devis, facture, temoignage...)
+            // supposent une session web active (agence/langue/utilisateur système pour les
+            // contrôles de droits) qui n'existe jamais dans ce contexte API stateless.
+            // On la simule une fois ici pour tout le reste de la requête plutôt que de
+            // patcher chaque site d'appel individuellement.
+            if (!isset($_SESSION['user']) || !isset($_SESSION['agence'])) {
+                bootstrapSystemSession(
+                    defined('SLACK_BOT_ACTING_USER_ID') ? SLACK_BOT_ACTING_USER_ID : 5,
+                    1,
+                    'fr'
+                );
+            }
             return true;
         } catch (\Exception $e) {
             return false;
@@ -201,8 +213,8 @@ class AuthController
             $data = request()->body();
             $email = $data['email'];
             $password = $data['password'];
-            if (\client::doLogin($email, $password)) {
-                $client = \client::findByEmail($email);
+            $client = \client::doLogin($email, $password);
+            if ($client) {
                 $token = self::generateJWToken($client->getId());
                 return  response()->json(
                     array(

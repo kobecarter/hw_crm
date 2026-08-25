@@ -658,6 +658,14 @@ if (!function_exists("GetSQLValueString")) {
         global $db;
         //$theValue = get_magic_quotes_gpc() ? stripslashes($theValue) : $theValue;
 
+        // Beaucoup de colonnes legacy (ex: id_user_added) sont nullable et null
+        // arrive couramment ici (ex: user::find(null)). mysqli_real_escape_string()
+        // n'accepte plus null depuis PHP 8.1 (deprecated), et le handler d'erreurs
+        // strict de Leaf transforme cette deprecation en exception fatale côté API
+        // - alors qu'une valeur vide a toujours été le comportement voulu ici.
+        if ($theValue === null) {
+            $theValue = "";
+        }
 
         $theValue = function_exists("mysqli_real_escape_string") ? mysqli_real_escape_string($db->getLink(), $theValue) : mysqli_escape_string($db->getLink(), $theValue);
 

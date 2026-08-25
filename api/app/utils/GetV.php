@@ -28,6 +28,19 @@ class GetV
         return self::$jwtAlgorithm;
     }
 
+    // Base absolue de cette API (schéma + hôte + chemin jusqu'à index.php),
+    // dérivée de la requête courante pour rester correcte aussi bien en dev
+    // (IP locale, dossier hw_crm/api) qu'en prod (domaine, hw-label/new/api)
+    // sans dupliquer cette logique à chaque endroit qui construit une URL
+    // absolue (ex. lien PDF facture/devis).
+    public static function apiBaseUrl()
+    {
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $base = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
+        return $scheme . '://' . $host . $base . '/';
+    }
+
     public static function randomPassword()
     {
         $alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890~!@#$%^&*()_+-=[]{};:';
@@ -47,5 +60,5 @@ class GetV
         return number_format($price, 2, ',', ' ');
     }
     static  $hwLabelEmail = 'noreply@helloworld-agency.com';
-    static  $hwLabelContactMail = 'support@helloworld-agency.com';
+    static  $hwLabelContactMail = 'contact@helloworld-agency.com';
 }

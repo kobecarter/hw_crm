@@ -39,6 +39,7 @@ class devis
     private $langue;
     private $date_add;
     private $last_edit;
+    private $bank;
 
     public function __construct()
     {
@@ -505,7 +506,7 @@ class devis
     {
         global $db;
         $items = array();
-        $SQLselect = "SELECT * FROM " . static::$table . " WHERE 1 = 1";
+        $SQLselect = "SELECT " . static::$table . ".id AS ID, " . static::$table . ".* FROM " . static::$table . " WHERE 1 = 1";
         if ($clientID) {
             $SQLselect .= " AND id_client = " . intval($clientID);
         }
@@ -706,6 +707,7 @@ class devis
             'condition_paiment' => $this->getConditionPaiment(), // ? mb_convert_encoding($this->getConditionPaiment(), mb_detect_encoding($this->getConditionPaiment()), 'UTF-8') : '',
             'remarque' => $this->getRemarque(), // ? mb_convert_encoding($this->getRemarque(), mb_detect_encoding($this->getRemarque()), 'UTF-8') : '',
             'langue' => $this->getLangue(),
+            'pdf' => 'https://www.helloworld-agency.com/hw-label/new/components/com_devis/controleurs/router.php?task=pdfDevis&id=' . $this->getId(),
         );
     }
     
@@ -835,7 +837,7 @@ mpdf-->
 			$htmlInvoice .= '<tr>
                 <td><strong>' . $item->getTitre() . '</strong><div style="font-size:8pt; color:#999">' .  $item->getDescription() . '</div></td>
                 <td align="center" style="vertical-align:middle;">' . number_format($item->getPrix(), 2, ',', ' ') . ' ' . $devis->getDevise() . '</td>
-                <td align="center" style="vertical-align:middle;">' . $item->getQte() . ' x ' . getUnities[$devis->getLangue()][$item->getUnite()] . '</td>
+                <td align="center" style="vertical-align:middle;">' . $item->getQte() . ' x ' . getUnities()[$devis->getLangue()][$item->getUnite()] . '</td>
                 <td align="right" style="vertical-align:middle;" class="cost">' . ($item->getDiscount() > 0 ?  '<del>'.number_format($item->getTotal(), 2, ',', ' ') . ' ' . $devis->getDevise().'</del>' : number_format($item->getTotal(), 2, ',', ' ') . ' ' . $devis->getDevise()) . '</td>
                 </tr>';
                 if($item->getDiscount() > 0){
@@ -855,7 +857,7 @@ mpdf-->
 <tr>';
 // Calcule TVA		
 //$tva = $devis->isProforma() ? 0 : $soustotal * $agence->getTva()/100;	
-$tva = $this-getTva();	
+$tva = $this->getTva();
 		
 $htmlInvoice .= '<td class="totals">'.$traduction['TVA'][$devis->getLangue()].'</td>
 <td class="totals cost">' . number_format($tva, 2, ',', ' ') . ' ' . $devis->getDevise() . '</td>

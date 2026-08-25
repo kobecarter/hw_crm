@@ -17,6 +17,22 @@ class FacturesController
     {
         Auth::middlware('auth');
     }
+    // Construit l'URL de téléchargement PDF servie par PdfController (auth
+    // par token en query string, voir ce contrôleur) plutôt que le champ
+    // 'pdf' hardcodé de facture::toArray() qui pointe vers une tâche
+    // réservée aux admins connectés au CRM (jamais utilisable depuis l'app).
+    private static function pdfUrl($factureId)
+    {
+        $token = rheaders::get("Authorization");
+        if (!$token) {
+            $token = rheaders::get("authorization");
+        }
+        if (!$token || !preg_match('/^Bearer\s+(.*)$/i', $token, $matches)) {
+            return null;
+        }
+        return GetV::apiBaseUrl() . 'factures/' . $factureId . '/pdf?token=' . urlencode($matches[1]);
+    }
+
     public static function index()
     {
         try {
@@ -28,7 +44,9 @@ class FacturesController
             $factures = \facture::ofClient($client->getId());
             if (!$factures) throw (new ApiException(ResponseMessages::messages('noDataFound'), 404));
             foreach ($factures as $facture) {
-                array_push($data, $facture->toArray());
+                $factureData = $facture->toArray();
+                $factureData['pdf'] = self::pdfUrl($facture->getId());
+                array_push($data, $factureData);
             }
             if (count($data) == 0) throw (new ApiException(ResponseMessages::messages('noDataFound'), 404));
             return response()->json($data);
@@ -77,11 +95,24 @@ class FacturesController
                 array_push($items, $item->toArray());
             }
             $factureData = $facture->toArray();
+            $factureData['pdf'] = self::pdfUrl($facture->getId());
             $factureData['total'] = GetV::formatPrice($facture->getTotal());
             $factureData['tva'] = GetV::formatPrice($facture->getTva());
             if ($facture->getDiscount() != '') {
                 $type = $facture->getDiscount() == 'amount' ? ' ' . $facture->getDevise() : '%';
                 $factureData['discount'] = $facture->getDiscountVal() . ' ' . $type;
+            }
+
+            $bankData = null;
+            if ($facture->getBank() && $facture->getBank()->getId()) {
+                $bankData = array(
+                    'raison_sociale' => $facture->getBank()->getRaisonSociale(),
+                    'rib' => $facture->getBank()->getRib(),
+                    'iban' => $facture->getBank()->getIbanNumber(),
+                    'banque' => $facture->getBank()->getBanque(),
+                    'swift' => $facture->getBank()->getCodeSwift(),
+                    'currency' => $facture->getBank()->getCurrency(),
+                );
             }
 
             $factureData = array_merge(
@@ -90,7 +121,8 @@ class FacturesController
                     'payments' => $payments,
                     'items' => $items,
                     'agency' => $agencyData,
-                    'client' => $clientData
+                    'client' => $clientData,
+                    'bank' => $bankData,
                 )
             );
 
