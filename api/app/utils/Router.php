@@ -23,6 +23,7 @@ class Router
             app()->put('/edit', 'App\Controllers\AccountController@update');
             app()->post('/edit/picture', 'App\Controllers\AccountController@updatePicture');
             app()->get('/me', 'App\Controllers\AccountController@show');
+            app()->post('/delete', 'App\Controllers\AccountController@delete');
         });
         app()->group('/token', function () {
             app()->post('/check', 'App\Controllers\AuthController@check');
