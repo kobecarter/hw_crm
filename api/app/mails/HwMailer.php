@@ -64,6 +64,13 @@ class HwMailer extends PHPMailer
         $this->Username   = 'noreply@helloworld-agency.com';                  //SMTP username
         $this->Password   = 'hv,6l0b[(S9D';                               //SMTP password
         $this->CharSet    = 'UTF-8';
+        // Sans ça, PHPMailer attend jusqu'à 5 min (défaut) si le serveur SMTP
+        // ne répond pas - un client mobile abandonne bien avant (10s), donc
+        // l'utilisateur voit un timeout générique au lieu d'un vrai message
+        // d'erreur. 8s laisse une marge sous le timeout client tout en
+        // échouant vite si le SMTP est injoignable depuis cet hébergeur.
+        $this->Timeout = 8;
+        $this->SMTPKeepAlive = false;
         // Mailtrap settings for testing
         // $this->isSMTP();
         // $this->Host = 'smtp.mailtrap.io';
