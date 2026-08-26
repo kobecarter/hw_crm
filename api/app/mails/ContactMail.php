@@ -15,12 +15,16 @@ class ContactMail
     public function __construct($data = [])
     {
         $this->mailer = new HwMailer();
+        // 'source' est optionnel côté appelant (le site web existant ne
+        // l'envoie pas) - valeur par défaut pour que {{ source }} du template
+        // ne reste jamais littéralement affiché dans l'email.
+        $data['source'] = $data['source'] ?? 'Site web';
         $this->data = $data;
     }
 
     private function init()
     {
-        $this->mailer->Subject = 'Contact';
+        $this->mailer->Subject = 'Contact - ' . $this->data['source'];
         $this->mailer->addAddress(GetV::$hwLabelContactMail, 'Hello World Support');
         $this->mailer->setFrom($this->data['email'], $this->data['nom']);
         $this->mailer->Body    = $this->htmlContent();

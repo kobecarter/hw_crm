@@ -116,6 +116,41 @@ class AccountController
     }
 
 
+    // Exigence App Store 5.1.1(v) : un compte qui peut être créé dans l'app
+    // doit pouvoir être supprimé depuis l'app. Décision produit : on ne
+    // touche à aucune donnée existante (facturation ou coordonnées), on
+    // coupe uniquement l'accès (active = 0, vérifié par client::doLogin()) -
+    // le client ne peut plus se connecter, tout le reste reste tel quel.
+    public function delete()
+    {
+        try {
+            Auth::middlware('auth');
+            $client = Auth::user();
+            if (!$client) {
+                throw (new ApiException(ResponseMessages::messages('noUserFound'), 404));
+            }
+            $client->setActive(0);
+            if ($client->edit()) {
+                return response()->json(
+                    array(
+                        "success" => true,
+                        "message" => ResponseMessages::messages('accountDeleted'),
+                    ),
+                    200
+                );
+            }
+            throw (new ApiException(ResponseMessages::messages('generalError'), 500));
+        } catch (ApiException $ae) {
+            return response()->json(
+                array(
+                    "success" => false,
+                    "message" => $ae->getData(),
+                ),
+                $ae->getStatusCode()
+            );
+        }
+    }
+
     public function updatePicture()
     {
 

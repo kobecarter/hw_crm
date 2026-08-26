@@ -30,6 +30,7 @@ class ReclamationController
             }
             $reclamation = new \reclamation();
             $reclamation->setClient($client);
+            $reclamation->setFactureId(GetV::value($data, 'facture_id', null) ?: null);
             $reclamation->setDepartment(GetV::value($data, 'department', 'Support'));
             $reclamation->setSujet($data['sujet']);
             $reclamation->setMessage($data['message']);

@@ -13,6 +13,7 @@ class ResponseMessages
         "accountCreated" => "Merci d'avoir choisi HellWorld Agency. Votre compte a été créé avec succès.",
         'noDataFound' => 'Aucune donnée n\'a été trouvée, veuillez réessayer plus tard!',
         'accountUpdated' => 'Votre compte a été mis à jour avec succès',
+        'accountDeleted' => 'Votre compte a été supprimé avec succès',
         'noUserFound' => 'Aucun utilisateur n\'a été trouvé, veuillez réessayer plus tard!',
         'mailNotSent' => 'Le mail n\'a pas pu être envoyé, veuillez réessayer plus tard!',
         'noEmail' => 'Il paraît que vous n\'avez pas renseigné d\'adresse email',

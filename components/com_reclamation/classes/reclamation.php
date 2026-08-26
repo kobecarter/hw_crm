@@ -9,6 +9,7 @@ class reclamation
 
     private $id;
     private $client;
+    private $id_facture;
     private $department;
     private $sujet;
     private $message;
@@ -40,6 +41,11 @@ class reclamation
     public function getDepartment()
     {
         return $this->department;
+    }
+
+    public function getFactureId()
+    {
+        return $this->id_facture;
     }
 
     public function getSujet()
@@ -81,6 +87,7 @@ class reclamation
     {
         return array(
             "id" => $this->id,
+            "id_facture" => $this->id_facture,
             "department" => $this->department,
             "sujet" => $this->sujet,
             "message" => $this->message,
@@ -109,6 +116,11 @@ class reclamation
     public function setDepartment($department)
     {
         $this->department = $department;
+    }
+
+    public function setFactureId($id_facture)
+    {
+        $this->id_facture = $id_facture;
     }
 
     public function setSujet($sujet)
@@ -140,8 +152,9 @@ class reclamation
     {
         global $db;
         $SQLinsert = sprintf(
-            "INSERT INTO " . static::$table . " (id_client, department, sujet, message, etat, date_add) VALUES (%s, %s, %s, %s, %s, %s)",
+            "INSERT INTO " . static::$table . " (id_client, id_facture, department, sujet, message, etat, date_add) VALUES (%s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->client->getId(), "int"),
+            GetSQLValueString($this->id_facture, "int"),
             GetSQLValueString($this->department, "text"),
             GetSQLValueString($this->sujet, "text"),
             GetSQLValueString($this->message, "text"),
@@ -240,6 +253,7 @@ class reclamation
         $reclamation = new reclamation();
         $reclamation->setId($data['id']);
         $reclamation->setClient(client::find($data['id_client'],$_SESSION['agence']));
+        $reclamation->setFactureId(isset($data['id_facture']) ? $data['id_facture'] : null);
         $reclamation->setDepartment($data['department']);
         $reclamation->setSujet($data['sujet']);
         $reclamation->setMessage($data['message']);
@@ -280,6 +294,7 @@ class reclamation
         $reclamation = array(
             'id' => $data['id'],
             'client' => client::ApiFindById($data['id_client']),
+            'id_facture' => isset($data['id_facture']) ? $data['id_facture'] : null,
             'department' => $data['department'],
             'sujet' => $data['sujet'],
             'message' => $data['message'],
