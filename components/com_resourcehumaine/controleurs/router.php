@@ -186,6 +186,11 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
                 include_once ("pointageweb/controleur.php");
             }
             break;
+        case 'justifyRetard' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_resourcehumaine')) {
+                include_once ("pointageweb/controleur.php");
+            }
+            break;
         case 'addPayslip' :
             if ($_SESSION['user']->hasDroit('add', 'com_resourcehumaine')) {
                 include_once ("payslip/controleur.php");

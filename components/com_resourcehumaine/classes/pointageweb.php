@@ -314,8 +314,9 @@ class pointageweb
 
     // Classe UN jour donné pour cet employé : 'absence' (aucun pointage, ou arrivée >2h après
     // l'heure de référence), 'retard' (arrivée en retard mais <=2h, avec le nombre de minutes),
-    // 'ok' (à l'heure) ou null (jour non attendu / pas encore jugeable / déjà couvert par
-    // congé-férié-absence). Brique de base unique réutilisée par calculerStatsMois() (vue
+    // 'ok' (à l'heure, ou retard justifié - voir retardjustification, il ne doit plus compter dans
+    // les totaux une fois justifié) ou null (jour non attendu / pas encore jugeable / déjà couvert
+    // par congé-férié-absence). Brique de base unique réutilisée par calculerStatsMois() (vue
     // mensuelle, admin + espace employé) ET par le cron de détection d'absence (un seul jour :
     // hier) - jamais deux endroits qui recalculent la même règle métier (seuil 2h, même
     // convention que l'ancien pointage::getDelay() dans pointage/controleur.php). L'heure de
@@ -357,6 +358,10 @@ class pointageweb
             return array('type' => 'absence', 'motif' => 'retard de plus de 2h');
         }
         if ($minutesRetard > 0) {
+            $justifie = retardjustification::findByDate($resourcehumaine->getId(), $date);
+            if ($justifie && $justifie->getId()) {
+                return array('type' => 'ok');
+            }
             return array('type' => 'retard', 'minutes' => (int) round($minutesRetard));
         }
         return array('type' => 'ok');
@@ -455,8 +460,16 @@ class pointageweb
                             if ($minutesRetard > 120) {
                                 $entry['type'] = 'absence_en_attente';
                             } elseif ($minutesRetard > 0) {
-                                $entry['type'] = 'retard';
-                                $entry['minutes'] = (int) round($minutesRetard);
+                                $retardJustifie = retardjustification::findByDate($resourcehumaine->getId(), $date);
+                                if ($retardJustifie && $retardJustifie->getId()) {
+                                    $entry['type'] = 'retard_justifie';
+                                    $entry['minutes'] = (int) round($minutesRetard);
+                                    $entry['retard_justification_id'] = $retardJustifie->getId();
+                                    $entry['remark'] = $retardJustifie->getRemark();
+                                } else {
+                                    $entry['type'] = 'retard';
+                                    $entry['minutes'] = (int) round($minutesRetard);
+                                }
                             } else {
                                 $entry['type'] = 'ok';
                             }

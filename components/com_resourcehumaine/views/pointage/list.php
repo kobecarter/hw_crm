@@ -67,6 +67,7 @@
                                 <div class="jt-legend">
                                     <span><i class="jt-dot jt-dot-travaille"></i> Travaillé</span>
                                     <span><i class="jt-dot jt-dot-non-travaille"></i> Non travaillé</span>
+                                    <span><i class="jt-dot jt-dot-ferie"></i> Jour férié</span>
                                     <span><i class="fa fa-thumbtack jt-override-icon-legend"></i> Dérogation manuelle</span>
                                 </div>
                                 <div class="jours-travail-content">
@@ -272,6 +273,44 @@
     </div>
 </div>
 
+<!-- Modal "Justifier le retard" - déclenché en cliquant une case orange (retard, <=2h) du
+     calendrier ci-dessus (voir pointage_web_table.php). Endpoint dédié justifyRetard()
+     (pointageweb/controleur.php) - upsert retardjustification pour (employé, date), sort le
+     retard des totaux une fois enregistré. -->
+<div class="modal fade" id="justifyRetardModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form id="justifyRetardForm" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fa fa-user-clock mr-2"></i>Justifier le retard — <span id="justifyRetardEmployeNom"></span></h5>
+                    <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+                </div>
+                <div class="modal-body">
+                    <div class="msgbox"></div>
+                    <p class="text-muted" id="justifyRetardDateLabel"></p>
+
+                    <input type="hidden" name="id_resourcehumaine" id="justifyRetardIdResourcehumaine">
+                    <input type="hidden" name="date" id="justifyRetardDate">
+
+                    <div class="form-group">
+                        <label>Remarque</label>
+                        <textarea class="form-control" name="remark" id="justifyRetardRemark" rows="3" placeholder="Ex : rendez-vous médical, panne de transport..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Justificatif (optionnel)</label>
+                        <input type="file" name="justification[]" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary"><span class="spinner-border spinner-border-sm mr-2 loading" style="display:none;"></span>Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <style>
     /* Calendrier mensuel par employé (task=pointage) - une case par jour, couleur selon le type
        (calculée côté serveur par pointageweb::calendrierMois()). Volontairement en dehors du
@@ -293,8 +332,11 @@
     }
     .cal-day.cal-justifiable { cursor: pointer; box-shadow: 0 0 0 2px rgba(239,68,68,0.25); }
     .cal-day.cal-justifiable:hover { transform: scale(1.15); }
+    .cal-day.cal-retard-justifiable { cursor: pointer; box-shadow: 0 0 0 2px rgba(245,158,11,0.3); }
+    .cal-day.cal-retard-justifiable:hover { transform: scale(1.15); }
     .cal-ok { background: #22c55e; }
     .cal-retard { background: #f59e0b; }
+    .cal-retard-justifie { background: #86efac; color: #14532d; }
     .cal-absence-non-justifiee { background: #ef4444; }
     .cal-absence-justifiee { background: #86efac; color: #14532d; }
     .cal-absence-en-attente {
@@ -373,11 +415,18 @@
     .jt-non-travaille { background: #e2e5ec; color: #838ba0; }
     .jt-day.jt-override { box-shadow: 0 0 0 2px #6366f1; }
     .jt-override-icon { position: absolute; bottom: 2px; right: 2px; font-size: .55rem; color: #6366f1; }
+    /* Jour férié (com_holiday) - non travaillé automatiquement, sans dérogation à créer. Teinte
+       or de la marque pour le distinguer d'un simple "non travaillé" gris (weekend/dérogation). */
+    .jt-day.jt-ferie { background: #f6ecd8; color: #8b6a22; }
+    .jt-ferie-icon { position: absolute; bottom: 2px; right: 2px; font-size: .55rem; color: #8b6a22; }
+    .jt-dot-ferie { background: #c9a96e; }
     :root[data-theme="dark"] .jt-legend { color: #9aa3b5; }
     :root[data-theme="dark"] .jt-weekday { color: #6b7382; }
     :root[data-theme="dark"] .jt-dot-non-travaille { background: #2a2f3c; }
     :root[data-theme="dark"] .jt-travaille { background: #14532d; color: #86efac; }
     :root[data-theme="dark"] .jt-non-travaille { background: #2a2f3c; color: #8b91a0; }
+    :root[data-theme="dark"] .jt-day.jt-ferie { background: #3a2f16; color: #c9a96e; }
+    :root[data-theme="dark"] .jt-ferie-icon { color: #c9a96e; }
 
     /* Carte "Horaires de travail" - formulaire de référence + calendrier (réutilise .jt-grid/
        .jt-day, juste une teinte neutre indigo au lieu du vert/gris travaillé/non-travaillé). */
@@ -615,9 +664,12 @@
             var date = $day.data('date');
             var estTravaille = $day.data('est-travaille') == 1;
             var isOverride = $day.data('override') == 1;
+            var isFerie = $day.data('ferie') == 1;
+            var ferieNom = $day.data('ferie-nom');
 
             $('#jourTravailModalTitle').text(formatDateFr(date));
-            var etatLabel = (estTravaille ? 'Travaillé' : 'Non travaillé') + (isOverride ? ' — dérogation manuelle' : ' — règle automatique');
+            var origineLabel = isOverride ? 'dérogation manuelle' : (isFerie ? 'jour férié' + (ferieNom ? ' — ' + ferieNom : '') : 'règle automatique');
+            var etatLabel = (estTravaille ? 'Travaillé' : 'Non travaillé') + ' — ' + origineLabel;
             $('#jourTravailModalEtat').text('État actuel : ' + etatLabel);
 
             var $actions = $('#jourTravailModalActions').empty();
@@ -767,6 +819,53 @@
                         filterPointageWeb($('input[name="month_web"]').val());
                     } else {
                         $form.find('.msgbox').html('<div class="alert alert-danger" role="alert">Erreur lors de la mise à jour. Vérifiez les champs.</div>');
+                    }
+                },
+                error: function() {
+                    $form.find('.msgbox').html('<div class="alert alert-danger" role="alert">La requête a échoué.</div>');
+                },
+                complete: function() {
+                    $btn.prop('disabled', false).find('.loading').hide();
+                }
+            });
+        });
+
+        // Ouverture du modal "Justifier le retard" - même délégation que "Justifier l'absence"
+        // ci-dessus, sur la case orange (retard <=2h, cal-retard-justifiable) du calendrier.
+        $(document).on('click', '.cal-day.cal-retard-justifiable', function() {
+            var $day = $(this);
+            var iso = $day.data('date');
+            $('#justifyRetardEmployeNom').text($day.data('employe-nom'));
+            $('#justifyRetardDateLabel').text('Journée du ' + toDMY(iso) + ' — retard de ' + $day.data('minutes') + ' min');
+            $('#justifyRetardIdResourcehumaine').val($day.data('employe-id'));
+            $('#justifyRetardDate').val(iso);
+            $('#justifyRetardRemark').val('');
+            $('#justifyRetardForm .msgbox').empty();
+            $('#justifyRetardModal').modal('show');
+        });
+
+        $('#justifyRetardForm').on('submit', function(e) {
+            e.preventDefault();
+            var $form = $(this);
+            var $btn = $form.find('button[type=submit]');
+            $btn.prop('disabled', true).find('.loading').show();
+
+            var formData = new FormData(this);
+            $.ajax({
+                url: 'components/com_resourcehumaine/controleurs/router.php?task=justifyRetard',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(theResponse) {
+                    var data;
+                    try { data = JSON.parse(theResponse); } catch (e) { data = { success: 0 }; }
+                    if (data.success === 1) {
+                        $('#justifyRetardModal').modal('hide');
+                        $('.pointage-web-msgbox').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><strong>Retard justifié.</strong><button type="button" class="close" data-dismiss="alert"><span>&times;</span></button></div>');
+                        filterPointageWeb($('input[name="month_web"]').val());
+                    } else {
+                        $form.find('.msgbox').html('<div class="alert alert-danger" role="alert">Erreur lors de la mise à jour.</div>');
                     }
                 },
                 error: function() {
