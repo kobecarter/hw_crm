@@ -54,20 +54,21 @@ class HwMailer extends PHPMailer
 
     private function initSMTP()
     {
-        //HWA settings
-
+        // Les identifiants 'noreply@helloworld-agency.com' codés en dur ici
+        // ne sont plus valides côté serveur mail (535 Incorrect authentication
+        // data, confirmé en direct). On réutilise donc le même compte SMTP que
+        // reclamation::sendReponseEmail() (components/com_reclamation/classes/
+        // reclamation.php), déjà fonctionnel en prod, via les constantes
+        // définies dans config.secrets.php - chargé par api/index.php via
+        // ../config.php, donc disponible ici sans dupliquer les secrets.
         $this->isSMTP();
-        $this->Host       = 'helloworld-agency.com';
+        $this->Host       = defined('SMTP_HOST') ? SMTP_HOST : 'helloworld-agency.com';
         $this->SMTPAuth   = true;                                   //Enable SMTP authentication
         $this->Priority = 1;
-        $this->Port       = 465;
-        // Le port 465 attend du TLS implicite dès le premier octet - sans ce
-        // réglage, PHPMailer parle en clair à un port qui attend une
-        // poignée de main TLS, et la connexion reste en suspens d'une
-        // façon que le seul Timeout ci-dessous ne couvre pas de façon fiable.
-        $this->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-        $this->Username   = 'noreply@helloworld-agency.com';                  //SMTP username
-        $this->Password   = 'hv,6l0b[(S9D';                               //SMTP password
+        $this->Port       = defined('SMTP_PORT') ? SMTP_PORT : 587;
+        $this->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $this->Username   = defined('SMTP_USERNAME') ? SMTP_USERNAME : 'noreply@helloworld-agency.com';
+        $this->Password   = defined('SMTP_PASSWORD') ? SMTP_PASSWORD : '';
         $this->CharSet    = 'UTF-8';
         // Sans ça, PHPMailer attend jusqu'à 5 min (défaut) si le serveur SMTP
         // ne répond pas - un client mobile abandonne bien avant (10s), donc
@@ -76,13 +77,6 @@ class HwMailer extends PHPMailer
         // échouant vite si le SMTP est injoignable depuis cet hébergeur.
         $this->Timeout = 8;
         $this->SMTPKeepAlive = false;
-        // Mailtrap settings for testing
-        // $this->isSMTP();
-        // $this->Host = 'smtp.mailtrap.io';
-        // $this->SMTPAuth = true;
-        // $this->Port = 2525;
-        // $this->Username = 'b91e35307bd305';
-        // $this->Password = 'ceabab2ad72419';
     }
 
 
