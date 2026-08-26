@@ -61,6 +61,11 @@ class HwMailer extends PHPMailer
         $this->SMTPAuth   = true;                                   //Enable SMTP authentication
         $this->Priority = 1;
         $this->Port       = 465;
+        // Le port 465 attend du TLS implicite dès le premier octet - sans ce
+        // réglage, PHPMailer parle en clair à un port qui attend une
+        // poignée de main TLS, et la connexion reste en suspens d'une
+        // façon que le seul Timeout ci-dessous ne couvre pas de façon fiable.
+        $this->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
         $this->Username   = 'noreply@helloworld-agency.com';                  //SMTP username
         $this->Password   = 'hv,6l0b[(S9D';                               //SMTP password
         $this->CharSet    = 'UTF-8';
