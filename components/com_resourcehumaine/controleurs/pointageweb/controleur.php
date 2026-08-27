@@ -612,11 +612,16 @@ function justifyRetard($data)
         return;
     }
 
-    // Même vérification d'agence que deleteAbsenceResourceHumaine (absence/controleur.php) - sans
-    // ça, n'importe quel id_resourcehumaine valide, même d'une autre agence, se ferait justifier.
+    // Pas de vérification d'agence ici (contrairement à deleteAbsenceResourceHumaine) : la liste
+    // "Statistique de pointage" qui alimente cette case (filterPointageWeb(),
+    // resourcehumaine::findAllByStatuses()) est volontairement globale, tous employés toutes
+    // agences confondus, pas filtrée par $_SESSION['agence'] - un admin peut légitimement
+    // justifier le retard d'un employé d'une autre agence que celle actuellement active. Un
+    // premier essai avec cette vérification bloquait justement ce cas ("Erreur lors de la mise à
+    // jour" en prod alors que la requête était légitime).
     $employe = resourcehumaine::find($data['id_resourcehumaine']);
-    if (!$employe || !$employe->getId() || !$employe->getAgency() || $employe->getAgency()->getId() != $_SESSION['agence']) {
-        echo json_encode(array('success' => 0, 'message' => 'Accès refusé.'));
+    if (!$employe || !$employe->getId()) {
+        echo json_encode(array('success' => 0, 'message' => 'Employé introuvable.'));
         return;
     }
 
