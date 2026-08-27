@@ -238,4 +238,81 @@ class AuthController
             );
         }
     }
+
+    /*
+    * Connexion (jamais création de compte) via Google Sign-In natif : le
+    * client mobile envoie l'ID token Google (JWT signé par Google, pas le
+    * nôtre), vérifié ici directement auprès de Google avant de faire
+    * confiance à l'email qu'il contient. Volontairement séparé de
+    * \client::googleLoginApi() (components/com_client/classes/client.php) :
+    * cette méthode legacy émet un jeton via l'ANCIEN système (setToken(),
+    * secret/algo différents - voir functions.php) incompatible avec
+    * Auth::check() ci-dessus, exactement le bug JWT déjà corrigé ailleurs
+    * dans cette API. On réutilise seulement la logique de vérification
+    * Google (même endpoint, mêmes contrôles), pas l'émission de jeton.
+    */
+    public static function googleLogin()
+    {
+        try {
+            if (!defined('GOOGLE_CLIENT_ID') || GOOGLE_CLIENT_ID === '') {
+                throw (new ApiException(array(), 500, 'Google sign-in is not configured'));
+            }
+            $data = request()->body();
+            $credential = isset($data['credential']) ? trim($data['credential']) : '';
+            if ($credential === '') {
+                throw (new ApiException(array(), 400, ResponseMessages::messages('fieldRequired') . ' credential'));
+            }
+
+            $ch = curl_init('https://oauth2.googleapis.com/tokeninfo?id_token=' . urlencode($credential));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+            $body = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($body === false || $httpCode !== 200) {
+                throw (new ApiException(array(), 401, 'Google verification failed'));
+            }
+            $info = json_decode($body);
+            // L'audience DOIT être notre propre client ID iOS, sinon le jeton a été
+            // émis pour une autre application (anti-substitution de jeton).
+            if (!is_object($info) || !isset($info->aud) || $info->aud !== GOOGLE_CLIENT_ID) {
+                throw (new ApiException(array(), 401, 'Invalid Google token'));
+            }
+            $emailVerified = isset($info->email_verified) && ($info->email_verified === true || $info->email_verified === 'true');
+            if (!$emailVerified || empty($info->email)) {
+                throw (new ApiException(array(), 401, 'Google email not verified'));
+            }
+
+            $client = \client::findByEmail($info->email);
+            if (!$client || !$client->isActive()) {
+                // Volontairement pas de création de compte ici (voir demande
+                // produit : Google sert à retrouver un compte existant, pas à
+                // s'inscrire) - le client doit d'abord avoir un compte créé
+                // normalement (email/mot de passe) une première fois.
+                throw (new ApiException(array(), 404, "Aucun compte actif n'est lié à cette adresse Google. Connectez-vous d'abord avec votre email et votre mot de passe."));
+            }
+
+            $token = self::generateJWToken($client->getId());
+            return response()->json(
+                array(
+                    "success" => true,
+                    "data" => array(
+                        "token" => $token,
+                        "user" => $client->toArray(),
+                    ),
+                    "message" => ResponseMessages::messages('credentialsOk')
+                ),
+                200
+            );
+        } catch (ApiException $ae) {
+            return response()->json(
+                array(
+                    "success" => false,
+                    "message" => $ae->getMessage()
+                ),
+                $ae->getStatusCode()
+            );
+        }
+    }
 }

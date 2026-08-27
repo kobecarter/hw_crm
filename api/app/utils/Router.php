@@ -19,6 +19,7 @@ class Router
 
         app()->group('/account', function () {
             app()->post('/login', 'App\Controllers\AuthController@login');
+            app()->post('/google-login', 'App\Controllers\AuthController@googleLogin');
             app()->post('/create', 'App\Controllers\AuthController@signup');
             app()->put('/edit', 'App\Controllers\AccountController@update');
             app()->post('/edit/picture', 'App\Controllers\AccountController@updatePicture');
