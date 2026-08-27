@@ -29,15 +29,24 @@ class PdfController
         return GetV::verifyDownloadToken($token);
     }
 
-    // PHP_BINARY pointe vers httpd (pas un exécutable "php") sous mod_php,
-    // qui est comment cette API tourne ici - on ne peut donc pas s'y fier
-    // pour lancer un script en CLI.
+    // PHP_BINARY pointe vers lsphp/httpd (pas un exécutable CLI), qui est
+    // comment cette API tourne ici - on ne peut donc pas s'y fier pour lancer
+    // un script en CLI. /usr/bin/php sur ce serveur (cPanel) est un binaire
+    // CGI (php -v y affiche "(cgi-fcgi)") : il préfixe toute sortie d'un
+    // en-tête "Content-type: ...\n\n", ce qui pollue le nom de fichier lu par
+    // stream() et déclenchait un faux "Not found" - d'où /usr/local/bin/php
+    // (confirmé "(cli)") en premier candidat.
     private static function phpCliBinary()
     {
         if (defined('PHP_BINARY') && stripos(basename(PHP_BINARY), 'php') === 0) {
             return PHP_BINARY;
         }
-        foreach (['/Applications/XAMPP/xamppfiles/bin/php', '/usr/bin/php', '/usr/local/bin/php'] as $candidate) {
+        foreach ([
+            '/usr/local/bin/php',
+            '/opt/cpanel/ea-php81/root/usr/bin/php',
+            '/usr/bin/php',
+            '/Applications/XAMPP/xamppfiles/bin/php',
+        ] as $candidate) {
             if (is_executable($candidate)) {
                 return $candidate;
             }
