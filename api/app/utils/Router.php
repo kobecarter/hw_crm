@@ -19,6 +19,7 @@ class Router
 
         app()->group('/account', function () {
             app()->post('/login', 'App\Controllers\AuthController@login');
+            app()->post('/google-login', 'App\Controllers\AuthController@googleLogin');
             app()->post('/create', 'App\Controllers\AuthController@signup');
             app()->put('/edit', 'App\Controllers\AccountController@update');
             app()->post('/edit/picture', 'App\Controllers\AccountController@updatePicture');
@@ -31,6 +32,8 @@ class Router
         // Publiques (sans compte) : page de garde avant connexion.
         app()->get('/public/site-services', 'App\Controllers\PublicCatalogController@services');
         app()->get('/public/site-formations', 'App\Controllers\PublicCatalogController@formations');
+        app()->get('/public/digital-expert-videos', 'App\Controllers\PublicCatalogController@digitalExpertVideos');
+        app()->get('/public/faqs', 'App\Controllers\PublicCatalogController@faqs');
         app()->get('/expertises', 'App\Controllers\ExpertiseController@index');
         app()->get('/site-services', 'App\Controllers\SiteCatalogController@services');
         app()->get('/site-formations', 'App\Controllers\SiteCatalogController@formations');

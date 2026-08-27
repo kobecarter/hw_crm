@@ -3,8 +3,6 @@
 namespace App\Controllers;
 
 use App\Utils\GetV;
-use Firebase\JWT\JWT;
-use Firebase\JWT\Key;
 
 // Sert les PDF de factures/devis directement au format binaire. Contrairement
 // au reste de l'API, ces URLs sont ouvertes par le navigateur externe du
@@ -28,12 +26,7 @@ class PdfController
         if (!$token) {
             return null;
         }
-        try {
-            $decoded = JWT::decode($token, new Key(GetV::jwtSecret(), GetV::jwtAlgorithm()));
-            return (int) $decoded->user_id;
-        } catch (\Throwable $th) {
-            return null;
-        }
+        return GetV::verifyDownloadToken($token);
     }
 
     // PHP_BINARY pointe vers httpd (pas un exécutable "php") sous mod_php,
