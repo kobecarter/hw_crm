@@ -164,6 +164,48 @@ class siteCatalog
         return trim($value, '-');
     }
 
+    // Vidéos "Digital Expert" réelles du site (hw_video, catégorie id=14,
+    // même filtre que components/com_frontpage/index.php sur la home du
+    // site : video::findAllByCategorie($lang, 14, true, false)). Les vidéos
+    // sont des ID YouTube (hw_video.video), ouvertes en lightbox côté site -
+    // on reconstruit la même URL YouTube pour que le mobile les ouvre dans
+    // le navigateur/l'app YouTube plutôt que d'embarquer un lecteur.
+    public static function findDigitalExpertVideos($langue = 'fr')
+    {
+        $db = \fidelite::siteDb();
+        $prefix = \fidelite::sitePrefix();
+        $sql = sprintf(
+            "SELECT A.id AS ID, A.video, A.photo, A.localisation, A.date_shooting, B.titre, B.extrait " .
+            "FROM %svideo A LEFT JOIN %sdetails_video B ON A.id = B.id_video AND B.langue = %s " .
+            "WHERE A.id_categorie = 14 AND A.active = 1 ORDER BY A.ordre DESC",
+            $prefix,
+            $prefix,
+            GetSQLValueString($langue, "text")
+        );
+        $rows = $db->queryS($sql);
+        if (!is_array($rows)) {
+            return array();
+        }
+        $base = self::siteBaseUrl();
+        $items = array();
+        foreach ($rows as $row) {
+            if (empty($row['video'])) {
+                continue;
+            }
+            $items[] = array(
+                "id" => (int) $row['ID'],
+                "titre" => self::cleanText($row['titre']),
+                "extrait" => self::cleanText($row['extrait']),
+                "localisation" => self::cleanText($row['localisation']),
+                "date_shooting" => $row['date_shooting'],
+                "photo" => !empty($row['photo']) ? $base . 'images/videos/' . $row['photo'] : "",
+                "youtube_id" => $row['video'],
+                "youtube_url" => "https://www.youtube.com/watch?v=" . $row['video'],
+            );
+        }
+        return $items;
+    }
+
     // Coordonnées et réseaux sociaux réels du site (hw_config) - le
     // crm_config du CRM contient des valeurs obsolètes (ex: un email
     // "verse-concept.com" hérité d'un tout autre client, jamais mis à jour).
