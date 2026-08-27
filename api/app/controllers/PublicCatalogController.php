@@ -30,4 +30,12 @@ class PublicCatalogController
             'data' => \siteCatalog::findDigitalExpertVideos('fr'),
         ]);
     }
+
+    public function faqs()
+    {
+        return response()->json([
+            'success' => true,
+            'data' => \siteCatalog::findFaqs('fr'),
+        ]);
+    }
 }

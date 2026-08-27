@@ -32,6 +32,7 @@ class Router
         app()->get('/public/site-services', 'App\Controllers\PublicCatalogController@services');
         app()->get('/public/site-formations', 'App\Controllers\PublicCatalogController@formations');
         app()->get('/public/digital-expert-videos', 'App\Controllers\PublicCatalogController@digitalExpertVideos');
+        app()->get('/public/faqs', 'App\Controllers\PublicCatalogController@faqs');
         app()->get('/expertises', 'App\Controllers\ExpertiseController@index');
         app()->get('/site-services', 'App\Controllers\SiteCatalogController@services');
         app()->get('/site-formations', 'App\Controllers\SiteCatalogController@formations');

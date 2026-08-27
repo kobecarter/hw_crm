@@ -206,6 +206,42 @@ class siteCatalog
         return $items;
     }
 
+    // Toutes les FAQ actives du site (hw_faq/hw_details_faq) - chaque ligne
+    // est rattachée à un service ou à un agent IA côté site (id_service /
+    // id_agent_ia), mais l'app affiche tout dans une seule rubrique FAQ
+    // comme demandé, sans ce regroupement.
+    public static function findFaqs($langue = 'fr')
+    {
+        $db = \fidelite::siteDb();
+        $prefix = \fidelite::sitePrefix();
+        $sql = sprintf(
+            "SELECT A.id AS ID, B.titre, B.texte FROM %sfaq A " .
+            "LEFT JOIN %sdetails_faq B ON A.id = B.id_faq AND B.langue = %s " .
+            "WHERE A.active = 1 ORDER BY A.id ASC",
+            $prefix,
+            $prefix,
+            GetSQLValueString($langue, "text")
+        );
+        $rows = $db->queryS($sql);
+        if (!is_array($rows)) {
+            return array();
+        }
+        $items = array();
+        foreach ($rows as $row) {
+            $question = self::cleanText($row['titre']);
+            $reponse = self::cleanText($row['texte']);
+            if (empty($question) || empty($reponse)) {
+                continue;
+            }
+            $items[] = array(
+                "id" => (int) $row['ID'],
+                "question" => $question,
+                "reponse" => $reponse,
+            );
+        }
+        return $items;
+    }
+
     // Coordonnées et réseaux sociaux réels du site (hw_config) - le
     // crm_config du CRM contient des valeurs obsolètes (ex: un email
     // "verse-concept.com" hérité d'un tout autre client, jamais mis à jour).
