@@ -254,7 +254,7 @@ class AuthController
     public static function googleLogin()
     {
         try {
-            if (!defined('GOOGLE_CLIENT_ID') || GOOGLE_CLIENT_ID === '') {
+            if (!defined('GOOGLE_CLIENT_ID_MOBILE_IOS') || GOOGLE_CLIENT_ID_MOBILE_IOS === '') {
                 throw (new ApiException(array(), 500, 'Google sign-in is not configured'));
             }
             $data = request()->body();
@@ -274,9 +274,11 @@ class AuthController
                 throw (new ApiException(array(), 401, 'Google verification failed'));
             }
             $info = json_decode($body);
-            // L'audience DOIT être notre propre client ID iOS, sinon le jeton a été
-            // émis pour une autre application (anti-substitution de jeton).
-            if (!is_object($info) || !isset($info->aud) || $info->aud !== GOOGLE_CLIENT_ID) {
+            // L'audience DOIT être notre propre client ID iOS (GOOGLE_CLIENT_ID_MOBILE_IOS,
+            // config.php - un projet Google Cloud différent de GOOGLE_CLIENT_ID, celui du
+            // site web), sinon le jeton a été émis pour une autre application
+            // (anti-substitution de jeton).
+            if (!is_object($info) || !isset($info->aud) || $info->aud !== GOOGLE_CLIENT_ID_MOBILE_IOS) {
                 throw (new ApiException(array(), 401, 'Invalid Google token'));
             }
             $emailVerified = isset($info->email_verified) && ($info->email_verified === true || $info->email_verified === 'true');
