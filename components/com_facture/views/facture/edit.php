@@ -17,7 +17,7 @@
 					<a href="index.php?option=com_facture&task=payment&id=<?php echo $facture->getId(); ?>" class="btn btn-success mr-1" data-toggle="tooltip" data-placement="top" data-original-title="Paiement">
 						<i class="far fa-money-bill-alt"></i>
 					</a>
-					<?php if($facture->getReste() <= 0): ?>
+					<?php if($facture->isGlobalPdfAllowed()): ?>
 					<a href="components/com_facture/controleurs/router.php?task=pdfFacture&id=<?php echo $facture->getId(); ?>" target="_blank" class="btn btn-danger mr-1" data-toggle="tooltip" data-placement="top" data-original-title="PDF">
 						<i class="far fa-file-pdf"></i>
 					</a>

@@ -424,24 +424,25 @@ class reclamation
         }
 
         require_once __DIR__ . '/../../../vendor/autoload.php';
+        $mailCreds = getMailCredentialsForAgence($client->getAgence() ? $client->getAgence()->getId() : 0);
         try {
             $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
             $mail->isSMTP();
-            $mail->Host = SMTP_HOST;
+            $mail->Host = $mailCreds['host'];
             $mail->SMTPAuth = true;
-            $mail->Username = SMTP_USERNAME;
-            $mail->Password = SMTP_PASSWORD;
+            $mail->Username = $mailCreds['username'];
+            $mail->Password = $mailCreds['password'];
             $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
+            $mail->Port = $mailCreds['port'];
             $mail->CharSet = 'UTF-8';
-            $mail->setFrom(SMTP_USERNAME, 'Hello World');
+            $mail->setFrom($mailCreds['username'], 'Hello World');
             $mail->addAddress($client->getEmail(), $nomClient);
             $mail->isHTML(true);
             $mail->Subject = $sujet;
             $mail->Body = $corps;
             $mail->AltBody = strip_tags(str_replace(array('<br>', '<br/>', '<br />'), "\n", $corps));
             $mail->send();
-            copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
+            copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage(), $mailCreds['host'], $mailCreds['username'], $mailCreds['password']);
             return true;
         } catch (\Throwable $e) {
             error_log('[reclamation reponse email] ' . $e->getMessage());

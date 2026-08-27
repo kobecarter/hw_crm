@@ -57,7 +57,10 @@ $resetValide = trim((string) $tokenReset) !== '' && userpasswordreset::findValid
 
 		<?php if ($resetValide) :?>
 		<script type="text/javascript">
-			$(function () {
+			// window.addEventListener('load', ...), jamais $(function(){...}) : ce script inline est
+			// imprimé avant includes/tpl/bottom-login.php, qui charge jQuery en fin de page - $ n'existe
+			// pas encore au moment du parsing (voir même bug/fix dans login.php ci-dessus).
+			window.addEventListener('load', function () {
 				$('#resetPasswordForm').on('submit', function (e) {
 					e.preventDefault();
 					var $form = $(this);

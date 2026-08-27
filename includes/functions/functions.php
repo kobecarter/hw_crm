@@ -1511,15 +1511,43 @@ function envoyerEmailDocumentsManquantsRH($employe, $manquants)
     }
 }
 
+// Identité d'envoi selon l'agence du client destinataire : id_agence=2
+// (HELLOWORLDLABEL - FZCO, Dubai) envoie depuis sales@helloworldlabel.ae,
+// toute autre agence (Maroc) garde l'identité sales@helloworld-agency.com
+// par défaut. Jamais les mêmes identifiants SMTP entre les deux -- voir
+// config.secrets.php (SMTP_*_DUBAI). Utilisé pour tout email adressé à un
+// CLIENT (devis, facture, réclamation, rappel, relance, contrat) ; les
+// emails internes (employés, notifications agence) restent sur l'identité
+// par défaut, non concernés par cette fonction.
+function getMailCredentialsForAgence($idAgence)
+{
+    if ((int) $idAgence === 2 && defined('SMTP_HOST_DUBAI') && SMTP_HOST_DUBAI !== '') {
+        return array(
+            'host' => SMTP_HOST_DUBAI,
+            'port' => defined('SMTP_PORT_DUBAI') ? SMTP_PORT_DUBAI : 587,
+            'username' => SMTP_USERNAME_DUBAI,
+            'password' => SMTP_PASSWORD_DUBAI,
+        );
+    }
+    return array(
+        'host' => defined('SMTP_HOST') ? SMTP_HOST : null,
+        'port' => defined('SMTP_PORT') ? SMTP_PORT : 587,
+        'username' => defined('SMTP_USERNAME') ? SMTP_USERNAME : null,
+        'password' => defined('SMTP_PASSWORD') ? SMTP_PASSWORD : null,
+    );
+}
+
 // Les emails envoyés via mail()/SMTP n'atterrissent jamais tout seuls dans le dossier "Envoyés"
-// de la boîte sales@helloworld-agency.com - seul un client mail (Outlook, webmail) fait ça, en
-// copiant lui-même le message envoyé vers ce dossier IMAP après coup. Un script PHP qui envoie
-// n'est pas un "client mail" au sens IMAP : sans cet appel, ces envois (devis, factures) restent
-// invisibles à la fois dans le webmail et dans Outlook (si Outlook est configuré en IMAP sur ce
-// compte - en POP3 il ne verrait de toute façon jamais ce dossier). Volontairement best-effort :
-// un échec ici ne doit jamais faire échouer l'envoi réel du mail au client, seulement priver
-// l'expéditeur de sa copie de courtoisie.
-function copierEmailEnvoyeVersDossierEnvoyes($rawMimeMessage)
+// de la boîte d'envoi - seul un client mail (Outlook, webmail) fait ça, en copiant lui-même le
+// message envoyé vers ce dossier IMAP après coup. Un script PHP qui envoie n'est pas un "client
+// mail" au sens IMAP : sans cet appel, ces envois (devis, factures) restent invisibles à la fois
+// dans le webmail et dans Outlook (si Outlook est configuré en IMAP sur ce compte - en POP3 il ne
+// verrait de toute façon jamais ce dossier). Volontairement best-effort : un échec ici ne doit
+// jamais faire échouer l'envoi réel du mail au client, seulement priver l'expéditeur de sa copie
+// de courtoisie. $host/$username/$password optionnels : par défaut la boîte sales@helloworld-
+// agency.com (comportement historique, tous les appels existants), sinon la boîte fournie
+// (ex. sales@helloworldlabel.ae pour un client Dubai, voir getMailCredentialsForAgence()).
+function copierEmailEnvoyeVersDossierEnvoyes($rawMimeMessage, $host = null, $username = null, $password = null)
 {
     if (!function_exists('imap_open')) {
         error_log('copierEmailEnvoyeVersDossierEnvoyes: extension imap absente');
@@ -1529,16 +1557,18 @@ function copierEmailEnvoyeVersDossierEnvoyes($rawMimeMessage)
         error_log('copierEmailEnvoyeVersDossierEnvoyes: message MIME vide (getSentMIMEMessage)');
         return false;
     }
-    $host = defined('SMTP_HOST') ? SMTP_HOST : null;
-    if (!$host) {
-        error_log('copierEmailEnvoyeVersDossierEnvoyes: SMTP_HOST non défini');
+    $host = $host ?: (defined('SMTP_HOST') ? SMTP_HOST : null);
+    $username = $username ?: (defined('SMTP_USERNAME') ? SMTP_USERNAME : null);
+    $password = $password ?: (defined('SMTP_PASSWORD') ? SMTP_PASSWORD : null);
+    if (!$host || !$username) {
+        error_log('copierEmailEnvoyeVersDossierEnvoyes: identifiants IMAP manquants');
         return false;
     }
     foreach (array(
         '{' . $host . ':993/imap/ssl}',
         '{' . $host . ':993/imap/ssl/novalidate-cert}',
     ) as $mailbox) {
-        $conn = @imap_open($mailbox . 'INBOX.Sent', SMTP_USERNAME, SMTP_PASSWORD);
+        $conn = @imap_open($mailbox . 'INBOX.Sent', $username, $password);
         if ($conn) {
             $ok = imap_append($conn, $mailbox . 'INBOX.Sent', $rawMimeMessage, '\\Seen');
             if (!$ok) {

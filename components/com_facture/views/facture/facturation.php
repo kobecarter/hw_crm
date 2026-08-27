@@ -103,7 +103,7 @@
                                                         <?php endif; ?>
                                                     </td>
                                                     <td>
-                                                        <?php if ($devis->getFacture()->getId() != 0): ?>
+                                                        <?php if ($devis->getFacture()->getId() != 0 && $devis->getFacture()->isGlobalPdfAllowed()): ?>
                                                             <a href="components/com_facture/controleurs/router.php?task=pdfFacture&id=<?php echo $devis->getFacture()->getId(); ?>" class="btn btn-sm btn-white text-info" data-toggle="tooltip" data-placement="top" data-original-title="Facture" target="_blank"><i class="fa fa-file-alt"></i></a>
                                                         <?php elseif ($devis->getFacture()->getId() == 0 && in_array($devis->getStatu(), [4])): ?>
                                                             <a class="dropdown-item text-success create-invoice" href="javascript:void(0);" data-id="<?php echo $devis->getId(); ?>"><i class="fa fa-file-invoice mr-2"></i>+</a>
@@ -367,7 +367,7 @@
                                                                 <?php endif; ?>
                                                                 <?php if ($_SESSION['user']->hasDroit('view', 'com_facture')) : ?>
                                                                     <a class="dropdown-item text-success" href="index.php?option=com_facture&task=payment&id=<?php echo $facture->getId(); ?>"><i class="far fa-money-bill-alt mr-2"></i>Reglement</a>
-                                                                    <?php if($facture->getReste() <= 0): ?>
+                                                                    <?php if($facture->isGlobalPdfAllowed($payments_by_invoice)): ?>
                                                                         <a class="dropdown-item text-danger"  href="components/com_facture/controleurs/router.php?task=pdfFacture&id=<?php echo $facture->getId(); ?>" target="_blank"><i class="far fa-file-pdf mr-2"></i>PDF</a>
                                                                     <?php endif; ?>
                                                                 <?php endif; ?>
@@ -425,7 +425,7 @@
                                                         <?php if ($payment->getRegImg() != ''): ?>
                                                             <a href="images/reglements/<?php echo $payment->getRegImg(); ?>" data-fancybox class="btn btn-sm btn-white text-success mr-2" data-toggle="tooltip" data-placement="top" data-original-title="Reglement"><i class="fa fa-file-alt"></i></a>
                                                         <?php endif; ?>
-                                                        <?php if ($_SESSION['user']->hasDroit('view', 'com_facture')) : ?>
+                                                        <?php if ($_SESSION['user']->hasDroit('view', 'com_facture') && !$payment->getFacture()->isGlobalPdfAllowed()) : ?>
                                                             <a class="btn btn-sm btn-white text-success mr-2" href="components/com_facture/controleurs/router.php?task=pdfPayment&id=<?php echo $payment->getId(); ?>&index=<?php echo $key + 1; ?>" target="_blank"><i class="far fa-file-pdf"></i></a>
                                                         <?php endif; ?>
                                                         <?php if ($_SESSION['user']->hasDroit('deletePayment', 'com_facture')) : ?>

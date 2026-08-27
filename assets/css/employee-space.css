@@ -277,7 +277,11 @@
 	color: var(--emp-ink);
 	text-decoration: none;
 }
-.emp-nav-link.active {
+/* Couleur du texte pilotée par emp-nav-pill-active (JS, employee-space.js), pas par .active :
+   la pastille colorée suit la souris au survol, donc le texte blanc doit suivre la pastille et
+   non rester figé sur la page en cours - sinon il devient illisible une fois la pastille partie
+   survoler un autre lien (texte blanc sur le fond clair de la page). */
+.emp-nav-link.emp-nav-pill-active {
 	color: #fff;
 }
 .emp-nav-link i {
@@ -297,7 +301,7 @@
 	font-size: 0.65rem;
 	font-weight: 800;
 }
-.emp-nav-link:not(.active) .emp-nav-badge {
+.emp-nav-link:not(.emp-nav-pill-active) .emp-nav-badge {
 	background: var(--accent-pink, #ec4899);
 	color: #fff;
 }

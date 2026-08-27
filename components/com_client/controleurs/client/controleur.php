@@ -84,6 +84,12 @@ if (isset($task) && !empty($task)) {
         case "findClientSocialsByClientApi":
             findClientSocialsByClientApi($_GET);
             break;
+        case "findParrainagesByClientApi":
+            findParrainagesByClientApi($_GET);
+            break;
+        case "createParrainageApi":
+            createParrainageApi($_POST);
+            break;
         case "downloadAttestationAdmin":
             downloadAttestationAdmin($_GET);
             break;
@@ -750,4 +756,29 @@ function findClientSocialsByClientApi($data)
         }
     });
     echo json_encode($items);
+}
+
+function findParrainagesByClientApi($data)
+{
+    $items = clientparrainage::findAllByClientApi(isset($data['client']) ? $data['client'] : 0);
+    array_walk_recursive($items, function (&$item) {
+        if (is_string($item)) {
+            $item = mb_convert_encoding($item, 'UTF-8', 'UTF-8');
+        }
+    });
+    echo json_encode($items);
+}
+
+function createParrainageApi($data)
+{
+    echo json_encode(clientparrainage::createApi(
+        isset($data['client']) ? $data['client'] : 0,
+        isset($data['parrain_nom']) ? $data['parrain_nom'] : '',
+        isset($data['parrain_email']) ? $data['parrain_email'] : '',
+        isset($data['filleul_nom']) ? $data['filleul_nom'] : '',
+        isset($data['filleul_entreprise']) ? $data['filleul_entreprise'] : '',
+        isset($data['filleul_email']) ? $data['filleul_email'] : '',
+        isset($data['filleul_tel']) ? $data['filleul_tel'] : '',
+        isset($data['message']) ? $data['message'] : ''
+    ));
 }

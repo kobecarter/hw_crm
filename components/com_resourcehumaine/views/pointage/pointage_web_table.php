@@ -16,6 +16,7 @@ $joursLabelsLongs = array('Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Sa
 $statutsCalendrier = array(
 	'ok' => array('label' => 'À l\'heure', 'color' => '#22c55e'),
 	'retard' => array('label' => 'Retard', 'color' => '#f59e0b'),
+	'retard_justifie' => array('label' => 'Retard justifié', 'color' => '#16a34a'),
 	'absence_non_justifiee' => array('label' => 'Absence non justifiée', 'color' => '#ef4444'),
 	'absence_justifiee' => array('label' => 'Absence justifiée', 'color' => '#16a34a'),
 	'absence_en_attente' => array('label' => 'Absence pressentie', 'color' => '#ef4444'),
@@ -86,7 +87,8 @@ $statutsCalendrier = array(
 
 <div class="cal-legend">
 	<span><i class="cal-dot cal-ok"></i> À l'heure</span>
-	<span><i class="cal-dot cal-retard"></i> Retard</span>
+	<span><i class="cal-dot cal-retard"></i> Retard <small>(cliquer pour justifier)</small></span>
+	<span><i class="cal-dot cal-retard-justifie"></i> Retard justifié</span>
 	<span><i class="cal-dot cal-absence-non-justifiee"></i> Absence non justifiée <small>(cliquer pour justifier)</small></span>
 	<span><i class="cal-dot cal-absence-justifiee"></i> Absence justifiée</span>
 	<span><i class="cal-dot cal-absence-en-attente"></i> Absence pressentie <small>(pas encore traitée par le cron)</small></span>
@@ -147,11 +149,11 @@ $statutsCalendrier = array(
 									$dateObj = new DateTime($jourInfo['date']);
 									$statut = $statutsCalendrier[$type];
 									$statutLabel = $statut['label'];
-									if ($type === 'retard') { $statutLabel .= ' — ' . $jourInfo['minutes'] . ' min'; }
+									if ($type === 'retard' || $type === 'retard_justifie') { $statutLabel .= ' — ' . $jourInfo['minutes'] . ' min'; }
 									if ($type === 'ferie') { $statutLabel = $jourInfo['label']; }
 
 									$extra = '';
-									if (($type === 'absence_non_justifiee' || $type === 'absence_justifiee') && !empty($jourInfo['remark'])) {
+									if (in_array($type, array('absence_non_justifiee', 'absence_justifiee', 'retard_justifie'), true) && !empty($jourInfo['remark'])) {
 										$extra = $jourInfo['remark'];
 									} elseif ($type === 'absence_en_attente') {
 										$extra = 'Pas encore traitée par le cron quotidien.';
@@ -182,9 +184,10 @@ $statutsCalendrier = array(
 									);
 
 									$estJustifiable = $type === 'absence_non_justifiee';
+									$estRetardJustifiable = $type === 'retard';
 								?>
 									<div
-										class="cal-day cal-<?= str_replace('_', '-', $type) ?><?= $estJustifiable ? ' cal-justifiable' : '' ?>"
+										class="cal-day cal-<?= str_replace('_', '-', $type) ?><?= $estJustifiable ? ' cal-justifiable' : '' ?><?= $estRetardJustifiable ? ' cal-retard-justifiable' : '' ?>"
 										data-tooltip="<?= htmlspecialchars(json_encode($tooltip)) ?>"
 										<?php if ($estJustifiable) : ?>
 										data-absence-id="<?= $jourInfo['absence_id'] ?>"
@@ -193,6 +196,12 @@ $statutsCalendrier = array(
 										data-date="<?= $jourInfo['date'] ?>"
 										data-number-of-days="<?= $jourInfo['number_of_days'] ?>"
 										data-remark="<?= htmlspecialchars($jourInfo['remark']) ?>"
+										<?php endif; ?>
+										<?php if ($estRetardJustifiable) : ?>
+										data-employe-id="<?= $empId ?>"
+										data-employe-nom="<?= htmlspecialchars($ligne['employe']->getFullName()) ?>"
+										data-date="<?= $jourInfo['date'] ?>"
+										data-minutes="<?= $jourInfo['minutes'] ?>"
 										<?php endif; ?>
 									><?= $jourInfo['jour'] ?></div>
 								<?php endforeach; ?>

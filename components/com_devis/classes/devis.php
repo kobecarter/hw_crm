@@ -978,18 +978,21 @@ function sendViaMailDevis($file_name = ""){
 	global $db, $siteURL;
 	$config = new config($db);
 	$mail = new PHPMailer();
+	$client = $this->getClient();
+    $agence = agence::find($_SESSION['agence'],$_SESSION['langue']);
 	// Authentifié en SMTP (au lieu du relais local mail() par défaut) pour que ce mail soit
 	// réellement envoyé depuis la boîte sales@ - condition nécessaire pour pouvoir ensuite en
 	// déposer une copie dans son dossier "Envoyés" (cf. copierEmailEnvoyeVersDossierEnvoyes()).
+	// Identité selon l'agence (Dubai vs Maroc, voir getMailCredentialsForAgence()) -- la même
+	// utilisée pour le logo/branding du corps du mail ci-dessous, jamais désynchronisée.
+	$mailCreds = getMailCredentialsForAgence($agence->getId());
 	$mail->isSMTP();
-	$mail->Host = SMTP_HOST;
+	$mail->Host = $mailCreds['host'];
 	$mail->SMTPAuth = true;
-	$mail->Username = SMTP_USERNAME;
-	$mail->Password = SMTP_PASSWORD;
+	$mail->Username = $mailCreds['username'];
+	$mail->Password = $mailCreds['password'];
 	$mail->SMTPSecure = 'tls';
-	$mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
-	$client = $this->getClient();
-    $agence = agence::find($_SESSION['agence'],$_SESSION['langue']);
+	$mail->Port = $mailCreds['port'];
 	$mailBody = '<html>
     <body>
     <table border="0" width="100%">
@@ -1038,13 +1041,13 @@ function sendViaMailDevis($file_name = ""){
 </html>';
 	    
    //Set who the message is to be sent from
-	$mail->setFrom("sales@helloworld-agency.com");
+	$mail->setFrom($mailCreds['username']);
 	//Set an alternative reply-to address
 	$mail->addReplyTo($agence->getEmail(), $agence->getNom());
 	//Set who the message is to be sent to
 
     $mail->addAddress($client->getEmail(), $client->getNom().' '.$client->getPrenom());
-    $mail->addAddress("sales@helloworld-agency.com");
+    $mail->addAddress($mailCreds['username']);
 
 	//Set the subject line
 	$mail->Subject = 'Devis '.$agence->getNom();
@@ -1056,7 +1059,7 @@ function sendViaMailDevis($file_name = ""){
 	if($file_name != '') $mail->addAttachment('../../../uploads/'.$file_name);
 		
 	if($mail->send()) {
-		copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
+		copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage(), $mailCreds['host'], $mailCreds['username'], $mailCreds['password']);
 		echo "success";
 	}
 	else {

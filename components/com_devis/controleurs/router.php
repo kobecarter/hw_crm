@@ -7,6 +7,16 @@ session_start();
 
 if(isset($_GET['task']) && !empty($_GET['task'])) {
     @$task = $_GET['task'];
+    // Toutes les tâches ci-dessous sauf celles-ci lisent $_SESSION['user']->hasDroit(...) : sans
+    // session admin active, l'appel plantait (fatal sur null) et affichait une page blanche plutôt
+    // que de renvoyer vers la connexion (cas vécu : lien PDF ouvert depuis un navigateur mobile où
+    // la session n'était pas/plus active). Les tâches listées ici sont authentifiées autrement
+    // (jeton client, webhook Slack, secret cron) et n'ont jamais de $_SESSION['user'].
+    $__tachesSansSessionAdmin = array('findAllByClientApi', 'pdfDevisApi', 'slackEventWebhook', 'cronVerifierValidationDevisSlack');
+    if (!in_array($task, $__tachesSansSessionAdmin, true) && (!isset($_SESSION['user']) || !$_SESSION['user']->isConnected())) {
+        header('location: ../../../index.php?option=com_login');
+        exit;
+    }
     switch ($task)
     {
         case 'addDevis' :

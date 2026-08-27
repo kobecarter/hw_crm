@@ -560,22 +560,24 @@ class relance
                 : "Bonjour,<br><br>Nous vous rappelons que le règlement de " . $montant . " pour la facture N°" . $facture->getNumero() . " arrive à échéance dans " . $joursRestants . " jours.<br><br>Cordialement.";
         }
 
+        $mailCreds = getMailCredentialsForAgence($client->getAgence() ? $client->getAgence()->getId() : 0);
+
         $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
         $mail->isSMTP();
-        $mail->Host = SMTP_HOST;
+        $mail->Host = $mailCreds['host'];
         $mail->SMTPAuth = true;
-        $mail->Username = SMTP_USERNAME;
-        $mail->Password = SMTP_PASSWORD;
+        $mail->Username = $mailCreds['username'];
+        $mail->Password = $mailCreds['password'];
         $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
+        $mail->Port = $mailCreds['port'];
         $mail->CharSet = 'UTF-8';
-        $mail->setFrom(SMTP_USERNAME, 'Hello World');
+        $mail->setFrom($mailCreds['username'], 'Hello World');
         $mail->addAddress($client->getEmail(), trim($client->getPrenom() . ' ' . $client->getNom()));
         $mail->isHTML(true);
         $mail->Subject = $sujet;
         $mail->Body = $corps;
         $mail->AltBody = strip_tags($corps);
         $mail->send();
-        copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
+        copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage(), $mailCreds['host'], $mailCreds['username'], $mailCreds['password']);
     }
 }

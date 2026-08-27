@@ -32,6 +32,9 @@ if (isset($task) && !empty($task)) {
         case 'saveLocalisationBureau':
             saveLocalisationBureau($_POST);
             break;
+        case 'justifyRetard':
+            justifyRetard($_POST);
+            break;
     }
 }
 
@@ -331,8 +334,9 @@ function cronPointageRappelEndpoint()
 }
 
 // Calendrier mensuel "Gestion des jours de travail" côté admin (page task=pointage) - un jour par
-// case, dit s'il est travaillé (règle automatique OU dérogation manuelle) et si une dérogation
-// existe. Global à l'entreprise (pas par employé), contrairement au reste de cette page.
+// case, dit s'il est travaillé (règle automatique, jour férié com_holiday, OU dérogation
+// manuelle) et si une dérogation existe. Global à l'entreprise (pas par employé), contrairement
+// au reste de cette page.
 function filterJoursTravail($data)
 {
     if (!$_SESSION['user']->hasDroit('view', 'com_resourcehumaine')) {
@@ -354,12 +358,19 @@ function filterJoursTravail($data)
         $date = sprintf('%s-%02d', $mois, $jour);
         $dateObj = new DateTime($date);
         $override = isset($overridesParDate[$date]) ? $overridesParDate[$date] : null;
+        // Un jour férié (com_holiday) est automatiquement non travaillé, sans dérogation à créer -
+        // sauf si l'admin a explicitement forcé ce jour via une dérogation manuelle, qui prime
+        // toujours (ex: un jour férié exceptionnellement travaillé).
+        $ferie = $override ? null : holiday::findByDate($date);
+        $estFerie = $ferie && $ferie->getId();
         $jours[] = array(
             'date' => $date,
             'jour' => $jour,
             'jour_semaine' => (int) $dateObj->format('N'),
-            'est_travaille' => pointageweb::estJourTravaille($dateObj),
+            'est_travaille' => $estFerie ? false : pointageweb::estJourTravaille($dateObj),
             'override' => $override !== null,
+            'ferie' => $estFerie,
+            'ferie_nom' => $estFerie ? $ferie->getName() : '',
             'remark' => $override ? $override->getRemark() : '',
         );
     }
@@ -580,6 +591,61 @@ function saveLocalisationBureau($data)
     $localisation->setRayonMetres((int) $data['rayon_metres']);
     $localisation->setLastEdit(date('Y-m-d H:i:s'));
     $succes = $localisation->edit() == 1;
+
+    echo json_encode(array('success' => $succes ? 1 : 0));
+}
+
+// Justifie un retard (case orange "Retard" du calendrier par employé, voir
+// pointage_web_table.php) - upsert une ligne retardjustification pour (employé, date), avec
+// remarque et justificatif optionnel (même dossier/extensions que la justification d'absence,
+// voir components/com_resourcehumaine/controleurs/absence/controleur.php). Une fois enregistré,
+// ce retard ne compte plus dans les totaux (classifierJour()/calendrierMois() la consultent).
+function justifyRetard($data)
+{
+    if (!$_SESSION['user']->hasDroit('edit', 'com_resourcehumaine')) {
+        echo json_encode(array('success' => 0, 'message' => 'Accès refusé.'));
+        return;
+    }
+    $indices = array('id_resourcehumaine', 'date');
+    if (!fieldCheck($data, $indices)) {
+        echo json_encode(array('success' => 0, 'message' => 'Paramètres invalides.'));
+        return;
+    }
+
+    // Pas de vérification d'agence ici (contrairement à deleteAbsenceResourceHumaine) : la liste
+    // "Statistique de pointage" qui alimente cette case (filterPointageWeb(),
+    // resourcehumaine::findAllByStatuses()) est volontairement globale, tous employés toutes
+    // agences confondus, pas filtrée par $_SESSION['agence'] - un admin peut légitimement
+    // justifier le retard d'un employé d'une autre agence que celle actuellement active. Un
+    // premier essai avec cette vérification bloquait justement ce cas ("Erreur lors de la mise à
+    // jour" en prod alors que la requête était légitime).
+    $employe = resourcehumaine::find($data['id_resourcehumaine']);
+    if (!$employe || !$employe->getId()) {
+        echo json_encode(array('success' => 0, 'message' => 'Employé introuvable.'));
+        return;
+    }
+
+    $justification = array();
+    if (isset($_FILES['justification']) && $_FILES['justification']['name'][0] != '') {
+        $justification = uploadFiles('justification', '../../../images/resourceshumaines/retards', array('PDF', 'pdf', 'jpg', 'jpeg', 'gif', 'png', 'webp', 'JPG', 'JPEG', 'GIF', 'PNG', 'WEBP'));
+    }
+
+    $existant = retardjustification::findByDate($employe->getId(), $data['date']);
+    $item = $existant && $existant->getId() ? $existant : new retardjustification();
+    if (isset($justification[0])) {
+        $item->setJustification($justification[0]);
+    }
+    $item->setResourcehumaine($employe);
+    $item->setDate($data['date']);
+    $item->setRemark(isset($data['remark']) ? trim($data['remark']) : '');
+    $item->setLastEdit(date('Y-m-d H:i:s'));
+
+    if ($existant && $existant->getId()) {
+        $succes = $item->edit() == 1;
+    } else {
+        $item->setDateAdd(date('Y-m-d H:i:s'));
+        $succes = $item->add() == 1;
+    }
 
     echo json_encode(array('success' => $succes ? 1 : 0));
 }

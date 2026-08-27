@@ -435,6 +435,60 @@ class facture
         }
     }
 
+    // Attribue le prochain numéro de reçu de paiement (facture.numero + '-' + ce numéro) et avance
+    // le compteur `next_payment_seq` de façon irréversible. Volontairement jamais décrémenté à la
+    // suppression d'un paiement (contrairement à agence.numero_increment_facture) : un trou dans la
+    // séquence après suppression est acceptable fiscalement, réutiliser un numéro déjà émis à un
+    // client ne l'est pas.
+    public function assignNextPaymentSeq()
+    {
+        global $db;
+        $db->query(sprintf(
+            "UPDATE " . static::$table . " SET next_payment_seq = next_payment_seq + 1 WHERE id = %s",
+            GetSQLValueString($this->id, "int")
+        ));
+        $result = $db->query(sprintf(
+            "SELECT next_payment_seq FROM " . static::$table . " WHERE id = %s",
+            GetSQLValueString($this->id, "int")
+        ));
+        $data = $db->fetch_assoc($result);
+        return intval($data['next_payment_seq']) - 1;
+    }
+
+    // Règle d'accès au PDF de facture globale : accessible tant qu'aucun paiement n'a encore été
+    // enregistré (premier envoi avant tout règlement), ou si la facture a été soldée en un seul
+    // paiement couvrant la totalité. Dès qu'un règlement partiel existe, ou que le solde a été
+    // atteint via plusieurs paiements, la facture globale devient redondante avec les reçus de
+    // paiement individuels (qui, eux, deviennent accessibles - logique inverse, voir les vues).
+    public function isGlobalPdfAllowed($payments = null)
+    {
+        if ($payments === null) {
+            $payments = payment::findAll($this->id);
+        }
+        $count = count($payments);
+        if ($count === 0) {
+            return true;
+        }
+        return $count === 1 && abs($payments[0]->getMontant() - $this->total) < 0.01;
+    }
+
+    // Même règle qu'isGlobalPdfAllowed(), en SQL direct plutôt que via
+    // payment::findAll() (qui dépend de $_SESSION['user']) -- pour rester
+    // appelable depuis un contexte API à jeton (payment::pdfPaymentApi()).
+    public static function isGlobalPdfAllowedApi($idFacture, $total)
+    {
+        global $db;
+        $rows = $db->queryS(sprintf(
+            "SELECT montant FROM " . static::$table3 . " WHERE id_facture = %s",
+            GetSQLValueString((int) $idFacture, "int")
+        ));
+        $count = is_array($rows) ? count($rows) : 0;
+        if ($count === 0) {
+            return true;
+        }
+        return $count === 1 && abs((float) $rows[0]['montant'] - (float) $total) < 0.01;
+    }
+
     public function increaseCountSending()
     {
         global $db;
@@ -1323,17 +1377,19 @@ mpdf-->
         global $db, $siteURL;
         $config = new config($db);
         $mail = new PHPMailer();
+        $client = $this->getClient();
         // Authentifié en SMTP (au lieu du relais local mail() par défaut) pour que ce mail soit
         // réellement envoyé depuis la boîte sales@ - condition nécessaire pour pouvoir ensuite en
         // déposer une copie dans son dossier "Envoyés" (cf. copierEmailEnvoyeVersDossierEnvoyes()).
+        // Identité selon l'agence du CLIENT (Dubai vs Maroc, voir getMailCredentialsForAgence()).
+        $mailCreds = getMailCredentialsForAgence($client->getAgence() ? $client->getAgence()->getId() : 0);
         $mail->isSMTP();
-        $mail->Host = SMTP_HOST;
+        $mail->Host = $mailCreds['host'];
         $mail->SMTPAuth = true;
-        $mail->Username = SMTP_USERNAME;
-        $mail->Password = SMTP_PASSWORD;
+        $mail->Username = $mailCreds['username'];
+        $mail->Password = $mailCreds['password'];
         $mail->SMTPSecure = 'tls';
-        $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
-        $client = $this->getClient();
+        $mail->Port = $mailCreds['port'];
         $mailBody = '<html>
     <body>
     <table border="0" width="100%">
@@ -1382,12 +1438,12 @@ mpdf-->
 </html>';
 
         //Set who the message is to be sent from
-        $mail->setFrom("sales@helloworld-agency.com");
+        $mail->setFrom($mailCreds['username']);
         //Set an alternative reply-to address
         $mail->addReplyTo($config->getEmail(), $config->getNom());
         //Set who the message is to be sent to
         $mail->addAddress($client->getEmail(), $client->getNom() . ' ' . $client->getPrenom());
-        $mail->addAddress("sales@helloworld-agency.com");
+        $mail->addAddress($mailCreds['username']);
         //Set the subject line
         $mail->Subject = 'Facture ' . $config->getNom();
         //Read an HTML message body from an external file, convert referenced images to embedded,
@@ -1398,7 +1454,7 @@ mpdf-->
         if ($file_name != '') $mail->addAttachment('../../../uploads/' . $file_name);
 
         if ($mail->send()) {
-            copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
+            copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage(), $mailCreds['host'], $mailCreds['username'], $mailCreds['password']);
             echo "success";
         } else {
             echo "Error: " . $mail->ErrorInfo;
@@ -1518,6 +1574,7 @@ mpdf-->
 <table>
 <tr><td style="font-size:8pt;">N° ' . $typefacture . '</td></tr>
 <tr><td style="border-top:#e3d3aa solid 0.5pt;"><strong style="font-size: 12pt;">' . $facture->getNumero() . '</strong></td></tr>
+<tr><td>' . ($facture->getReste() <= 0 ? '<strong style="color:#2e7d32;">' . mb_strtoupper($traduction['PAYE'][$facture->getLangue()]) . '</strong>' : '<strong style="color:#c62828;">' . mb_strtoupper($traduction['NON_PAYE'][$facture->getLangue()]) . '</strong>') . '</td></tr>
 </table>
 </td>
 </tr></table>
@@ -2169,14 +2226,25 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
             $clientID = (int) $token->id;
             global $db;
             $items = array();
-            $SQLselect = "SELECT P.date_payment as date, P.montant as montant, F.devise as devise FROM " . static::$table3 . " P INNER JOIN " . static::$table . " F ON F.id = P.id_facture INNER JOIN " . static::$table5 . " B ON B.id = F.id_client INNER JOIN " . static::$table4 . " C ON C.id = B.id_agence WHERE (F.proforma = 0 or F.proforma is null or (F.proforma = 1 and F.devise is not null and F.devise <> '' and F.devise <> 'DH')) AND (F.archived = 0 OR F.archived IS NULL)";
+            // id/id_facture/numero_sequence : ajoutés pour l'affichage par facture côté
+            // espace client (regroupement + lien vers pdfPaymentApi), en plus de l'usage
+            // existant (graphique paiements, qui n'utilise que date/montant/devise).
+            $SQLselect = "SELECT P.id as id, P.id_facture as id_facture, P.numero_sequence as numero_sequence, F.total as facture_total, P.date_payment as date, P.montant as montant, F.devise as devise FROM " . static::$table3 . " P INNER JOIN " . static::$table . " F ON F.id = P.id_facture INNER JOIN " . static::$table5 . " B ON B.id = F.id_client INNER JOIN " . static::$table4 . " C ON C.id = B.id_agence WHERE (F.proforma = 0 or F.proforma is null or (F.proforma = 1 and F.devise is not null and F.devise <> '' and F.devise <> 'DH')) AND (F.archived = 0 OR F.archived IS NULL)";
             if ($clientID) {
                 $SQLselect .= " AND F.id_client = " . intval($clientID);
             }
             $SQLselect .= " ORDER BY P.date_payment ASC";
             $result = $db->queryS($SQLselect);
             foreach ($result as $data) {
-                $items[] = array('date' => $data['date'], 'montant' => (float) $data['montant'], 'devise' => $data['devise']);
+                $items[] = array(
+                    'id' => (int) $data['id'],
+                    'id_facture' => (int) $data['id_facture'],
+                    'numero_sequence' => $data['numero_sequence'],
+                    'facture_total' => (float) $data['facture_total'],
+                    'date' => $data['date'],
+                    'montant' => (float) $data['montant'],
+                    'devise' => $data['devise'],
+                );
             }
             return $items;
         } else {
@@ -2316,6 +2384,7 @@ mpdf-->
 <table>
 <tr><td style="font-size:8pt;">N° ' . $typefacture . '</td></tr>
 <tr><td style="border-top:#e3d3aa solid 0.5pt;"><strong style="font-size: 12pt;">' . $facture["numero"] . '</strong></td></tr>
+<tr><td>' . ($facture["reste"] <= 0 ? '<strong style="color:#2e7d32;">' . mb_strtoupper($traduction['PAYE'][$facture["langue"]]) . '</strong>' : '<strong style="color:#c62828;">' . mb_strtoupper($traduction['NON_PAYE'][$facture["langue"]]) . '</strong>') . '</td></tr>
 </table>
 </td>
 </tr></table>

@@ -1,53 +1,71 @@
 <?php
 
-// Catalogue réel du site public (services + formations), lu directement dans
-// la base du SITE via la connexion partagée de fidelite::siteDb() - PAS le
-// contenu de crm_expertise (entité CRM historique, 6 lignes non maintenues,
-// sans rapport avec les vraies pages services du site). Reproduit exactement
-// les filtres utilisés par l'espace client web pour l'onglet Découvrir
-// (voir helloworld/components/com_client/views/client/facture.php) : services
-// "vitrine" (actifs, racine, home=1) et formations à venir, pour que le
-// mobile affiche la même chose que le web plutôt qu'une liste parallèle.
+// Catalogue réel du site public (services, formations, réalisations, témoignages,
+// coordonnées), consommé via l'API hw-admin/crmCatalogApi.php du site (secret partagé
+// CRM_BRIDGE_SECRET, même patron que com_fidelite/controleurs/router.php côté CRM mais dans le
+// sens inverse) - PAS le contenu de crm_expertise/crm_realisation/crm_temoignage/crm_config
+// (entités CRM historiques, quelques lignes non maintenues, sans rapport avec les vraies pages
+// du site). Reproduit exactement les filtres utilisés par l'espace client web pour l'onglet
+// Découvrir (voir helloworld/components/com_client/views/client/facture.php) : services
+// "vitrine" (actifs, racine, home=1) et formations à venir, pour que le mobile affiche la même
+// chose que le web plutôt qu'une liste parallèle.
+//
+// Avant cette version, ce fichier lisait la base du site directement via fidelite::siteDb()
+// (connexion mysqli avec les identifiants trouvés en incluant le config.php du site par chemin
+// relatif) - impossible dès que le CRM et le site ne sont plus sur le même serveur, ce qui est
+// le cas réel en production (CRM sur helloworldlabel.ae, site sur helloworld-agency.com). D'où
+// ce pont HTTP, symétrique de celui déjà en place pour la fidélité.
 class siteCatalog
 {
-    // Base pour les images (servies localement en dev) - même hypothèse de
-    // dossiers frères que fidelite::siteConfigPath().
-    private static function siteBaseUrl()
-    {
-        $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost';
-        return "http://" . $host . "/helloworld/";
-    }
-
-    // Domaine public réel, pour les liens "Découvrir" qui doivent ouvrir la
-    // vraie page du site (pas l'URL locale de dev, jamais joignable
-    // depuis le téléphone d'un client).
+    // Domaine public réel, pour les liens "Découvrir" qui doivent ouvrir la vraie page du site
+    // (pas l'URL locale de dev, jamais joignable depuis le téléphone d'un client).
     const PUBLIC_SITE_URL = "https://www.helloworld-agency.com/";
+
+    private static function call($task, $params = array())
+    {
+        global $hwaURL;
+        if (!defined('CRM_BRIDGE_SECRET') || CRM_BRIDGE_SECRET === '') {
+            error_log('siteCatalog::call - CRM_BRIDGE_SECRET non configuré (config.secrets.php).');
+            return null;
+        }
+        $query = array_merge(array('task' => $task, 'secret' => CRM_BRIDGE_SECRET), $params);
+        $url = rtrim($hwaURL, '/') . '/hw-admin/crmCatalogApi.php?' . http_build_query($query);
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, array(
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 10,
+        ));
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($response === false) {
+            error_log('siteCatalog::call - ' . $task . ' : erreur de connexion (' . $curlError . ')');
+            return null;
+        }
+        if ($httpCode !== 200) {
+            error_log('siteCatalog::call - ' . $task . ' : HTTP ' . $httpCode);
+            return null;
+        }
+        $decoded = json_decode($response, true);
+        return isset($decoded['data']) ? $decoded['data'] : null;
+    }
 
     public static function findServices($langue = 'fr')
     {
-        $db = \fidelite::siteDb();
-        $prefix = \fidelite::sitePrefix();
-        $sql = sprintf(
-            "SELECT A.id AS ID, A.photo, B.titre, B.extrait, B.slug FROM %sservice A " .
-            "LEFT JOIN %sdetails_service B ON A.id = B.id_service AND B.langue = %s " .
-            "WHERE A.active = 1 AND (A.id_parent = 0 OR A.id_parent IS NULL) AND A.home = 1 " .
-            "ORDER BY A.ordre ASC",
-            $prefix,
-            $prefix,
-            GetSQLValueString($langue, "text")
-        );
-        $rows = $db->queryS($sql);
-        if (!is_array($rows)) {
+        $data = self::call('apiServices', array('langue' => $langue));
+        if (!is_array($data)) {
             return array();
         }
-        $base = self::siteBaseUrl();
         $items = array();
-        foreach ($rows as $row) {
+        foreach ($data as $row) {
             $items[] = array(
-                "id" => (int) $row['ID'],
-                "titre" => self::cleanText($row['titre']),
-                "extrait" => self::cleanText($row['extrait']),
-                "photo" => !empty($row['photo']) ? $base . 'images/services/' . $row['photo'] : "",
+                "id" => $row['id'],
+                "titre" => $row['titre'],
+                "extrait" => $row['extrait'],
+                "photo" => $row['photo'],
                 "lien" => !empty($row['slug'])
                     ? self::PUBLIC_SITE_URL . 'service/' . $row['slug'] . '/'
                     : self::PUBLIC_SITE_URL,
@@ -56,51 +74,19 @@ class siteCatalog
         return $items;
     }
 
-    // Le CMS du site stocke titre/extrait avec des entités HTML (CKEditor) -
-    // on les décode et on retire les balises ici, une fois pour toutes,
-    // plutôt que de faire porter ça à chaque écran mobile qui consomme ce
-    // catalogue.
-    // Retourne toujours une chaîne (jamais null) : certaines fiches ont un
-    // champ NULL en base (ex: reference #31 "CALLIOPE" sans extrait) - les
-    // modèles mobile déclarent ces champs non-nullables, un null ferait
-    // planter tout le parsing de la liste pour un seul élément incomplet.
-    private static function cleanText($value)
-    {
-        if (empty($value)) {
-            return "";
-        }
-        return trim(html_entity_decode(strip_tags($value), ENT_QUOTES, 'UTF-8'));
-    }
-
     public static function findFormations($langue = 'fr', $limit = 6)
     {
-        $db = \fidelite::siteDb();
-        $prefix = \fidelite::sitePrefix();
-        $sql = sprintf(
-            "SELECT A.id AS ID, A.photo, A.date_debut, A.date_fin, A.lieu, B.titre, B.extrait, B.slug FROM %sformation A " .
-            "LEFT JOIN %sdetails_formation B ON A.id = B.id_formation AND B.langue = %s " .
-            "WHERE A.active = 1 ORDER BY A.date_debut ASC",
-            $prefix,
-            $prefix,
-            GetSQLValueString($langue, "text")
-        );
-        $rows = $db->queryS($sql);
-        if (!is_array($rows)) {
+        $data = self::call('apiFormations', array('langue' => $langue));
+        if (!is_array($data)) {
             return array();
         }
-        $base = self::siteBaseUrl();
-        $today = date('Y-m-d');
         $items = array();
-        foreach ($rows as $row) {
-            $end = !empty($row['date_fin']) ? $row['date_fin'] : $row['date_debut'];
-            if (!empty($end) && substr($end, 0, 10) < $today) {
-                continue;
-            }
+        foreach ($data as $row) {
             $items[] = array(
-                "id" => (int) $row['ID'],
-                "titre" => self::cleanText($row['titre']),
-                "extrait" => self::cleanText($row['extrait']),
-                "photo" => !empty($row['photo']) ? $base . 'images/formations/' . $row['photo'] : "",
+                "id" => $row['id'],
+                "titre" => $row['titre'],
+                "extrait" => $row['extrait'],
+                "photo" => $row['photo'],
                 "date_debut" => $row['date_debut'],
                 "date_fin" => $row['date_fin'],
                 "lieu" => $row['lieu'],
@@ -115,48 +101,9 @@ class siteCatalog
         return $items;
     }
 
-    // Réalisations / cas clients réels du site (hw_reference), pas
-    // crm_realisation (2 lignes CRM sans rapport) - reproduit exactement le
-    // filtre de la page publique https://www.helloworld-agency.com/r-alisations-et-cas-clients/
-    // (components/com_reference/index.php : active=1, sans limite, triées
-    // par id décroissant) pour que le mobile affiche la même chose que le
-    // site plutôt qu'un sous-ensemble différent.
-    public static function findReferences($langue = 'fr')
-    {
-        $db = \fidelite::siteDb();
-        $prefix = \fidelite::sitePrefix();
-        $sql = sprintf(
-            "SELECT A.id AS ID, A.photo, B.nom_client, B.extrait, B.site_web FROM %sreference A " .
-            "LEFT JOIN %sdetails_reference B ON A.id = B.id_reference AND B.langue = %s " .
-            "WHERE A.active = 1 ORDER BY A.id DESC",
-            $prefix,
-            $prefix,
-            GetSQLValueString($langue, "text")
-        );
-        $rows = $db->queryS($sql);
-        if (!is_array($rows)) {
-            return array();
-        }
-        $base = self::siteBaseUrl();
-        $items = array();
-        foreach ($rows as $row) {
-            $nomClient = self::cleanText($row['nom_client']);
-            $items[] = array(
-                "id" => (int) $row['ID'],
-                "titre" => $nomClient,
-                "extrait" => self::cleanText($row['extrait']),
-                "photo" => !empty($row['photo']) ? $base . 'images/references/' . $row['photo'] : "",
-                "lien" => !empty($nomClient)
-                    ? self::PUBLIC_SITE_URL . 'reference/' . self::slugify($nomClient) . '/' . $row['ID'] . '/'
-                    : self::PUBLIC_SITE_URL,
-            );
-        }
-        return $items;
-    }
-
-    // Équivalent simplifié de url_rewriting() (helloworld/includes/functions)
-    // pour construire le même lien que reference::getLink() sans dépendre de
-    // cette fonction (définie côté site, pas chargée dans le contexte API CRM).
+    // Équivalent simplifié de url_rewriting() (helloworld/includes/functions) pour construire
+    // le même lien que reference::getLink() sans dépendre de cette fonction (définie côté site,
+    // pas chargée dans le contexte CRM).
     private static function slugify($value)
     {
         $value = strtolower(trim($value));
@@ -164,129 +111,46 @@ class siteCatalog
         return trim($value, '-');
     }
 
-    // Vidéos "Digital Expert" réelles du site (hw_video, catégorie id=14,
-    // même filtre que components/com_frontpage/index.php sur la home du
-    // site : video::findAllByCategorie($lang, 14, true, false)). Les vidéos
-    // sont des ID YouTube (hw_video.video), ouvertes en lightbox côté site -
-    // on reconstruit la même URL YouTube pour que le mobile les ouvre dans
-    // le navigateur/l'app YouTube plutôt que d'embarquer un lecteur.
-    public static function findDigitalExpertVideos($langue = 'fr')
+    public static function findReferences($langue = 'fr')
     {
-        $db = \fidelite::siteDb();
-        $prefix = \fidelite::sitePrefix();
-        $sql = sprintf(
-            "SELECT A.id AS ID, A.video, A.photo, A.localisation, A.date_shooting, B.titre, B.extrait " .
-            "FROM %svideo A LEFT JOIN %sdetails_video B ON A.id = B.id_video AND B.langue = %s " .
-            "WHERE A.id_categorie = 14 AND A.active = 1 ORDER BY A.ordre DESC",
-            $prefix,
-            $prefix,
-            GetSQLValueString($langue, "text")
-        );
-        $rows = $db->queryS($sql);
-        if (!is_array($rows)) {
+        $data = self::call('apiReferences', array('langue' => $langue));
+        if (!is_array($data)) {
             return array();
         }
-        $base = self::siteBaseUrl();
         $items = array();
-        foreach ($rows as $row) {
-            if (empty($row['video'])) {
-                continue;
-            }
+        foreach ($data as $row) {
             $items[] = array(
-                "id" => (int) $row['ID'],
-                "titre" => self::cleanText($row['titre']),
-                "extrait" => self::cleanText($row['extrait']),
-                "localisation" => self::cleanText($row['localisation']),
-                "date_shooting" => $row['date_shooting'],
-                "photo" => !empty($row['photo']) ? $base . 'images/videos/' . $row['photo'] : "",
-                "youtube_id" => $row['video'],
-                "youtube_url" => "https://www.youtube.com/watch?v=" . $row['video'],
+                "id" => $row['id'],
+                "titre" => $row['titre'],
+                "extrait" => $row['extrait'],
+                "photo" => $row['photo'],
+                "lien" => !empty($row['titre'])
+                    ? self::PUBLIC_SITE_URL . 'reference/' . self::slugify($row['titre']) . '/' . $row['id'] . '/'
+                    : self::PUBLIC_SITE_URL,
             );
         }
         return $items;
     }
 
-    // Toutes les FAQ actives du site (hw_faq/hw_details_faq) - chaque ligne
-    // est rattachée à un service ou à un agent IA côté site (id_service /
-    // id_agent_ia), mais l'app affiche tout dans une seule rubrique FAQ
-    // comme demandé, sans ce regroupement.
-    public static function findFaqs($langue = 'fr')
-    {
-        $db = \fidelite::siteDb();
-        $prefix = \fidelite::sitePrefix();
-        $sql = sprintf(
-            "SELECT A.id AS ID, B.titre, B.texte FROM %sfaq A " .
-            "LEFT JOIN %sdetails_faq B ON A.id = B.id_faq AND B.langue = %s " .
-            "WHERE A.active = 1 ORDER BY A.id ASC",
-            $prefix,
-            $prefix,
-            GetSQLValueString($langue, "text")
-        );
-        $rows = $db->queryS($sql);
-        if (!is_array($rows)) {
-            return array();
-        }
-        $items = array();
-        foreach ($rows as $row) {
-            $question = self::cleanText($row['titre']);
-            $reponse = self::cleanText($row['texte']);
-            if (empty($question) || empty($reponse)) {
-                continue;
-            }
-            $items[] = array(
-                "id" => (int) $row['ID'],
-                "question" => $question,
-                "reponse" => $reponse,
-            );
-        }
-        return $items;
-    }
-
-    // Coordonnées et réseaux sociaux réels du site (hw_config) - le
-    // crm_config du CRM contient des valeurs obsolètes (ex: un email
-    // "verse-concept.com" hérité d'un tout autre client, jamais mis à jour).
     public static function siteConfig()
     {
-        $db = \fidelite::siteDb();
-        $prefix = \fidelite::sitePrefix();
-        $rows = $db->queryS("SELECT email, tel, tel2, facebook, twitter, instagram, youtube, linkedin FROM " . $prefix . "config LIMIT 1");
-        if (!is_array($rows) || count($rows) === 0) {
-            return array();
-        }
-        return $rows[0];
+        $data = self::call('apiConfig');
+        return is_array($data) ? $data : array();
     }
 
-    // Vrais avis clients du site (hw_temoignage, 28 actifs) - pas
-    // crm_temoignage (2 lignes seulement, jamais rempli côté CRM).
     public static function findTestimonials($langue = 'fr')
     {
-        $db = \fidelite::siteDb();
-        $prefix = \fidelite::sitePrefix();
-        $sql = sprintf(
-            "SELECT A.id AS ID, A.photo, B.nom, B.fonction, B.temoignage FROM %stemoignage A " .
-            "LEFT JOIN %sdetails_temoignage B ON A.id = B.id_temoignage AND B.langue = %s " .
-            "WHERE A.active = 1 ORDER BY A.ordre ASC",
-            $prefix,
-            $prefix,
-            GetSQLValueString($langue, "text")
-        );
-        $rows = $db->queryS($sql);
-        if (!is_array($rows)) {
+        $data = self::call('apiTestimonials', array('langue' => $langue));
+        if (!is_array($data)) {
             return array();
         }
-        $base = self::siteBaseUrl();
         $items = array();
-        foreach ($rows as $row) {
-            $auteur = self::cleanText($row['nom']);
-            $texte = self::cleanText($row['temoignage']);
-            if (empty($auteur) || empty($texte)) {
-                continue;
-            }
+        foreach ($data as $row) {
             $items[] = array(
-                "author" => $auteur,
-                "fonction" => self::cleanText($row['fonction']),
-                "testimonial" => $texte,
-                "photo" => !empty($row['photo']) ? $base . 'images/temoignages/' . $row['photo'] : null,
+                "author" => $row['author'],
+                "fonction" => $row['fonction'],
+                "testimonial" => $row['testimonial'],
+                "photo" => !empty($row['photo']) ? $row['photo'] : null,
                 "active" => true,
             );
         }

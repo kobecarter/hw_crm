@@ -143,6 +143,9 @@ if (isset($_GET['task']) && !empty($_GET['task'])) {
          case 'pdfPayment':
             include_once("payment/controleur.php");
         break;
+        case 'pdfPaymentApi':
+            include_once("payment/controleur.php");
+        break;
         case 'sendPaymentRequestPdf':
             if ($_SESSION['user']->hasDroit('edit', 'com_facture')) {
                 include_once("payment/controleur.php");

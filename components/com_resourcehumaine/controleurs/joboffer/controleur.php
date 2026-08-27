@@ -497,6 +497,14 @@ function cronVerifierValidationSlackEndpoint()
         if (empty($msg['text'])) {
             continue;
         }
+        // Un message posté par le bot lui-même (annonce initiale ou relance) contient littéralement
+        // "Je ne valide pas l'offre de X" comme texte d'INSTRUCTION ("pour refuser : ...") - sans ce
+        // filtre, ce message se matche lui-même comme un refus dès le premier passage du cron, avant
+        // même qu'un humain n'ait eu la moindre chance de répondre. Slack distingue les messages bot
+        // par la présence de bot_id (absent des messages humains).
+        if (isset($msg['bot_id'])) {
+            continue;
+        }
         $texteMsg = trim($msg['text']);
 
         $estRefus = preg_match('/je\s+(?:ne\s+valide\s+pas|valide\s+pas|refuse)\s+l[\'’]offre\s+de\s+(.+)/iu', $texteMsg, $m);
@@ -572,7 +580,11 @@ function envoyerEmailOffreValideeAuCandidat($offer, $token)
         $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
         $mail->CharSet = 'UTF-8';
 
-        $mail->setFrom(SMTP_USERNAME, $nomAgence);
+        // From explicitement direction@ (pas SMTP_USERNAME/sales@) -- même convention que
+        // envoyerEmailDocumentsManquantsRH() (includes/functions/functions.php) pour les
+        // emails adressés aux employés. setFrom() ne dépend pas des identifiants SMTP
+        // authentifiés (Username/Password ci-dessus), qui restent sales@.
+        $mail->setFrom('direction@helloworld-agency.com', $nomAgence);
         $mail->addAddress($resourcehumaine->getEmail(), $nomComplet);
         $mail->isHTML(true);
         $mail->Subject = "Votre offre d'emploi chez " . $nomAgence . " a été validée !";

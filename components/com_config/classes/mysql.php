@@ -102,6 +102,13 @@ class mysql extends dbfactory {
     // valide QUE si la chaîne était effectivement doublement encodée, ce qui sert aussi de
     // détection : les quelques tables déjà correctement en utf8mb4 (ex: crm_releve_ligne) ne sont
     // jamais altérées, car leur texte, lui, n'est pas doublement encodé.
+    //
+    // Second cas distinct, même symptôme : du texte inséré pendant une requête où la connexion
+    // avait négocié "utf8mb4" (ex: juste après un appel API IA) se fait correctement — mais avec
+    // perte - convertir en un seul octet latin1 par MySQL au moment d'atteindre une colonne
+    // déclarée latin1 (ex: crm_client.ia_recap : "févrit" -> un octet 0xE9 pour le "é", au lieu
+    // des deux octets UTF-8 attendus). Ce texte-là N'EST PAS de l'UTF-8 valide du tout (contrairement
+    // au cas double-encodé ci-dessus), ce qui permet de distinguer les deux cas sans ambiguïté.
     private static function repererEtCorrigerMojibake($ligne)
     {
         if (!is_array($ligne)) {
@@ -109,6 +116,15 @@ class mysql extends dbfactory {
         }
         foreach ($ligne as $cle => $valeur) {
             if (!is_string($valeur) || $valeur === '') {
+                continue;
+            }
+            if (!mb_check_encoding($valeur, 'UTF-8')) {
+                // Même quirk latin1-est-en-fait-cp1252 que la ligne juste en dessous : Windows-1252,
+                // pas ISO-8859-1, pour retrouver correctement les octets 0x80-0x9F.
+                $reencode = @mb_convert_encoding($valeur, 'UTF-8', 'Windows-1252');
+                if ($reencode !== false && mb_check_encoding($reencode, 'UTF-8')) {
+                    $ligne[$cle] = $reencode;
+                }
                 continue;
             }
             // Windows-1252 et non ISO-8859-1 : le charset "latin1" de MySQL est en réalité

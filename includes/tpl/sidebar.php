@@ -233,6 +233,9 @@
 					}
 				}
 				?>
+				<li class="<?= isset($_GET['option']) && $_GET['option'] == "com_documentation" ? "active" : "" ?>">
+					<a href="index.php?option=com_documentation"><i class="fa fa-book"></i> <span>Documentation</span></a>
+				</li>
 			</ul>
 		</div>
 	</div>

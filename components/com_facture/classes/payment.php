@@ -16,6 +16,7 @@ class payment
     private $date_add;
     private $last_edit;
     private $reg_img;
+    private $numero_sequence;
 
     public function __construct()
     {
@@ -72,6 +73,15 @@ class payment
         return $this->reg_img;
     }
 
+    // Numéro de reçu de paiement (facture.numero + '-' + ce numéro), attribué une seule fois à la
+    // création via facture::assignNextPaymentSeq() et jamais recalculé/décrémenté ensuite - voir
+    // ce commentaire côté facture::assignNextPaymentSeq() pour le pourquoi (éviter la réutilisation
+    // d'un numéro déjà émis après suppression d'un paiement intermédiaire).
+    public function getNumeroSequence()
+    {
+        return $this->numero_sequence;
+    }
+
     public function setId($id)
     {
         $this->id = $id;
@@ -122,11 +132,16 @@ class payment
         $this->reg_img = $reg_img;
     }
 
+    public function setNumeroSequence($numero_sequence)
+    {
+        $this->numero_sequence = $numero_sequence;
+    }
+
     public function add()
     {
         global $db;
         $SQLinsert = sprintf(
-            "INSERT INTO " . static::$table . " (id_facture, montant, reg_img, date_payment, methode_payment, date_validation, detail, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s , %s)",
+            "INSERT INTO " . static::$table . " (id_facture, montant, reg_img, date_payment, methode_payment, date_validation, detail, date_add, last_edit, numero_sequence) VALUES (%s, %s, %s, %s, %s, %s, %s, %s , %s, %s)",
             GetSQLValueString($this->facture->getId(), "int"),
             GetSQLValueString($this->montant, "double"),
             GetSQLValueString($this->reg_img, "text"),
@@ -135,8 +150,9 @@ class payment
             GetSQLValueString($this->date_validation, "date"),
             GetSQLValueString($this->detail, "text"),
             GetSQLValueString($this->date_add, "date"),
-            GetSQLValueString($this->last_edit, "date")
-            );  
+            GetSQLValueString($this->last_edit, "date"),
+            GetSQLValueString($this->numero_sequence, "int")
+            );
         if (!$db->query($SQLinsert)) {
             return 1;
         } else {
@@ -251,6 +267,7 @@ class payment
         $payment->setDetail($data['detail']);
         $payment->setDateAdd($data['date_add']);
         $payment->setLastEdit($data['last_edit']);
+        $payment->setNumeroSequence(isset($data['numero_sequence']) ? $data['numero_sequence'] : null);
         return $payment;
     }
 
@@ -348,8 +365,14 @@ class payment
 
     function pdfPayment($output="show",$indexPayment=1){
         global $db;
-        
-            
+
+            // Le numéro stocké (assigné une seule fois à la création, cf. facture::assignNextPaymentSeq())
+            // prime toujours sur le paramètre légataire $indexPayment. Le fallback ne sert plus qu'au flux
+            // "demande d'acompte" (sendPaymentRequestPdf) qui construit un payment jamais persisté.
+            if ($this->numero_sequence !== null && $this->numero_sequence !== '') {
+                $indexPayment = $this->numero_sequence;
+            }
+
             require '../../../vendor/autoload.php';
             require '../../../includes/traduction.php';
 
@@ -645,10 +668,270 @@ $htmlInvoice .= '</div>
                 $dirPath = $dirPath."uploads/";
                 $mpdf->Output($dirPath.$file_name,'F');
                 return $file_name;
-                
+
             }
 
-            
-        
+
+
+    }
+
+    // Reçu de paiement (espace client, API à jeton) : même principe que
+    // facture::pdfFactureApi() -- entièrement basé sur des tableaux (jamais
+    // $_SESSION['agence']/$_SESSION['langue']) pour rester appelable hors
+    // d'une session admin CRM. Un client ne peut télécharger que SES PROPRES
+    // paiements : vérifié via la facture parente (findByIdApi() refuse déjà
+    // tout id_client qui ne correspond pas au token).
+    public static function pdfPaymentApi($idClient, $idPayment, $output = "download")
+    {
+        $token = getToken();
+        if (!$token || (int) $token->id !== (int) $idClient) {
+            return array("icon" => "error", "message" => "Unauthorized");
+        }
+        global $db;
+
+        require '../../../vendor/autoload.php';
+        require '../../../includes/traduction.php';
+
+        $rows = $db->queryS(sprintf(
+            "SELECT id, id_facture, montant, date_payment, numero_sequence, reg_img FROM " . static::$table . " WHERE id = %s",
+            GetSQLValueString((int) $idPayment, "int")
+        ));
+        if (!is_array($rows) || count($rows) === 0) {
+            return array("icon" => "error", "message" => "Not found");
+        }
+        $paymentData = $rows[0];
+
+        $facture = facture::findByIdApi((int) $paymentData['id_facture']);
+        if (!is_array($facture)) {
+            // Facture introuvable ou n'appartenant pas au client authentifié.
+            return array("icon" => "error", "message" => "Unauthorized");
+        }
+        // Même règle que l'admin (pdfPayment côté controleur) : si la facture n'a
+        // en réalité qu'un seul paiement couvrant tout le total, pas de reçu de
+        // paiement séparé -- le client doit télécharger la facture globale.
+        if (facture::isGlobalPdfAllowedApi($facture["ID"], (float) $facture["total"])) {
+            return array("icon" => "warning", "message" => "Cette facture a ete reglee en un seul paiement, merci de telecharger la facture globale.");
+        }
+
+        $dirPath = "../../../";
+        $typePayment = $traduction['FACTURE'][$facture["langue"]];
+        if ($facture["id_facture"]) {
+            $facture_ref = facture::findByIdApi($facture["id_facture"]);
+            $typePayment = $traduction['AVOIR'][$facture["langue"]];
+        }
+        $client = $facture["client"];
+        $agence = $client["agence"];
+        $items = facture::getItemsApi($facture["ID"]);
+        $invoiceFor = $client["raison_social"] != '' ? $client["raison_social"] : $client["nom"] . ' ' . $client["prenom"];
+        // Couleur volontairement fixe (#e3d3aa), pas $agence["color"] -- même choix que
+        // payment::pdfPayment() (admin) : les reçus de paiement gardent toujours ce ton,
+        // contrairement à la facture globale (facture::pdfFactureApi()) qui suit la couleur
+        // de l'agence.
+        $indexPayment = ($paymentData['numero_sequence'] !== null && $paymentData['numero_sequence'] !== '') ? $paymentData['numero_sequence'] : 1;
+
+        $htmlInvoice = '<html>
+<head>
+<style>
+body {
+    font-family: montserrat;
+    font-size: 10pt;
+}
+p { margin: 0pt; }
+table.items {
+}
+td { vertical-align: top; }
+.items td {
+    border-left: 0.1mm solid #FFF;
+    border-right: 0.1mm solid #FFF;
+    border-bottom: 0.1mm solid #CCC;
+}
+table thead td { background-color: #EEEEEE;
+    text-align: center;
+    border-left: 0.1mm solid #FFF;
+    border-right: 0.1mm solid #FFF;
+}
+.items td.blanktotal {
+    background-color: #EEEEEE;
+    border: 0.1mm solid #FFF;
+    background-color: #FFFFFF;
+    border: 0mm none #000000;
+}
+.items td.totals {
+    text-align: right;
+    border-bottom: 0.1mm solid #CCC;
+}
+.items td.cost {
+    text-align: "." center;
+}
+.div-signature{
+    text-align:right;
+}
+</style>
+</head>
+<body>
+<!--mpdf
+<htmlpageheader name="myheader">
+<table width="100%">
+<tr>
+    <td><img src="' . $dirPath . 'images/agences/' . $agence["logo"] . '" width="100"></td>
+    <td align="right" style="vertical-align: middle;"><strong style="font-size: 8pt;"><br><br>' . $agence["adresse"] . '</strong><br>
+    <p style="font-size: 8pt;"><strong>t:</strong> ' . $agence["tel"] . '  |  <strong>e:</strong> ' . $agence["email"] . ' | <strong>w:</strong> ' . $agence["website"] . '</p></td>
+</tr>
+</table>
+<hr>
+</htmlpageheader>
+<htmlpagefooter name="myfooter">
+<div style="border-top: 1px solid #CCC; font-size: 9pt; text-align: center; padding-top: 3mm; ">';
+
+        if ($agence["ice"] != '') {
+            $htmlInvoice .= '<p style="font-size:8pt;"><strong>IF</strong> ' . $agence["if"] . ' | <strong>TP</strong> ' . $agence["tp"] . ' | <strong>RC</strong> ' . $agence["rc"] . ' | <strong>ICE</strong> ' . $agence["ice"] . '</p>';
+        }
+
+        $htmlInvoice .= '<div style="margin-top:5pt;">Page {PAGENO} ' . $traduction['SUR'][$facture["langue"]] . ' {nb}</div>
+</div>
+</htmlpagefooter>
+<sethtmlpageheader name="myheader" value="on" show-this-page="1" />
+<sethtmlpagefooter name="myfooter" value="on" />
+mpdf-->
+<table width="100%">
+<tr>
+<td width="35%" style="vertical-align: middle; font-size:8pt;">' . (isset($facture_ref) ? $traduction['AVOIR_FACTURE'][$facture["langue"]] . ' N° ' . $facture_ref["numero"] : $traduction['FACTURE_POUR'][$facture["langue"]]) . '<hr style="margin:1pt 0 6pt 0;"><span style="font-weight: bold; font-size: 10pt; color:#e3d3aa">' . $invoiceFor . '</span><br /><span style="font-family:dejavusanscondensed;">&#9742;</span> ' . $client["tel"] . '<br>' . $client["email"] . '<br>' . $client["ice"] . '<br /></td>
+<td width="30%"></td>
+
+<td width="35%" style="text-align: right;">
+
+<table style="margin-bottom:5pt;">
+<tr><td style="font-size:8pt;">Total ' . $typePayment . '</td></tr>
+<tr><td style="border-top:#e3d3aa solid 0.5pt;"><strong style="font-size: 12pt;">' . number_format((float) $paymentData['montant'], 2, ',', ' ') . ' ' . $facture["devise"] . '</strong></td></tr>
+</table>
+
+<table style="margin-bottom:5pt;">
+<tr><td style="font-size:8pt;">Date ' . $typePayment . '</td></tr>
+<tr><td style="border-top:#e3d3aa solid 0.5pt;"><strong style="font-size: 12pt;">' . normaldate2($paymentData['date_payment']) . '</strong></td></tr>
+</table>
+
+<table>
+<tr><td style="font-size:8pt;">N° ' . $typePayment . '</td></tr>
+<tr><td style="border-top:#e3d3aa solid 0.5pt;"><strong style="font-size: 12pt;">' . $facture["numero"] . '-' . $indexPayment . '</strong></td></tr>
+<tr><td>' . ($paymentData['reg_img'] != '' ? '<strong style="color:#2e7d32;">' . mb_strtoupper($traduction['PAYE'][$facture["langue"]]) . '</strong>' : '<strong style="color:#c62828;">' . mb_strtoupper($traduction['NON_PAYE'][$facture["langue"]]) . '</strong>') . '</td></tr>
+</table>
+</td>
+</tr></table>
+<br />
+<table class="items" width="100%" style="font-size: 9pt; border-collapse: collapse; " cellpadding="8">
+<thead>
+<tr>
+<td width="45%" style="text-align:left;">Description</td>
+<td width="15%">' . $traduction['PRIX_HT'][$facture["langue"]] . '</td>
+<td width="20%">' . $traduction['QTE'][$facture["langue"]] . '</td>
+<td width="20%" align="right">' . $traduction['TOTAL_HT'][$facture["langue"]] . '</td>
+</tr>
+</thead>
+<tbody>
+<!-- ITEMS HERE -->';
+        foreach ($items as $item) {
+            $unite = getUnities()[$facture["langue"]][$item["unite"]] ?? '';
+            $htmlInvoice .= '<tr>
+<td><strong>' . $item["titre"] . '</strong><div style="font-size:8pt; color:#999">' . $item["description"] . '</div></td>
+<td align="center" style="vertical-align:middle;">-</td>
+<td align="center" style="vertical-align:middle;">' . $item["qte"] . ' x ' . $unite . '</td>
+<td align="right" style="vertical-align:middle;" class="cost">-</td>
+</tr>';
+        }
+
+        $sousTotal = $facture["proforma"] ? number_format((float) $paymentData['montant'], 2, ',', ' ') : number_format((float) $paymentData['montant'] / (1 + ($agence["tva"] / 100)), 2, ',', ' ');
+        $htmlInvoice .= '<!-- END ITEMS HERE -->
+<tr>
+<td class="blanktotal" colspan="2" rowspan="6"></td>
+<td class="totals">' . $traduction['SSTOTAL_HT'][$facture["langue"]] . '</td>
+<td class="totals cost">' . $sousTotal . ' ' . $facture["devise"] . '</td>
+</tr>';
+
+        if (!$facture["proforma"]) {
+            $tva = (float) $paymentData['montant'] - ((float) $paymentData['montant'] / (1 + ($agence["tva"] / 100)));
+            $htmlInvoice .= '<tr>
+<td class="totals">' . $traduction['TVA'][$facture["langue"]] . '</td>
+<td class="totals cost">' . number_format($tva, 2, ',', ' ') . ' ' . $facture["devise"] . '</td>
+</tr>';
+        }
+
+        $totalLabel = $facture["proforma"] ? 'TOTAL' : $traduction['TOTAL_TTC'][$facture["langue"]];
+        $htmlInvoice .= '<tr style="background:#e3d3aa;">
+<td class="totals" style="color:#FFF; border-right:0.1mm solid #e3d3aa;"><b>' . $totalLabel . '</b></td>
+<td class="totals cost" style="color:#FFF;"><strong>' . number_format((float) $paymentData['montant'], 2, ',', ' ') . ' ' . $facture["devise"] . '</strong></td>
+</tr>
+</tbody>
+</table><div style="margin-top:50t;"><p style="font-size:8pt;">';
+        if ($facture["remarque"] != '') {
+            $htmlInvoice .= '<strong>' . $traduction['REMARQUE'][$facture["langue"]] . ': </strong>' . $facture["remarque"];
+        }
+        $htmlInvoice .= '</p></div>
+<div style="margin-top:100t;">
+<h3 style="color:#e3d3aa;">' . $traduction['THANK_YOU_FOR'][$facture["langue"]] . $agence["nom"] . ' !!</h3>
+<p style="font-size:8pt;"><strong>' . $agence["conditions"] . '</p>
+<p style="font-size:8pt;"><strong>' . $traduction['CONDITIONS_PAYMENT'][$facture["langue"]] . ': </strong>' . $facture["condition_paiment"] . '</p>';
+        if (is_array($facture["bank"]) && !empty($facture["bank"])) {
+            $htmlInvoice .= '<p style="font-size:8pt;"><br>';
+            if ($facture["bank"]["raison_sociale"] != '') $htmlInvoice .= '<strong>' . $traduction['RAISON_SOCIALE'][$facture["langue"]] . ':</strong> ' . $facture["bank"]["raison_sociale"] . ' <br>';
+            if ($facture["bank"]["rib"] != '') $htmlInvoice .= '<strong>' . $traduction['ACCOUNT_NUMBER'][$facture["langue"]] . ':</strong> ' . $facture["bank"]["rib"] . ' <br>';
+            if ($facture["bank"]["iban_number"] != '') $htmlInvoice .= '<strong>' . $traduction['IBAN'][$facture["langue"]] . ':</strong> ' . $facture["bank"]["iban_number"] . ' <br>';
+            if ($facture["bank"]["banque"] != '') $htmlInvoice .= '<strong>' . $traduction['BRANCH'][$facture["langue"]] . ':</strong> ' . $facture["bank"]["banque"] . ' <br>';
+            if ($facture["bank"]["code_swift"] != '') $htmlInvoice .= '<strong>' . $traduction['SWIFT_CODE'][$facture["langue"]] . ':</strong> ' . $facture["bank"]["code_swift"] . ' <br>';
+            if ($facture["bank"]["currency"] != '') $htmlInvoice .= '<strong>' . $traduction['CURRENCY'][$facture["langue"]] . ':</strong> ' . $facture["bank"]["currency"] . ' <br>';
+            $htmlInvoice .= '</p>';
+        }
+
+        if ($facture["show_signature"]) {
+            $htmlInvoice .= '<div class="div-signature" style="padding-top: 50px;padding-bottom: 50px;">
+                                <img src="' . $dirPath . 'images/agences/' . $agence["signature"] . '" width="300">
+                            </div>';
+        }
+
+        $htmlInvoice .= '</div>
+</body>
+</html>';
+
+        $defaultConfig = (new \Mpdf\Config\ConfigVariables())->getDefaults();
+        $fontDirs = $defaultConfig['fontDir'];
+        $defaultFontConfig = (new \Mpdf\Config\FontVariables())->getDefaults();
+        $fontData = $defaultFontConfig['fontdata'];
+
+        $mpdf = new \Mpdf\Mpdf([
+            'margin_left' => 20,
+            'margin_right' => 15,
+            'margin_top' => 48,
+            'margin_bottom' => 25,
+            'margin_header' => 10,
+            'margin_footer' => 10,
+            'fontDir' => array_merge($fontDirs, ['../../../fonts/']),
+            'fontdata' => $fontData + [
+                'montserrat' => [
+                    'R' => 'Montserrat-Regular.ttf',
+                    'B' => 'Montserrat-Bold.ttf',
+                ]
+            ],
+            'default_font' => 'montserrat'
+        ]);
+
+        $mpdf->SetProtection(array('print', 'copy'));
+        $mpdf->SetTitle("Facture #" . $facture["numero"] . $indexPayment);
+        $mpdf->SetAuthor("Hello World");
+        $mpdf->SetWatermarkText("");
+        $mpdf->showWatermarkText = true;
+        $mpdf->watermark_font = 'DejaVuSansCondensed';
+        $mpdf->watermarkTextAlpha = 0.05;
+        $mpdf->SetDisplayMode('fullpage');
+
+        $htmlInvoice = mb_convert_encoding($htmlInvoice, 'UTF-8', 'UTF-8');
+        $mpdf->WriteHTML($htmlInvoice);
+        // Même schéma de nom de fichier que payment::pdfPayment() (admin).
+        $file_name = $traduction['FACTURE'][$facture["langue"]] . '-' . $facture["numero"] . $indexPayment . '-' . str_replace(array(' ', '/', '\\'), '-', trim($invoiceFor)) . '.pdf';
+        if ($output == "show") {
+            $mpdf->Output($file_name, 'I');
+        } else {
+            $dirPath = $dirPath . "uploads/";
+            $mpdf->Output($dirPath . $file_name, 'F');
+            return $file_name;
+        }
     }
 }

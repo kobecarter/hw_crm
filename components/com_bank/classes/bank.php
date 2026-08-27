@@ -318,7 +318,11 @@ class bank
         $reglesParAgence = array(
             3 => array(1, 11, 7),
             1 => array(6, 12, 10, 11, 7),
-            2 => array(2),
+            // 13 = XNBD PERSONAL HAMID DUBAI : compte perso ("PERSONAL" dans la raison
+            // sociale, cf. estPerso plus bas / com_bank/controleurs/bank/controleur.php),
+            // donc déjà automatiquement restreint aux devis/factures proforma par
+            // assets/js/ia-bank-filter.js dès qu'il est sélectionné.
+            2 => array(2, 13),
         );
 
         if (isset($reglesParAgence[$idAgence])) {

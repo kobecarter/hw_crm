@@ -63,7 +63,11 @@ function resetPasswordRequest($data)
             $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 587;
             $mail->CharSet = 'UTF-8';
 
-            $mail->setFrom(SMTP_USERNAME, 'Hello World CRM');
+            // From explicitement direction@ (pas SMTP_USERNAME/sales@) -- même convention que
+            // envoyerEmailDocumentsManquantsRH() (includes/functions/functions.php) pour les
+            // emails adressés aux employés. setFrom() ne dépend pas des identifiants SMTP
+            // authentifiés (Username/Password ci-dessus), qui restent sales@.
+            $mail->setFrom('direction@helloworld-agency.com', 'Hello World CRM');
             $mail->addAddress($user->getEmail(), trim($user->getPrenom() . ' ' . $user->getNom()));
             $mail->isHTML(true);
             $mail->Subject = 'Réinitialisation de votre mot de passe';
@@ -73,6 +77,7 @@ function resetPasswordRequest($data)
                 . '<p>Ce lien est valable 1 heure. Si vous n\'êtes pas à l\'origine de cette demande, ignorez simplement cet email.</p>';
             $mail->AltBody = "Réinitialisez votre mot de passe : " . $lienReset . " (valable 1 heure)";
             $mail->send();
+            copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage());
         } catch (\Exception $e) {
             // Volontairement silencieux côté réponse (message générique inchangé) - une erreur
             // SMTP ne doit jamais laisser deviner si l'email existait ou non.

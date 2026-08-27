@@ -1,5 +1,5 @@
 <?php
-include_once(__DIR__ . '../../../vendor/autoload.php');
+include_once(__DIR__ . '/../../../../vendor/autoload.php');
 
 if (isset($task) && !empty($task)) {
 	switch ($task) {
@@ -193,7 +193,7 @@ function filterFacture($data)
 									<?php endif; ?>
 									<?php if ($_SESSION['user']->hasDroit('view', 'com_facture')) : ?>
 										<a class="dropdown-item text-success" href="index.php?option=com_facture&task=payment&id=<?php echo $facture->getId(); ?>"><i class="far fa-money-bill-alt mr-2"></i>Reglement</a>
-										<?php if($facture->getReste() <= 0): ?>
+										<?php if($facture->isGlobalPdfAllowed($payments)): ?>
 										<a class="dropdown-item text-danger" href="components/com_facture/controleurs/router.php?task=pdfFacture&id=<?php echo $facture->getId(); ?>" target="_blank"><i class="far fa-file-pdf mr-2"></i>PDF</a>
 										<?php endif; ?>
 									<?php endif; ?>
@@ -788,10 +788,13 @@ function pdfFacture($data)
 		require '../../../includes/traduction.php';
 
 		$facture = facture::find($data["id"], $_SESSION['agence']);
-		if($facture->getReste() <= 0)
+		if ($facture->isGlobalPdfAllowed()) {
 			$facture->pdfFacture("show");
-		else
+		} elseif ($facture->getReste() > 0) {
 			echo '<h2 align="center" style="margin-top:100px;">Vous devez régler cette facture pour pouvoir la télécharger<h2>';
+		} else {
+			echo '<h2 align="center" style="margin-top:100px;">Cette facture a été réglée en plusieurs paiements — merci de télécharger le(s) reçu(s) de paiement correspondant(s)<h2>';
+		}
 	}
 }
 
@@ -1082,6 +1085,9 @@ function exportFactureTest($data)
 function findAllByClientApi($data)
 {
 	$factures = facture::findAllByClientApi($data['client'], false, false, true, false, false);
+	// findAllByClientApi() renvoie une chaîne JSON (pas un tableau) si le jeton
+	// est absent/invalide -- array_walk_recursive() sur une chaîne est fatal.
+	if (!is_array($factures)) { echo $factures; return; }
 	// Convert array to UTF-8
     array_walk_recursive($factures, function (&$item) {
         if (is_string($item)) {
@@ -1094,6 +1100,7 @@ function findAllByClientApi($data)
 function getPaymentsByClientApi($data)
 {
 	$payments = facture::getPaymentsByClientApi($data['client']);
+	if (!is_array($payments)) { echo $payments; return; }
 	array_walk_recursive($payments, function (&$item) {
 		if (is_string($item)) {
 			$item = mb_convert_encoding($item, 'UTF-8', 'UTF-8');

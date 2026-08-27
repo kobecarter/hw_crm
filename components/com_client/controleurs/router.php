@@ -122,6 +122,12 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
         case 'findClientSocialsByClientApi' :
                 include_once ("client/controleur.php");
             break;
+        case 'findParrainagesByClientApi' :
+                include_once ("client/controleur.php");
+            break;
+        case 'createParrainageApi' :
+                include_once ("client/controleur.php");
+            break;
         case 'downloadAttestationAdmin' :
             if ($_SESSION['user']->hasDroit('view', 'com_client')) {
                 include_once ("client/controleur.php");
