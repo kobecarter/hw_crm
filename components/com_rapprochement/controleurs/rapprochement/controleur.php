@@ -1013,6 +1013,55 @@ function creerJustificatifManuel($data, $files)
         return;
     }
 
+    if ($mode === 'compte_courant') {
+        if (!isset($data['id_bank_perso']) || empty($data['id_bank_perso'])) {
+            echo json_encode(array('success' => 0, 'message' => 'Choisissez le compte courant correspondant'));
+            return;
+        }
+        $bankPerso = bank::find(intval($data['id_bank_perso']));
+        if (!$bankPerso || !$bankPerso->getId()) {
+            echo json_encode(array('success' => 0, 'message' => 'Compte introuvable'));
+            return;
+        }
+        $nomComptePerso = nomAfficheCompte($bankPerso);
+
+        $nomFichierCharge = resoudreJustificatifFichier($files, 'justificatif', $ligne);
+
+        $charge = new charge();
+        $charge->setAgence($ligne->getAgence());
+        $charge->setUser($_SESSION['user']);
+        $charge->setPaidBy($_SESSION['user']);
+        $charge->setType('variable');
+        $charge->setTitre('Compte courant — ' . $nomComptePerso);
+        $charge->setDescription('Charge créée depuis BANK STATEMENT — transfert vers le compte courant personnel : ' . $nomComptePerso . '.');
+        $charge->setRemarque($remarque);
+        $charge->setTotal($montant);
+        $charge->setDevise('DH');
+        $charge->setTvaTaux(null);
+        $charge->setTvaDeductible(0);
+        $charge->setPaid(1);
+        $charge->setFacture(0);
+        $charge->setRefunded(0);
+        $charge->setDateCharge($ligne->getDateOperation());
+        $charge->setDatePayment($ligne->getDateOperation());
+        $charge->setModePayment('virement');
+        if ($nomFichierCharge) {
+            $charge->setPhoto($nomFichierCharge);
+        }
+        $charge->setDateAdd(date('Y-m-d H:i:s'));
+        $charge->setLastEdit(date('Y-m-d H:i:s'));
+        $charge->add();
+        $idCharge = charge::getLastId();
+
+        $ligne->setIdCharge($idCharge);
+        $ligne->setStatut('matched_charge');
+        $ligne->setLastEdit(date('Y-m-d H:i:s'));
+        $ligne->edit();
+
+        echo json_encode(array('success' => 1, 'action' => 'charge_creee', 'id_charge' => $idCharge));
+        return;
+    }
+
     // Mode par défaut : charge générique.
     $nomFichierCharge = resoudreJustificatifFichier($files, 'justificatif', $ligne);
 

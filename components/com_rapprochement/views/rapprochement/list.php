@@ -450,6 +450,10 @@
 						<input type="radio" name="justificatifMode" value="fournisseur">
 						<span><i class="fa fa-truck mr-1"></i>Fournisseur</span>
 					</label>
+					<label class="justificatif-mode-item">
+						<input type="radio" name="justificatifMode" value="compte_courant">
+						<span><i class="fa fa-wallet mr-1"></i>Compte courant</span>
+					</label>
 				</div>
 
 				<div id="justificatifSuggestionEmploye" class="alert alert-info d-none" style="font-size:0.82rem;"></div>
@@ -466,8 +470,8 @@
 						<label>Employé</label>
 						<select class="form-control" id="justificatifResourcehumaine">
 							<option value="">Choisir l'employé...</option>
-							<?php foreach ($employesActifs as $e) :?>
-							<option value="<?= $e->getId() ?>"><?= htmlspecialchars($e->getFullName()) ?></option>
+							<?php foreach ($employesPourJustificatif as $e) :?>
+							<option value="<?= $e->getId() ?>"><?= htmlspecialchars($e->getFullName()) ?><?= $e->isActive() ? '' : ' (inactif)' ?></option>
 							<?php endforeach;?>
 						</select>
 					</div>
@@ -510,6 +514,19 @@
 					<div class="form-group">
 						<label>Titre de la charge (optionnel)</label>
 						<input type="text" class="form-control" id="justificatifTitreFournisseur">
+					</div>
+				</div>
+
+				<div id="justificatifZoneCompteCourant" class="d-none">
+					<div class="form-group">
+						<label>Compte courant (personnel)</label>
+						<select class="form-control" id="justificatifCompteCourant">
+							<option value="">Choisir le compte...</option>
+							<?php foreach ($banksPerso as $b) :?>
+							<?php $nomComptePerso = $b->getLabel() !== null && $b->getLabel() !== '' ? $b->getLabel() : ($b->getRaisonSociale() !== null && $b->getRaisonSociale() !== '' ? $b->getRaisonSociale() : $b->getBanque());?>
+							<option value="<?= $b->getId() ?>"><?= htmlspecialchars($nomComptePerso) ?></option>
+							<?php endforeach;?>
+						</select>
 					</div>
 				</div>
 
@@ -1743,6 +1760,7 @@ $(function () {
 		$('#justificatifZoneCharge').toggleClass('d-none', mode !== 'charge');
 		$('#justificatifZonePayslip').toggleClass('d-none', mode !== 'payslip');
 		$('#justificatifZoneFournisseur').toggleClass('d-none', mode !== 'fournisseur');
+		$('#justificatifZoneCompteCourant').toggleClass('d-none', mode !== 'compte_courant');
 		$('.justificatif-mode-item').each(function () {
 			$(this).toggleClass('active', $(this).find('input').val() === mode);
 		});
@@ -1812,6 +1830,7 @@ $(function () {
 		$('#justificatifFichier').val('');
 		$('#justificatifResourcehumaine').val('');
 		$('#justificatifFournisseur').val('');
+		$('#justificatifCompteCourant').val('');
 		$('#justificatifRemarque').val('');
 		$('#justificatifSuggestionEmploye').addClass('d-none').empty();
 
@@ -1884,6 +1903,8 @@ $(function () {
 		} else if (mode === 'fournisseur') {
 			formData.append('id_fournisseur', $('#justificatifFournisseur').val());
 			formData.append('titre', $('#justificatifTitreFournisseur').val());
+		} else if (mode === 'compte_courant') {
+			formData.append('id_bank_perso', $('#justificatifCompteCourant').val());
 		} else {
 			formData.append('titre', $('#justificatifTitre').val());
 		}

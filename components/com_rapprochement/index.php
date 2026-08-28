@@ -6,6 +6,12 @@ if ($_SESSION['user']->hasDroit('view', 'com_rapprochement')) {
     $banks = array_values(array_filter(bank::findAll($_SESSION['agence']), function ($b) {
         return !$b->getExcluRapprochement();
     }));
+    // Comptes personnels, à l'inverse - alimentent uniquement le mode "Compte courant" de la
+    // fenêtre "Insérer le justificatif" (un débit qui n'est pas une charge de l'agence mais un
+    // transfert vers le compte courant d'un titulaire).
+    $banksPerso = array_values(array_filter(bank::findAll($_SESSION['agence']), function ($b) {
+        return $b->getExcluRapprochement();
+    }));
 
     // La liste plate d'un seul lot est remplacée par une liste de lots (un import = une carte
     // résumé), le plus récent déplié par défaut - chaque carte porte déjà ses lignes et ses
@@ -66,9 +72,15 @@ if ($_SESSION['user']->hasDroit('view', 'com_rapprochement')) {
 
     // Pour la fenêtre "Insérer le justificatif" (lien vers un bulletin de paie ou un fournisseur
     // existant) - listes globales, chargées une seule fois pour alimenter les <select> des modales.
-    $employesActifs = array_values(array_filter(resourcehumaine::findAll(), function ($r) {
-        return $r->isActive();
+    // Les titulaires inactifs restent proposés (un bulletin de paie peut concerner un mois où le
+    // titulaire était encore actif, même s'il a quitté depuis) - pas les autres statuts inactifs
+    // (stagiaire, période de test...), triés après les actifs et signalés dans leur libellé.
+    $employesPourJustificatif = array_values(array_filter(resourcehumaine::findAll(), function ($r) {
+        return $r->isActive() || $r->getStatus() === 'Titulaire';
     }));
+    usort($employesPourJustificatif, function ($a, $b) {
+        return $b->isActive() <=> $a->isActive();
+    });
     $fournisseursActifs = fournisseur::findAll(true);
 
     // Assignation manuelle (crédit -> facture, débit -> charge existante) : la détection
