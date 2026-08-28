@@ -138,6 +138,28 @@ class siteCatalog
         return is_array($data) ? $data : array();
     }
 
+    public static function findDigitalExpertVideos($langue = 'fr')
+    {
+        $data = self::call('apiDigitalExpertVideos', array('langue' => $langue));
+        if (!is_array($data)) {
+            return array();
+        }
+        $items = array();
+        foreach ($data as $row) {
+            $items[] = array(
+                "id" => $row['id'],
+                "titre" => $row['titre'],
+                "extrait" => $row['extrait'],
+                "localisation" => isset($row['localisation']) ? $row['localisation'] : '',
+                "date_shooting" => isset($row['date_shooting']) ? $row['date_shooting'] : null,
+                "photo" => $row['photo'],
+                "youtube_id" => isset($row['youtube_id']) ? $row['youtube_id'] : '',
+                "youtube_url" => isset($row['youtube_url']) ? $row['youtube_url'] : '',
+            );
+        }
+        return $items;
+    }
+
     public static function findTestimonials($langue = 'fr')
     {
         $data = self::call('apiTestimonials', array('langue' => $langue));

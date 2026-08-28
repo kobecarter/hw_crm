@@ -6,7 +6,6 @@ use App\Controllers\AuthController as Auth;
 use App\Utils\ResponseMessages;
 use \App\Utils\ApiException;
 use \App\Utils\GetV;
-use  Leaf\Http\Headers as rheaders;
 
 class FacturesController
 {
@@ -21,16 +20,18 @@ class FacturesController
     // par token en query string, voir ce contrôleur) plutôt que le champ
     // 'pdf' hardcodé de facture::toArray() qui pointe vers une tâche
     // réservée aux admins connectés au CRM (jamais utilisable depuis l'app).
+    // Le jeton est un jeton de téléchargement dédié (5 min, scope
+    // 'pdf_download'), pas le JWT de session (15 jours) - cette URL est
+    // ouverte dans le navigateur système du téléphone et peut donc finir
+    // dans un historique partagé ou un cache de prévisualisation de lien.
     private static function pdfUrl($factureId)
     {
-        $token = rheaders::get("Authorization");
-        if (!$token) {
-            $token = rheaders::get("authorization");
-        }
-        if (!$token || !preg_match('/^Bearer\s+(.*)$/i', $token, $matches)) {
+        $clientID = Auth::userID();
+        if (!$clientID) {
             return null;
         }
-        return GetV::apiBaseUrl() . 'factures/' . $factureId . '/pdf?token=' . urlencode($matches[1]);
+        $token = GetV::generateDownloadToken($clientID);
+        return GetV::apiBaseUrl() . 'factures/' . $factureId . '/pdf?token=' . urlencode($token);
     }
 
     public static function index()

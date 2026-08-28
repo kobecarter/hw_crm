@@ -6,7 +6,6 @@ use App\Controllers\AuthController as Auth;
 use App\Utils\ResponseMessages;
 use \App\Utils\ApiException;
 use \App\Utils\GetV;
-use  Leaf\Http\Headers as rheaders;
 
 class DevisController
 {
@@ -18,19 +17,18 @@ class DevisController
         Auth::middlware('auth');
     }
 
-    // Voir FacturesController::pdfUrl() - même logique, le champ 'pdf' de
+    // Voir FacturesController::pdfUrl() - même logique (jeton dédié 5 min,
+    // scope 'pdf_download', pas le JWT de session). Le champ 'pdf' de
     // devis::toArray() pointe lui aussi vers une tâche admin-only inutilisable
     // depuis l'app.
     private static function pdfUrl($devisId)
     {
-        $token = rheaders::get("Authorization");
-        if (!$token) {
-            $token = rheaders::get("authorization");
-        }
-        if (!$token || !preg_match('/^Bearer\s+(.*)$/i', $token, $matches)) {
+        $clientID = Auth::userID();
+        if (!$clientID) {
             return null;
         }
-        return GetV::apiBaseUrl() . 'devis/' . $devisId . '/pdf?token=' . urlencode($matches[1]);
+        $token = GetV::generateDownloadToken($clientID);
+        return GetV::apiBaseUrl() . 'devis/' . $devisId . '/pdf?token=' . urlencode($token);
     }
 
     public static function index()

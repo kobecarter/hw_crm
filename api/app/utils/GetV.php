@@ -2,6 +2,9 @@
 
 namespace App\Utils;
 
+use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
+
 class GetV
 {
 
@@ -26,6 +29,42 @@ class GetV
     public static function jwtAlgorithm()
     {
         return self::$jwtAlgorithm;
+    }
+
+    // Jeton dédié au téléchargement d'un PDF facture/devis (ouvert dans le
+    // navigateur système du téléphone, donc visible en clair dans l'URL -
+    // historique du navigateur, logs serveur, éventuel bot de prévisualisation
+    // de lien). Réutiliser le JWT de session (15 jours) là-dedans exposerait
+    // un jeton d'accès complet et longue durée ; celui-ci n'est valable que
+    // 5 minutes et porte un "scope" que PdfController vérifie explicitement,
+    // donc même intercepté il ne donne accès qu'à ce téléchargement précis,
+    // et seulement pendant une fenêtre très courte.
+    public static function generateDownloadToken($clientId)
+    {
+        $issuedAt = new \DateTimeImmutable();
+        $data = [
+            'iat' => $issuedAt->getTimestamp(),
+            'exp' => $issuedAt->modify('+5 minutes')->getTimestamp(),
+            'user_id' => $clientId,
+            'scope' => 'pdf_download',
+        ];
+        return JWT::encode($data, self::$jwtSecrect, self::$jwtAlgorithm);
+    }
+
+    // Décode un jeton de téléchargement et vérifie qu'il porte bien le scope
+    // 'pdf_download' (pas un JWT de session détourné de son usage). Retourne
+    // le user_id ou null si invalide/expiré/mauvais scope.
+    public static function verifyDownloadToken($token)
+    {
+        try {
+            $decoded = JWT::decode($token, new Key(self::$jwtSecrect, self::$jwtAlgorithm));
+            if (!isset($decoded->scope) || $decoded->scope !== 'pdf_download') {
+                return null;
+            }
+            return (int) $decoded->user_id;
+        } catch (\Throwable $th) {
+            return null;
+        }
     }
 
     // Base absolue de cette API (schéma + hôte + chemin jusqu'à index.php),

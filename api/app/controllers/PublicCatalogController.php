@@ -22,4 +22,13 @@ class PublicCatalogController
             'data' => \siteCatalog::findFormations('fr'),
         ]);
     }
+
+    public function digitalExpertVideos()
+    {
+        return response()->json([
+            'success' => true,
+            'data' => \siteCatalog::findDigitalExpertVideos('fr'),
+        ]);
+    }
+
 }

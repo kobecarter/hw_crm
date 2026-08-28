@@ -35,6 +35,14 @@
    if (!defined("GOOGLE_CLIENT_ID"))     define("GOOGLE_CLIENT_ID", "953284949892-4miu903begvg1f3tnel0db8s17f8hjid.apps.googleusercontent.com");
    if (!defined("FACEBOOK_APP_ID"))      define("FACEBOOK_APP_ID", "");
    if (!defined("FACEBOOK_APP_SECRET"))  define("FACEBOOK_APP_SECRET", "");
+   // Client OAuth "iOS" (Google Cloud Console) de l'app mobile - un projet
+   // Google Cloud DIFFERENT de GOOGLE_CLIENT_ID ci-dessus (celui du site web).
+   // L'app mobile n'envoie pas de serverClientId à GoogleSignIn(), donc le
+   // idToken natif iOS a pour audience CE client, pas GOOGLE_CLIENT_ID -
+   // vérifier contre ce dernier rejetait donc systématiquement le token
+   // ("Invalid Google token") quel que soit le compte. Doit rester identique
+   // à GIDClientID dans mobile-app/ios/Runner/Info.plist.
+   if (!defined("GOOGLE_CLIENT_ID_MOBILE_IOS")) define("GOOGLE_CLIENT_ID_MOBILE_IOS", "148130864337-bqkgg48t0dqq9uvavk9nkquq9pofhlsl.apps.googleusercontent.com");
 
 /* -- Durcissement du cookie de session -- */
 // httponly : le cookie de session devient invisible à document.cookie côté JS - si une faille XSS
