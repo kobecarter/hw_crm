@@ -246,6 +246,10 @@ function previewReleve($data, $files)
     }
     $nomFichierSource = $fichiersUploades[0];
     $cheminAbsolu = realpath('../../../images/releves/' . $nomFichierSource);
+    if ($cheminAbsolu === false) {
+        echo json_encode(array('success' => 0, 'message' => "Échec de l'enregistrement du fichier"));
+        return;
+    }
 
     $transactionsBrutes = array();
     $bank = null;

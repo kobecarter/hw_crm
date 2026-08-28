@@ -212,7 +212,7 @@
 									<tbody>
 										<?php foreach ($lignesLot as $l) :?>
 										<?php $infos = $l->getDonneesMatchingArray(); ?>
-										<tr data-id="<?= $l->getId() ?>" data-libelle="<?= htmlspecialchars($l->getLibelle(), ENT_QUOTES, 'UTF-8') ?>" data-debit="<?= $l->getDebit() ?>" data-match-type="<?= isset($infos['type']) ? htmlspecialchars($infos['type']) : '' ?>" data-employe-suggere='<?= isset($infos['employe_suggere']) && $infos['employe_suggere'] ? htmlspecialchars(json_encode($infos['employe_suggere']), ENT_QUOTES, "UTF-8") : '' ?>' data-fournisseur-suggere='<?= isset($infos['fournisseur_suggere']) && $infos['fournisseur_suggere'] ? htmlspecialchars(json_encode($infos['fournisseur_suggere']), ENT_QUOTES, "UTF-8") : '' ?>'>
+										<tr data-id="<?= $l->getId() ?>" data-statut="<?= htmlspecialchars($l->getStatut()) ?>" data-libelle="<?= htmlspecialchars($l->getLibelle(), ENT_QUOTES, 'UTF-8') ?>" data-debit="<?= $l->getDebit() ?>" data-match-type="<?= isset($infos['type']) ? htmlspecialchars($infos['type']) : '' ?>" data-employe-suggere='<?= isset($infos['employe_suggere']) && $infos['employe_suggere'] ? htmlspecialchars(json_encode($infos['employe_suggere']), ENT_QUOTES, "UTF-8") : '' ?>' data-fournisseur-suggere='<?= isset($infos['fournisseur_suggere']) && $infos['fournisseur_suggere'] ? htmlspecialchars(json_encode($infos['fournisseur_suggere']), ENT_QUOTES, "UTF-8") : '' ?>'>
 											<td><?= date('d/m/Y', strtotime($l->getDateOperation())) ?></td>
 											<td><?= htmlspecialchars($l->getLibelle()) ?></td>
 											<td><?= $l->getDebit() ? number_format($l->getDebit(), 2, ',', ' ') . ' DH' : '' ?></td>
@@ -892,22 +892,28 @@ $(function () {
 		}
 	});
 
-	// Filtres rapides (Tous / À valider / Sans justificatif / À jour) : masque/affiche les cartes
-	// de lot directement (pas de DataTables ici, chaque lot est une carte indépendante avec sa
-	// propre table interne), à partir des compteurs déjà posés en data-* sur .rapprochement-lot-carte.
+	// Filtres rapides (Tous / À valider / Sans justificatif / À jour) : filtre les LIGNES à
+	// l'intérieur de chaque tableau de lot (pas seulement les cartes) - un lot ne reste visible
+	// que s'il lui reste au moins une ligne correspondant au filtre choisi. "À jour" affiche les
+	// lignes déjà traitées (ni à valider, ni sans justificatif).
 	$(document).on('click', '.quick-filter-chips button', function () {
 		var filtre = $(this).data('filter');
 		$('.quick-filter-chips button').removeClass('active');
 		$(this).addClass('active');
 		$('.rapprochement-lot-carte').each(function () {
 			var $carte = $(this);
-			var aValider = parseInt($carte.attr('data-nb-a-valider'), 10) || 0;
-			var sansJustificatif = parseInt($carte.attr('data-nb-sans-justificatif'), 10) || 0;
-			var visible = true;
-			if (filtre === 'a_valider') { visible = aValider > 0; }
-			else if (filtre === 'sans_justificatif') { visible = sansJustificatif > 0; }
-			else if (filtre === 'a_jour') { visible = aValider === 0 && sansJustificatif === 0; }
-			$carte.toggle(visible);
+			var nbLignesVisibles = 0;
+			$carte.find('tbody tr').each(function () {
+				var $ligne = $(this);
+				var statut = $ligne.attr('data-statut');
+				var visible = true;
+				if (filtre === 'a_valider') { visible = statut === 'a_valider'; }
+				else if (filtre === 'sans_justificatif') { visible = statut === 'sans_justificatif'; }
+				else if (filtre === 'a_jour') { visible = statut !== 'a_valider' && statut !== 'sans_justificatif'; }
+				$ligne.toggle(visible);
+				if (visible) { nbLignesVisibles++; }
+			});
+			$carte.toggle(filtre === 'all' || nbLignesVisibles > 0);
 		});
 	});
 
