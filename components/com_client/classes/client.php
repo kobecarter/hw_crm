@@ -487,7 +487,107 @@ class client
             return 0;
         }
     }
-	
+
+    // Génère un nouveau mot de passe aléatoire pour l'espace client, l'enregistre en base et
+    // l'envoie par email avec le lien du portail - même distinction Maroc/Dubaï (agence 2) que
+    // devis::sendViaMailDevis(), via getMailCredentialsForAgence()/espaceClientLink().
+    public function envoyerAccesEspaceClient()
+    {
+        if ($this->email == '') {
+            return array("success" => false, "message" => "Ce client n'a pas d'adresse email");
+        }
+
+        $plainPassword = random(10);
+        $this->setPassword($plainPassword);
+        if ($this->edit() != 1) {
+            return array("success" => false, "message" => "Erreur lors de la mise à jour du mot de passe");
+        }
+
+        global $siteURL;
+        $agence = $this->getAgence();
+        $mailCreds = getMailCredentialsForAgence($agence->getId());
+        $lien = espaceClientLink($agence->getId());
+
+        $mail = new PHPMailer();
+        $mail->isSMTP();
+        $mail->Host = $mailCreds['host'];
+        $mail->SMTPAuth = true;
+        $mail->Username = $mailCreds['username'];
+        $mail->Password = $mailCreds['password'];
+        $mail->SMTPSecure = 'tls';
+        $mail->Port = $mailCreds['port'];
+
+        $mailBody = '<html>
+    <body>
+    <table border="0" width="100%">
+        <tr>
+            <td bgcolor="#F6F6F6" align="center">
+                <table border="0" cellpadding="15" cellspacing="0" width="640">
+                    <tr>
+                        <td align="center"><img src="' . $siteURL . 'images/agences/' . $agence->getLogo() . '" width="100"></td>
+                    </tr>
+
+                    <tr bgcolor="#FFFFFF">
+                        <td align="center">
+                        <h1 style="font-weight:normal; margin-bottom:15px;margin-top:20px">
+                        Votre espace client
+                        </h1>
+                    </td>
+
+                </tr>
+
+                <tr bgcolor="#FFFFFF" style="font-size:18px;">
+                    <td align="center">
+                    Bonjour ' . $this->prenom . ',<br><br>Voici vos accès pour vous connecter à votre espace client :
+                    </td>
+                    </tr>
+
+                    <tr bgcolor="#FFFFFF">
+                        <td align="center" style="padding-top:15px;">
+                            <p style="font-size:16px;">
+                                <strong>Email :</strong> ' . $this->email . '<br>
+                                <strong>Mot de passe :</strong> ' . $plainPassword . '
+                            </p>
+                            <a style="padding:10px 20px;background:' . $agence->getColor() . ';color:white;font-weight:bold;margin:15px auto;display:block;width:fit-content;text-decoration:none" href="' . $lien . '">Accéder à mon espace client</a>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td align="center">
+                            <p>
+                                <font size="2" color="#666666"><br />
+                                ' . $agence->getNom() . '
+                                <br/>
+                                Email : ' . $agence->getEmail() . '
+                                <br>
+                                Tél : ' . $agence->getTel() . ' / ' . $agence->getTel2() . '
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>';
+
+        $mail->setFrom($mailCreds['username']);
+        $mail->addReplyTo($agence->getEmail(), $agence->getNom());
+        $mail->addAddress($this->email, trim($this->prenom . ' ' . $this->nom));
+
+        $mail->Subject = 'Accès à votre espace client - ' . $agence->getNom();
+        $mail->msgHTML($mailBody);
+
+        if ($mail->send()) {
+            copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage(), $mailCreds['host'], $mailCreds['username'], $mailCreds['password']);
+            return array("success" => true, "message" => "Email envoyé avec succès");
+        }
+        return array("success" => false, "message" => "Erreur lors de l'envoi : " . $mail->ErrorInfo);
+    }
+
 	public static function doLogin($email,$password){
 		global $db;
         $client = new client();

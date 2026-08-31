@@ -21,6 +21,9 @@ if (isset($task) && !empty($task)) {
         case "archiveClient":
             archiveClient($_POST);
             break;
+        case "envoyerAccesEspaceClient":
+            envoyerAccesEspaceClient($_POST);
+            break;
         case "retablirClient":
             retablirClient($_POST);
             break;
@@ -199,6 +202,26 @@ function archiveClient($data)
             echo "1";
         } else {
             echo "2";
+        }
+    } else {
+        echo "0";
+    }
+}
+
+function envoyerAccesEspaceClient($data)
+{
+    $indices = array("id");
+    if (fieldCheck($data, $indices)) {
+        $client = client::find($data['id'], $_SESSION['agence']);
+        if ($client->getId() == 0) {
+            echo "2|Client introuvable";
+            return;
+        }
+        $resultat = $client->envoyerAccesEspaceClient();
+        if ($resultat['success']) {
+            echo "1|" . $resultat['message'];
+        } else {
+            echo "2|" . $resultat['message'];
         }
     } else {
         echo "0";

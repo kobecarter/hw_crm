@@ -143,6 +143,7 @@
 									<?php if ($_SESSION['user']->hasDroit('edit', 'com_client')) :?>
 									    <a class="dropdown-item text-warning" href="index.php?option=com_client&task=edit&id=<?= $client->getId(); ?>"><i class="far fa-edit mr-2"></i>Modifier</a>
 									    <a class="dropdown-item text-secondary archiveClient" href="javascript:void(0);" data-id="<?= $client->getId(); ?>"><i class="fas fa-archive mr-2"></i>Archiver</a>
+									    <a class="dropdown-item text-primary envoyerAccesEspaceClient" href="javascript:void(0);" data-id="<?= $client->getId(); ?>"><i class="fas fa-key mr-2"></i>Envoyer accès espace client</a>
 									<?php endif;?>
 									<?php if ($_SESSION['user']->hasDroit('delete', 'com_client')) :?>
 									    <a class="dropdown-item text-danger deleteClient" href="javascript:void(0);" data-id="<?= $client->getId(); ?>"><i class="far fa-trash-alt mr-2"></i>Supprimer</a>
@@ -267,6 +268,28 @@ $(function () {
 					$('.msgbox').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><strong>Success!</strong> Client archivé avec succès<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
 				} else {
 					$('.msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> Erreur lors de l\'archivage<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+				}
+			});
+		}
+	})
+
+	$(document).on("click", ".envoyerAccesEspaceClient", function() {
+		event.preventDefault();
+		var $btn = $(this);
+		if (confirm("Envoyer un nouveau mot de passe et le lien d'accès à l'espace client par email ? L'ancien mot de passe sera remplacé.")) {
+			var id = $btn.attr("data-id");
+			var order = 'id=' + id;
+			var libelleInitial = $btn.html();
+			$btn.html('<i class="fas fa-spinner fa-spin mr-2"></i>Envoi en cours...');
+			$.post("components/com_client/controleurs/router.php?task=envoyerAccesEspaceClient", order, function (theResponse) {
+				$btn.html(libelleInitial);
+				var parts = theResponse.split('|');
+				var code = parts[0];
+				var message = parts[1] || "Erreur lors de l'envoi";
+				if (code == '1') {
+					$('.msgbox').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><strong>Success!</strong> ' + message + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+				} else {
+					$('.msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> ' + message + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
 				}
 			});
 		}

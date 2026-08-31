@@ -43,6 +43,11 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
                 include_once ("client/controleur.php");
             }
             break;
+        case 'envoyerAccesEspaceClient' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_client')) {
+                include_once ("client/controleur.php");
+            }
+            break;
         case 'retablirClient' :
             if ($_SESSION['user']->hasDroit('edit', 'com_client')) {
                 include_once ("client/controleur.php");
