@@ -554,6 +554,29 @@
 	</div>
 </div>
 
+<!-- Popup "Erreur" de la fenêtre "Insérer le justificatif" — même habillage que les autres popups
+     du module (.tva-confirm-modal + .charge-doublon-icon, cf. reaffectationModal) plutôt que
+     l'alert() natif du navigateur. -->
+<div id="justificatifErreurModal" class="modal custom-modal tva-confirm-modal fade" role="dialog">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+				<div class="charge-doublon-icon"><i class="fa fa-exclamation-triangle"></i></div>
+				<h5 class="modal-title mt-3">Impossible d'enregistrer</h5>
+			</div>
+			<div class="modal-body">
+				<p class="text-center mb-0" id="justificatifErreurTexte" style="font-size:0.9rem;"></p>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-primary" data-dismiss="modal">Compris</button>
+			</div>
+		</div>
+	</div>
+</div>
+
 <!-- Popup optionnel "Valider avec justificatif" — pour un débit reconnu (ex: Achat Genious) ou
      une charge existante trouvée : la même action (créer/lier la charge) mais avec la possibilité
      d'attacher directement la facture d'achat, sans jamais bloquer la validation si le document
@@ -1932,14 +1955,19 @@ $(function () {
 					$btn.prop('disabled', false).html(libelleBoutonInitial);
 					return;
 				}
-				alert(response.message || "Erreur lors de l'enregistrement");
+				afficherErreurJustificatif(response.message || "Erreur lors de l'enregistrement");
 				$btn.prop('disabled', false).html(libelleBoutonInitial);
 			},
 			error: function () {
-				alert("Erreur lors de l'enregistrement");
+				afficherErreurJustificatif("Erreur lors de l'enregistrement");
 				$btn.prop('disabled', false).html(libelleBoutonInitial);
 			}
 		});
+	}
+
+	function afficherErreurJustificatif(message) {
+		$('#justificatifErreurTexte').text(message);
+		$('#justificatifErreurModal').modal('show');
 	}
 
 	$('#justificatifConfirmerBtn').on('click', function () {

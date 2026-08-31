@@ -1,15 +1,22 @@
 <?php
 
 if ($_SESSION['user']->hasDroit('view', 'com_rapprochement')) {
+    // Certaines agences facturent toutes depuis le Maroc et partagent le même pool de comptes
+    // bancaires (même regroupement que previewReleve()/bank::getBanksByAgence()) : les comptes
+    // personnels de HW Label (Hamid, Zakaria) doivent aussi apparaître pour Verse Concept, qui
+    // n'a aucun compte personnel qui lui soit propre - sans ce regroupement, le mode "Compte
+    // courant" de la fenêtre "Insérer le justificatif" reste vide pour cette agence.
+    $groupeMaroc = array(1, 3, 25);
+    $agencesARechercher = in_array($_SESSION['agence'], $groupeMaroc) ? $groupeMaroc : $_SESSION['agence'];
     // Les comptes personnels (ex: remboursement de frais) sont exclus de la checklist et de la
     // détection automatique - seuls les comptes de l'entreprise concernent BANK STATEMENT.
-    $banks = array_values(array_filter(bank::findAll($_SESSION['agence']), function ($b) {
+    $banks = array_values(array_filter(bank::findAll($agencesARechercher), function ($b) {
         return !$b->getExcluRapprochement();
     }));
     // Comptes personnels, à l'inverse - alimentent uniquement le mode "Compte courant" de la
     // fenêtre "Insérer le justificatif" (un débit qui n'est pas une charge de l'agence mais un
     // transfert vers le compte courant d'un titulaire).
-    $banksPerso = array_values(array_filter(bank::findAll($_SESSION['agence']), function ($b) {
+    $banksPerso = array_values(array_filter(bank::findAll($agencesARechercher), function ($b) {
         return $b->getExcluRapprochement();
     }));
 
