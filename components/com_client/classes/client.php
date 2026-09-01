@@ -530,6 +530,8 @@ class client
         $mail->Password = $mailCreds['password'];
         $mail->SMTPSecure = 'tls';
         $mail->Port = $mailCreds['port'];
+        $mail->CharSet = 'UTF-8';
+        $mail->Encoding = 'base64';
 
         $mailBody = '<html>
     <body>
