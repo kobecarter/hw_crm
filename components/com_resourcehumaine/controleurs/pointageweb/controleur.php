@@ -183,9 +183,16 @@ function filterPointageWeb($data)
         return;
     }
     $mois = isset($data['month']) && $data['month'] !== '' ? $data['month'] : date('Y-m');
+    // Exclus de "Statistique de pointage" à la demande (par id, noms en base avec espaces
+    // parasites - HAMID KENNOU=12, ZAKARIA EL HABOUSSI=11, RACHIDA ED-DABBOUGH=58) - sans toucher
+    // aux autres cartes de la page (calendrier "Jours de travail"/"Horaires" restent globaux, pas
+    // par employé).
+    $employesExclusIds = array(11, 12, 58);
     $resources_humaines = array_values(array_filter(
         resourcehumaine::findAllByStatuses(array("Titulaire", "Periode de test")),
-        function ($employe) { return $employe->isActive(); }
+        function ($employe) use ($employesExclusIds) {
+            return $employe->isActive() && !in_array((int) $employe->getId(), $employesExclusIds, true);
+        }
     ));
 
     $lignes = array();
