@@ -221,7 +221,11 @@
 					$active = isset($_GET['option']) && $_GET['option'] == $module->getIdModule() ? "active" : "";
 					$arrowactive = isset($_GET['option']) && $_GET['option'] == $module->getIdModule() ? "subdrop" : "";
 					$submenulistactive = isset($_GET['option']) && $_GET['option'] == $module->getIdModule() ? "block" : "none";
-					if ($_SESSION['user']->hasDroit('view', $module->getIdModule())) {
+					// com_caissenoire est réservé à Hamid/Zakaria (CAISSENOIRE_USERS_AUTORISES) - ce CRM
+					// n'a pas de droit par utilisateur individuel (hasDroit ci-dessus est déjà vrai
+					// pour tout Administrateur), donc ce lien de menu a besoin de ce contrôle en plus
+					// pour ne pas s'afficher aux autres admins.
+					if ($_SESSION['user']->hasDroit('view', $module->getIdModule()) && ($module->getIdModule() !== 'com_caissenoire' || caissenoire::estUtilisateurAutorise($_SESSION['user']->getId()))) {
 						if (!in_array($module->getIdModule(), ['com_facture', 'com_devis', 'com_contract', 'com_client', 'com_accounting', 'com_resourcehumaine', 'com_cheque', 'com_relance', 'com_holiday', 'com_rappel', 'com_rapprochement', 'com_reclamation', 'com_fidelite'])) {
 					?>
 

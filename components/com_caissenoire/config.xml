@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<component>
+<id>com_caissenoire</id>
+<nom>Caisse noire</nom>
+<class>caissenoire</class>
+<table>caissenoire</table>
+<traduction>1</traduction>
+<url>1</url>
+<icon>wallet</icon>
+<system>0</system>
+<position>side</position>
+</component>
