@@ -171,7 +171,7 @@
 										</td>
 										<td>
 											<?php if ($entree->getJustificatif()) : ?>
-											<a href="images/caissenoire/<?= $entree->getJustificatif(); ?>" class="btn btn-sm btn-white text-info" data-toggle="tooltip" data-placement="top" data-original-title="Justificatif" target="_blank"><i class="fa fa-paperclip"></i></a>
+											<a href="images/caissenoire/<?= $entree->getJustificatif(); ?>" class="btn btn-sm btn-white text-info" data-toggle="tooltip" data-placement="top" data-original-title="Justificatif" data-fancybox><i class="fa fa-paperclip"></i></a>
 											<?php else : ?>
 											<span class="text-muted">—</span>
 											<?php endif; ?>
