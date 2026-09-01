@@ -8,13 +8,13 @@ use Respect\Validation\Rules;
 class LoginRequestValidator
 {
     private $fileds = [
-        'email',
+        'login',
         'password'
     ];
     public function validate($inputs = [])
     {
         $validation =  v::keySet(
-            v::key('email', v::email()->notEmpty()),
+            v::key('login', v::stringType()->notEmpty()),
             v::key('password', v::stringType()->notEmpty())
         )->validate($inputs);
 

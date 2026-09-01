@@ -472,13 +472,13 @@ function uploadFiles($nomChampTxt, $uploadTo, $extensions = NULL)
 
 				$nom_fichier="$nom_fichier$n.$ext";
 
-				$fichiers[] = $nom_fichier;
-
 				// Fin de l'upload
 
 					if (@move_uploaded_file($_FILES[$nomChampTxt]["tmp_name"][$i], "$racine/$nom_fichier")){
 
 						@chmod("$racine/$nom_fichier", 0755);
+
+						$fichiers[] = $nom_fichier;
 
 					} else {
 

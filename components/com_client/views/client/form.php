@@ -148,7 +148,14 @@
 				<input type="email" class="form-control" name="email_client" value="<?php if(isset($client)) echo $client->getEmail(); elseif(isset($pf['email'])) echo htmlspecialchars($pf['email']); ?>" required>
 			</div>
 		</div>
-		
+
+		<div class="col-md-4">
+			<div class="form-group">
+				<label>Login<span class="text-danger"> * </span></label>
+				<input type="text" class="form-control" name="login" value="<?php if(isset($client)) echo htmlspecialchars($client->getLogin()); ?>" required>
+			</div>
+		</div>
+
 		<div class="col-md-4">
 			<div class="form-group">
 				<label>Mot de passe</label>
@@ -395,7 +402,9 @@
                     $('#clientForm .msgbox').html('<div class="alert alert-warning alert-dismissible fade show" role="alert"><strong>Attention!</strong> Veuillez remplir les champs obligatoires<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
                     $('#clientForm .submit').prop('disabled', false);
                 } else {
-                    $('#clientForm .msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> Erreur lors de l\'execution de l\'opération<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+                    var parts = String(theResponse).split('|');
+                    var msgErreur = (parts.length > 1) ? parts[1] : "Erreur lors de l'execution de l'opération";
+                    $('#clientForm .msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> ' + msgErreur + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
                     $('#clientForm .submit').prop('disabled', false);
                 }
             }

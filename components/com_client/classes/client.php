@@ -28,6 +28,7 @@ class client
 	private $tel2;
 	private $tel3;
     private $email;
+	private $login;
 	private $password;
     private $cp;
     private $adresse;
@@ -159,7 +160,12 @@ class client
     {
         return $this->email;
     }
-	
+
+	public function getLogin()
+    {
+        return $this->login;
+    }
+
 	public function getPassword()
     {
         return $this->password;
@@ -226,6 +232,7 @@ class client
             "ice" => $this->ice,
             "tel" => $this->tel,
             "email" => $this->email,
+            "login" => $this->login,
             "cp" => $this->cp,
             "adresse" => $this->adresse,
             "ville" => $this->ville,
@@ -340,7 +347,12 @@ class client
     {
         $this->email = $email;
     }
-	
+
+	public function setLogin($login)
+    {
+        $this->login = $login;
+    }
+
 	public function setPassword($password)
     {
         $this->password = $password;
@@ -399,7 +411,7 @@ class client
     public function add()
     {
         global $db;
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence,id_user_added, active, archived, source, site_web, titre, prenom, nom, raison_social, fonction, ice, rc, tel, tel2, tel3, email, password, cp, adresse, adresse2, ville, region, pays, photo, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence,id_user_added, active, archived, source, site_web, titre, prenom, nom, raison_social, fonction, ice, rc, tel, tel2, tel3, email, login, password, cp, adresse, adresse2, ville, region, pays, photo, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->agence->getId(), "int"),
             GetSQLValueString($this->user_added->getId(), "int"),
             GetSQLValueString($this->active, "int"),
@@ -417,14 +429,15 @@ class client
 			GetSQLValueString($this->tel2, "text"),
 			GetSQLValueString($this->tel3, "text"),				 
             GetSQLValueString($this->email, "text"),
-			GetSQLValueString(md5($this->password), "text"),				 
+			GetSQLValueString($this->login, "text"),
+			GetSQLValueString(md5($this->password), "text"),
             GetSQLValueString($this->cp, "text"),
             GetSQLValueString($this->adresse, "text"),
-			GetSQLValueString($this->adresse2, "text"),				 
+			GetSQLValueString($this->adresse2, "text"),
             GetSQLValueString($this->ville, "text"),
-			GetSQLValueString($this->region, "text"),				 
+			GetSQLValueString($this->region, "text"),
             GetSQLValueString($this->pays, "text"),
-			GetSQLValueString($this->photo, "text"),				 
+			GetSQLValueString($this->photo, "text"),
             GetSQLValueString($this->date_add, "date"),
             GetSQLValueString($this->last_edit, "date")
         );
@@ -438,7 +451,7 @@ class client
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  id_agence = %s, id_user_edited = %s,  active = %s, archived = %s, source = %s, site_web = %s, titre = %s, prenom = %s, nom = %s, raison_social = %s, fonction = %s, ice = %s, rc = %s, tel = %s, tel2 = %s, tel3 = %s, email = %s, password = %s, cp = %s, adresse = %s, adresse2 = %s, ville = %s, region = %s, pays =%s, photo =%s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  id_agence = %s, id_user_edited = %s,  active = %s, archived = %s, source = %s, site_web = %s, titre = %s, prenom = %s, nom = %s, raison_social = %s, fonction = %s, ice = %s, rc = %s, tel = %s, tel2 = %s, tel3 = %s, email = %s, login = %s, password = %s, cp = %s, adresse = %s, adresse2 = %s, ville = %s, region = %s, pays =%s, photo =%s, last_edit = %s WHERE id = %s",
             GetSQLValueString($this->agence->getId(), "int"),
             GetSQLValueString($this->user_edited->getId(), "int"),
             GetSQLValueString($this->active, "int"),
@@ -456,14 +469,15 @@ class client
 			GetSQLValueString($this->tel2, "text"),
 			GetSQLValueString($this->tel3, "text"),				 
             GetSQLValueString($this->email, "text"),
-			GetSQLValueString(md5($this->password), "text"),				 
+			GetSQLValueString($this->login, "text"),
+			GetSQLValueString(md5($this->password), "text"),
             GetSQLValueString($this->cp, "text"),
             GetSQLValueString($this->adresse, "text"),
-			GetSQLValueString($this->adresse2, "text"),	
+			GetSQLValueString($this->adresse2, "text"),
             GetSQLValueString($this->ville, "text"),
-			GetSQLValueString($this->region, "text"),				 
+			GetSQLValueString($this->region, "text"),
             GetSQLValueString($this->pays, "text"),
-			GetSQLValueString($this->photo, "text"),				 
+			GetSQLValueString($this->photo, "text"),
             GetSQLValueString($this->last_edit, "date"),
             GetSQLValueString($this->id, "int")
         );
@@ -487,12 +501,114 @@ class client
             return 0;
         }
     }
-	
-	public static function doLogin($email,$password){
+
+    // Génère un nouveau mot de passe aléatoire pour l'espace client, l'enregistre en base et
+    // l'envoie par email avec le lien du portail - même distinction Maroc/Dubaï (agence 2) que
+    // devis::sendViaMailDevis(), via getMailCredentialsForAgence()/espaceClientLink().
+    public function envoyerAccesEspaceClient()
+    {
+        if ($this->email == '') {
+            return array("success" => false, "message" => "Ce client n'a pas d'adresse email");
+        }
+
+        $plainPassword = random(10);
+        $this->setPassword($plainPassword);
+        if ($this->edit() != 1) {
+            return array("success" => false, "message" => "Erreur lors de la mise à jour du mot de passe");
+        }
+
+        global $siteURL;
+        $agence = $this->getAgence();
+        $mailCreds = getMailCredentialsForAgence($agence->getId());
+        $lien = espaceClientLink($agence->getId());
+
+        $mail = new PHPMailer();
+        $mail->isSMTP();
+        $mail->Host = $mailCreds['host'];
+        $mail->SMTPAuth = true;
+        $mail->Username = $mailCreds['username'];
+        $mail->Password = $mailCreds['password'];
+        $mail->SMTPSecure = 'tls';
+        $mail->Port = $mailCreds['port'];
+        $mail->CharSet = 'UTF-8';
+        $mail->Encoding = 'base64';
+
+        $mailBody = '<html>
+    <body>
+    <table border="0" width="100%">
+        <tr>
+            <td bgcolor="#F6F6F6" align="center">
+                <table border="0" cellpadding="15" cellspacing="0" width="640">
+                    <tr>
+                        <td align="center"><img src="' . $siteURL . 'images/agences/' . $agence->getLogo() . '" width="100"></td>
+                    </tr>
+
+                    <tr bgcolor="#FFFFFF">
+                        <td align="center">
+                        <h1 style="font-weight:normal; margin-bottom:15px;margin-top:20px">
+                        Votre espace client
+                        </h1>
+                    </td>
+
+                </tr>
+
+                <tr bgcolor="#FFFFFF" style="font-size:18px;">
+                    <td align="center">
+                    Bonjour ' . $this->prenom . ',<br><br>Voici vos accès pour vous connecter à votre espace client :
+                    </td>
+                    </tr>
+
+                    <tr bgcolor="#FFFFFF">
+                        <td align="center" style="padding-top:15px;">
+                            <p style="font-size:16px;">
+                                <strong>Login :</strong> ' . $this->login . '<br>
+                                <strong>Mot de passe :</strong> ' . $plainPassword . '
+                            </p>
+                            <a style="padding:10px 20px;background:' . $agence->getColor() . ';color:white;font-weight:bold;margin:15px auto;display:block;width:fit-content;text-decoration:none" href="' . $lien . '">Accéder à mon espace client</a>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td align="center">
+                            <p>
+                                <font size="2" color="#666666"><br />
+                                ' . $agence->getNom() . '
+                                <br/>
+                                Email : ' . $agence->getEmail() . '
+                                <br>
+                                Tél : ' . $agence->getTel() . ' / ' . $agence->getTel2() . '
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>';
+
+        $mail->setFrom($mailCreds['username']);
+        $mail->addReplyTo($agence->getEmail(), $agence->getNom());
+        $mail->addAddress($this->email, trim($this->prenom . ' ' . $this->nom));
+
+        $mail->Subject = 'Accès à votre espace client - ' . $agence->getNom();
+        $mail->msgHTML($mailBody);
+
+        if ($mail->send()) {
+            copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage(), $mailCreds['host'], $mailCreds['username'], $mailCreds['password']);
+            return array("success" => true, "message" => "Email envoyé avec succès");
+        }
+        return array("success" => false, "message" => "Erreur lors de l'envoi : " . $mail->ErrorInfo);
+    }
+
+	public static function doLogin($login,$password){
 		global $db;
         $client = new client();
-        $SQLselect = sprintf("SELECT " . static::$table . ".id AS ID, " . static::$table . ".* FROM " . static::$table . " WHERE email = %s AND password = %s AND active = %s",
-            GetSQLValueString($email, "text"),
+        $SQLselect = sprintf("SELECT " . static::$table . ".id AS ID, " . static::$table . ".* FROM " . static::$table . " WHERE login = %s AND password = %s AND active = %s",
+            GetSQLValueString($login, "text"),
 			GetSQLValueString(md5($password), "text"),
 			GetSQLValueString(1, "int")
         );
@@ -577,6 +693,26 @@ class client
         $client = null;
         $SQLselect = sprintf("SELECT * FROM " . static::$table . " WHERE email = %s",
             GetSQLValueString($email, "text")
+        );
+        $result = $db->query($SQLselect);
+        if ($db->num_rows($result) == 1) {
+            $data = $db->fetch_assoc($result);
+            $client = static::build($data);
+        }
+        return $client;
+    }
+
+	// Alias "id AS ID" (contrairement à findByEmail()) : contrairement aux appelants existants de
+	// findByEmail() qui ne testent que la présence d'un résultat, addClient()/editClient() ont
+	// besoin de comparer l'id du client trouvé à l'id en cours d'édition pour la vérification
+	// d'unicité du login - sans cet alias, build() ($data['ID']) reste vide et getId() renvoie
+	// toujours null.
+	public static function findByLogin($login)
+    {
+        global $db;
+        $client = null;
+        $SQLselect = sprintf("SELECT " . static::$table . ".id AS ID, " . static::$table . ".* FROM " . static::$table . " WHERE login = %s",
+            GetSQLValueString($login, "text")
         );
         $result = $db->query($SQLselect);
         if ($db->num_rows($result) == 1) {
@@ -884,6 +1020,7 @@ class client
 		$client->setTel2($data['tel2']);
 		$client->setTel3($data['tel3']);
         $client->setEmail($data['email']);
+		$client->setLogin(isset($data['login']) ? $data['login'] : null);
 		$client->setPassword($data['password']);
         $client->setCp($data['cp']);
         $client->setAdresse($data['adresse']);
@@ -938,6 +1075,7 @@ class client
             'tel2' => $data['tel2'],
             'tel3' => $data['tel3'],
             'email' => $data['email'],
+            'login' => isset($data['login']) ? $data['login'] : null,
             'password' => $data['password'],
             'cp' => $data['cp'],
             'adresse' => $data['adresse'],
@@ -978,11 +1116,11 @@ class client
         }
     }
 
-    public static function loginApi($email,$password){
+    public static function loginApi($login,$password){
 		global $db;
         $client = new client();
-        $SQLselect = sprintf("SELECT * FROM " . static::$table . " WHERE email = %s AND password = %s AND active = %s",
-            GetSQLValueString($email, "text"),
+        $SQLselect = sprintf("SELECT * FROM " . static::$table . " WHERE login = %s AND password = %s AND active = %s",
+            GetSQLValueString($login, "text"),
 			GetSQLValueString(md5($password), "text"),
 			GetSQLValueString(1, "int")
         );
@@ -994,7 +1132,7 @@ class client
             $token = setToken($client);
 			return json_encode(array("icon"=>"success","message"=>"Successful connection","client"=>$client,"token"=>$token));
         }
-		return json_encode(array("icon"=>"warning","message"=>"Email or password incorrect","client"=>$db->num_rows($result)));
+		return json_encode(array("icon"=>"warning","message"=>"Login or password incorrect","client"=>$db->num_rows($result)));
 	}
 
     /* ------------------------------------------------------------------ */

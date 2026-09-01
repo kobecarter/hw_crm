@@ -15,7 +15,7 @@
 		</div>
 
 		<?php
-		$compteursGlobal = array('matched_facture' => 0, 'matched_charge' => 0, 'matched_tva' => 0, 'a_valider' => 0, 'sans_justificatif' => 0, 'ignore' => 0);
+		$compteursGlobal = array('matched_facture' => 0, 'matched_charge' => 0, 'matched_tva' => 0, 'compte_courant' => 0, 'a_valider' => 0, 'sans_justificatif' => 0, 'ignore' => 0);
 		$nbLotsAJour = 0;
 		foreach ($lotsData as $ld) {
 			foreach ($ld['compteurs'] as $statut => $nb) {
@@ -25,7 +25,7 @@
 				$nbLotsAJour++;
 			}
 		}
-		$nbRapprocheesGlobal = $compteursGlobal['matched_facture'] + $compteursGlobal['matched_charge'] + $compteursGlobal['matched_tva'];
+		$nbRapprocheesGlobal = $compteursGlobal['matched_facture'] + $compteursGlobal['matched_charge'] + $compteursGlobal['matched_tva'] + $compteursGlobal['compte_courant'];
 		?>
 
 		<div class="row mb-4">
@@ -161,7 +161,7 @@
 					$lot = $ld['lot'];
 					$compteurs = $ld['compteurs'];
 					$lignesLot = $ld['lignes'];
-					$nbRapprocheesLot = $compteurs['matched_facture'] + $compteurs['matched_charge'] + $compteurs['matched_tva'];
+					$nbRapprocheesLot = $compteurs['matched_facture'] + $compteurs['matched_charge'] + $compteurs['matched_tva'] + (isset($compteurs['compte_courant']) ? $compteurs['compte_courant'] : 0);
 					$bankLot = $lot->getBank();
 					$nomCompteLot = $bankLot ? ($bankLot->getLabel() !== null && $bankLot->getLabel() !== '' ? $bankLot->getLabel() : ($bankLot->getRaisonSociale() !== null && $bankLot->getRaisonSociale() !== '' ? $bankLot->getRaisonSociale() : $bankLot->getBanque())) : '—';
 					// Replié même s'il vient d'être importé si l'utilisateur a répondu "Non" à la
@@ -212,7 +212,7 @@
 									<tbody>
 										<?php foreach ($lignesLot as $l) :?>
 										<?php $infos = $l->getDonneesMatchingArray(); ?>
-										<tr data-id="<?= $l->getId() ?>" data-libelle="<?= htmlspecialchars($l->getLibelle(), ENT_QUOTES, 'UTF-8') ?>" data-debit="<?= $l->getDebit() ?>" data-match-type="<?= isset($infos['type']) ? htmlspecialchars($infos['type']) : '' ?>" data-employe-suggere='<?= isset($infos['employe_suggere']) && $infos['employe_suggere'] ? htmlspecialchars(json_encode($infos['employe_suggere']), ENT_QUOTES, "UTF-8") : '' ?>' data-fournisseur-suggere='<?= isset($infos['fournisseur_suggere']) && $infos['fournisseur_suggere'] ? htmlspecialchars(json_encode($infos['fournisseur_suggere']), ENT_QUOTES, "UTF-8") : '' ?>'>
+										<tr data-id="<?= $l->getId() ?>" data-statut="<?= htmlspecialchars($l->getStatut()) ?>" data-libelle="<?= htmlspecialchars($l->getLibelle(), ENT_QUOTES, 'UTF-8') ?>" data-debit="<?= $l->getDebit() ?>" data-credit="<?= $l->getCredit() ?>" data-match-type="<?= isset($infos['type']) ? htmlspecialchars($infos['type']) : '' ?>" data-employe-suggere='<?= isset($infos['employe_suggere']) && $infos['employe_suggere'] ? htmlspecialchars(json_encode($infos['employe_suggere']), ENT_QUOTES, "UTF-8") : '' ?>' data-fournisseur-suggere='<?= isset($infos['fournisseur_suggere']) && $infos['fournisseur_suggere'] ? htmlspecialchars(json_encode($infos['fournisseur_suggere']), ENT_QUOTES, "UTF-8") : '' ?>'>
 											<td><?= date('d/m/Y', strtotime($l->getDateOperation())) ?></td>
 											<td><?= htmlspecialchars($l->getLibelle()) ?></td>
 											<td><?= $l->getDebit() ? number_format($l->getDebit(), 2, ',', ' ') . ' DH' : '' ?></td>
@@ -231,8 +231,17 @@
 													case 'matched_tva':
 														echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>TVA rapprochée</span>';
 														break;
+													case 'compte_courant':
+														echo '<span class="badge bg-success-light"><i class="fa fa-wallet mr-1"></i>Compte courant' . (isset($infos['nom_compte_perso']) ? ' — ' . htmlspecialchars($infos['nom_compte_perso']) : '') . '</span>';
+														break;
 													case 'sans_justificatif':
-														echo '<span class="badge bg-danger-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour insérer le justificatif"><i class="fa fa-exclamation-triangle mr-1"></i>Débit de ' . number_format($l->getDebit(), 2, ',', ' ') . ' DH — Facture manquante</span>';
+														// Historiquement toujours un débit - concerneCompteCourant() (ci-dessus) peut
+														// désormais y faire atterrir un crédit (virement REÇU de Hamid/Zakaria).
+														if ($l->getDebit()) {
+															echo '<span class="badge bg-danger-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour insérer le justificatif"><i class="fa fa-exclamation-triangle mr-1"></i>Débit de ' . number_format($l->getDebit(), 2, ',', ' ') . ' DH — Facture manquante</span>';
+														} else {
+															echo '<span class="badge bg-danger-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour insérer le justificatif"><i class="fa fa-exclamation-triangle mr-1"></i>Crédit de ' . number_format($l->getCredit(), 2, ',', ' ') . ' DH — À traiter</span>';
+														}
 														break;
 													case 'ignore':
 														echo '<span class="badge badge-secondary">Ignorée</span>';
@@ -371,6 +380,10 @@
 													     titre/montant/type/remarque erronés ou à compléter après coup, sans repasser par la
 													     liste complète des charges pour la retrouver. -->
 													<a href="index.php?option=com_charge&task=edit&id=<?= $l->getIdCharge() ?>" target="_blank" class="btn btn-white btn-sm" data-toggle="tooltip" title="Modifier la charge affectée"><i class="fa fa-edit"></i></a>
+												<?php elseif ($l->getStatut() === 'compte_courant') :?>
+													<!-- Aucune charge n'a été créée par ce marquage (voir annulerCompteCourant() côté
+													     contrôleur) - annuler ne fait que remettre la ligne à "sans justificatif". -->
+													<button type="button" class="btn btn-white btn-sm rapprochement-annuler-compte-courant" data-toggle="tooltip" title="Annuler ce marquage"><i class="fa fa-undo text-danger"></i></button>
 												<?php else :?>
 													—
 												<?php endif;?>
@@ -450,6 +463,10 @@
 						<input type="radio" name="justificatifMode" value="fournisseur">
 						<span><i class="fa fa-truck mr-1"></i>Fournisseur</span>
 					</label>
+					<label class="justificatif-mode-item">
+						<input type="radio" name="justificatifMode" value="compte_courant">
+						<span><i class="fa fa-wallet mr-1"></i>Compte courant</span>
+					</label>
 				</div>
 
 				<div id="justificatifSuggestionEmploye" class="alert alert-info d-none" style="font-size:0.82rem;"></div>
@@ -466,8 +483,8 @@
 						<label>Employé</label>
 						<select class="form-control" id="justificatifResourcehumaine">
 							<option value="">Choisir l'employé...</option>
-							<?php foreach ($employesActifs as $e) :?>
-							<option value="<?= $e->getId() ?>"><?= htmlspecialchars($e->getFullName()) ?></option>
+							<?php foreach ($employesPourJustificatif as $e) :?>
+							<option value="<?= $e->getId() ?>"><?= htmlspecialchars($e->getFullName()) ?><?= $e->isActive() ? '' : ' (inactif)' ?></option>
 							<?php endforeach;?>
 						</select>
 					</div>
@@ -513,6 +530,19 @@
 					</div>
 				</div>
 
+				<div id="justificatifZoneCompteCourant" class="d-none">
+					<div class="form-group">
+						<label>Compte courant (personnel)</label>
+						<select class="form-control" id="justificatifCompteCourant">
+							<option value="">Choisir le compte...</option>
+							<?php foreach ($banksPerso as $b) :?>
+							<?php $nomComptePerso = $b->getLabel() !== null && $b->getLabel() !== '' ? $b->getLabel() : ($b->getRaisonSociale() !== null && $b->getRaisonSociale() !== '' ? $b->getRaisonSociale() : $b->getBanque());?>
+							<option value="<?= $b->getId() ?>"><?= htmlspecialchars($nomComptePerso) ?></option>
+							<?php endforeach;?>
+						</select>
+					</div>
+				</div>
+
 				<div class="form-group">
 					<label>Montant (DH)</label>
 					<input type="text" class="form-control" id="justificatifMontant">
@@ -532,6 +562,29 @@
 			<div class="modal-footer">
 				<button type="button" class="btn btn-white" data-dismiss="modal">Annuler</button>
 				<button type="button" class="btn btn-primary" id="justificatifConfirmerBtn"><i class="fa fa-check mr-1"></i> Créer la charge</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Popup "Erreur" de la fenêtre "Insérer le justificatif" — même habillage que les autres popups
+     du module (.tva-confirm-modal + .charge-doublon-icon, cf. reaffectationModal) plutôt que
+     l'alert() natif du navigateur. -->
+<div id="justificatifErreurModal" class="modal custom-modal tva-confirm-modal fade" role="dialog">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+				<div class="charge-doublon-icon"><i class="fa fa-exclamation-triangle"></i></div>
+				<h5 class="modal-title mt-3">Impossible d'enregistrer</h5>
+			</div>
+			<div class="modal-body">
+				<p class="text-center mb-0" id="justificatifErreurTexte" style="font-size:0.9rem;"></p>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-primary" data-dismiss="modal">Compris</button>
 			</div>
 		</div>
 	</div>
@@ -892,22 +945,28 @@ $(function () {
 		}
 	});
 
-	// Filtres rapides (Tous / À valider / Sans justificatif / À jour) : masque/affiche les cartes
-	// de lot directement (pas de DataTables ici, chaque lot est une carte indépendante avec sa
-	// propre table interne), à partir des compteurs déjà posés en data-* sur .rapprochement-lot-carte.
+	// Filtres rapides (Tous / À valider / Sans justificatif / À jour) : filtre les LIGNES à
+	// l'intérieur de chaque tableau de lot (pas seulement les cartes) - un lot ne reste visible
+	// que s'il lui reste au moins une ligne correspondant au filtre choisi. "À jour" affiche les
+	// lignes déjà traitées (ni à valider, ni sans justificatif).
 	$(document).on('click', '.quick-filter-chips button', function () {
 		var filtre = $(this).data('filter');
 		$('.quick-filter-chips button').removeClass('active');
 		$(this).addClass('active');
 		$('.rapprochement-lot-carte').each(function () {
 			var $carte = $(this);
-			var aValider = parseInt($carte.attr('data-nb-a-valider'), 10) || 0;
-			var sansJustificatif = parseInt($carte.attr('data-nb-sans-justificatif'), 10) || 0;
-			var visible = true;
-			if (filtre === 'a_valider') { visible = aValider > 0; }
-			else if (filtre === 'sans_justificatif') { visible = sansJustificatif > 0; }
-			else if (filtre === 'a_jour') { visible = aValider === 0 && sansJustificatif === 0; }
-			$carte.toggle(visible);
+			var nbLignesVisibles = 0;
+			$carte.find('tbody tr').each(function () {
+				var $ligne = $(this);
+				var statut = $ligne.attr('data-statut');
+				var visible = true;
+				if (filtre === 'a_valider') { visible = statut === 'a_valider'; }
+				else if (filtre === 'sans_justificatif') { visible = statut === 'sans_justificatif'; }
+				else if (filtre === 'a_jour') { visible = statut !== 'a_valider' && statut !== 'sans_justificatif'; }
+				$ligne.toggle(visible);
+				if (visible) { nbLignesVisibles++; }
+			});
+			$carte.toggle(filtre === 'all' || nbLignesVisibles > 0);
 		});
 	});
 
@@ -1488,6 +1547,27 @@ $(function () {
 		);
 	});
 
+	// "Annuler ce marquage" (ligne "Compte courant") : retour à "sans justificatif" - aucune charge
+	// n'a été créée par ce mode (voir annulerCompteCourant() côté contrôleur), donc rien d'autre à
+	// nettoyer que la ligne elle-même.
+	$(document).on('click', '.rapprochement-annuler-compte-courant', function () {
+		var $tr = $(this).closest('tr');
+		var id = $tr.data('id');
+		var libelle = $tr.data('libelle');
+		demanderAnnulationRapprochement(
+			'La ligne <strong>' + escHtml(libelle) + '</strong> redeviendra "sans justificatif".',
+			function () {
+				$.post('components/com_rapprochement/controleurs/router.php?task=annulerCompteCourant', { id: id }, function (response) {
+					if (response.success) {
+						window.location.reload();
+					} else {
+						alert(response.message || "Erreur lors de l'annulation");
+					}
+				});
+			}
+		);
+	});
+
 	// ---- Supprimer un import entier (annulation complète du lot) ----------------------------
 	// Liaison directe (pas de délégation document) : ces boutons vivent dans l'en-tête cliquable
 	// du lot (data-toggle="collapse") - stopPropagation() ici les empêche aussi de déplier/replier
@@ -1737,6 +1817,7 @@ $(function () {
 		$('#justificatifZoneCharge').toggleClass('d-none', mode !== 'charge');
 		$('#justificatifZonePayslip').toggleClass('d-none', mode !== 'payslip');
 		$('#justificatifZoneFournisseur').toggleClass('d-none', mode !== 'fournisseur');
+		$('#justificatifZoneCompteCourant').toggleClass('d-none', mode !== 'compte_courant');
 		$('.justificatif-mode-item').each(function () {
 			$(this).toggleClass('active', $(this).find('input').val() === mode);
 		});
@@ -1798,14 +1879,16 @@ $(function () {
 		justificatifLigneCourante = $tr.data('id');
 		var libelle = $tr.data('libelle');
 		var debit = $tr.data('debit');
+		var credit = $tr.data('credit');
 		var dateOperation = $tr.find('td').first().text();
 
 		$('#justificatifTitre').val(libelle);
 		$('#justificatifTitreFournisseur').val('');
-		$('#justificatifMontant').val(debit);
+		$('#justificatifMontant').val(debit || credit);
 		$('#justificatifFichier').val('');
 		$('#justificatifResourcehumaine').val('');
 		$('#justificatifFournisseur').val('');
+		$('#justificatifCompteCourant').val('');
 		$('#justificatifRemarque').val('');
 		$('#justificatifSuggestionEmploye').addClass('d-none').empty();
 
@@ -1878,6 +1961,8 @@ $(function () {
 		} else if (mode === 'fournisseur') {
 			formData.append('id_fournisseur', $('#justificatifFournisseur').val());
 			formData.append('titre', $('#justificatifTitreFournisseur').val());
+		} else if (mode === 'compte_courant') {
+			formData.append('id_bank_perso', $('#justificatifCompteCourant').val());
 		} else {
 			formData.append('titre', $('#justificatifTitre').val());
 		}
@@ -1905,14 +1990,19 @@ $(function () {
 					$btn.prop('disabled', false).html(libelleBoutonInitial);
 					return;
 				}
-				alert(response.message || "Erreur lors de l'enregistrement");
+				afficherErreurJustificatif(response.message || "Erreur lors de l'enregistrement");
 				$btn.prop('disabled', false).html(libelleBoutonInitial);
 			},
 			error: function () {
-				alert("Erreur lors de l'enregistrement");
+				afficherErreurJustificatif("Erreur lors de l'enregistrement");
 				$btn.prop('disabled', false).html(libelleBoutonInitial);
 			}
 		});
+	}
+
+	function afficherErreurJustificatif(message) {
+		$('#justificatifErreurTexte').text(message);
+		$('#justificatifErreurModal').modal('show');
 	}
 
 	$('#justificatifConfirmerBtn').on('click', function () {

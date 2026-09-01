@@ -52,6 +52,25 @@ function getRowRappel($data)
     </tr>
 <?php
 }
+// Le lancement de projet (Drive + Trello + Slack #familly + email support) ne doit se
+// déclencher que pour le tout premier paiement d'une facture (pas les paiements suivants/
+// renouvellements), et seulement si la facture contient au moins une prestation autre que
+// hébergement/nom de domaine/SSL (une facture purement hébergement/domaine ne doit pas
+// déclencher un "lancement de projet").
+function factureEligibleAuLancementProjet($facture)
+{
+    if (sizeof(payment::findAll($facture->getId())) != 1) {
+        return false;
+    }
+    $servicesHebergementDomaine = array(8, 7, 77, 96, 99, 74, 73);
+    foreach ($facture->getItems() as $item) {
+        if (!in_array($item->getService()->getId(), $servicesHebergementDomaine)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function addPayment($data)
 {
     $indices = array("id_facture", "montant");
@@ -97,11 +116,14 @@ function addPayment($data)
             sendPaymentConfirmationEmail($facture, $data['montant']);
             syncDevisStatutPaiement($facture);
 
-            // Tout paiement (même partiel) tente de déclencher le lancement de
-            // projet (Drive + Trello + Slack #familly + email support), mais
-            // projectNotifier::launch() ne fait réellement rien si un ticket
-            // Trello existe déjà pour ce client (déjà lancé précédemment).
-            projectNotifier::launch($facture->getClient(), $facture->getDevis(), 'Paiement ajouté sur la facture #' . $facture->getNumero() . ' (' . number_format($data['montant'], 2, ',', ' ') . ' ' . $facture->getDevise() . ').');
+            // Seul le tout premier paiement d'une facture non exclusivement hébergement/
+            // domaine/SSL tente de déclencher le lancement de projet (Drive + Trello +
+            // Slack #familly + email support) ; projectNotifier::launch() ne fait par
+            // ailleurs réellement rien si un ticket Trello existe déjà pour ce client
+            // (déjà lancé précédemment).
+            if (factureEligibleAuLancementProjet($facture)) {
+                projectNotifier::launch($facture->getClient(), $facture->getDevis(), 'Paiement ajouté sur la facture #' . $facture->getNumero() . ' (' . number_format($data['montant'], 2, ',', ' ') . ' ' . $facture->getDevise() . ').');
+            }
 
             echo "1";
         } else {
@@ -127,7 +149,9 @@ function syncDevisStatutPaiement($facture)
     $devis->setUserEdited($_SESSION['user']);
     $devis->setLastEdit(date('Y-m-d H:i:s'));
     $devis->edit();
-    projectNotifier::launch($devis->getClient(), $devis, 'Devis N°' . $devis->getNumero() . ' passé en "Paiement effectué".');
+    if (factureEligibleAuLancementProjet($facture)) {
+        projectNotifier::launch($devis->getClient(), $devis, 'Devis N°' . $devis->getNumero() . ' passé en "Paiement effectué".');
+    }
 }
 
 function sendPaymentConfirmationEmail($facture, $montant)

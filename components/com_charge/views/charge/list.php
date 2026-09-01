@@ -22,28 +22,17 @@
 		</div>
 
 		<?php
-		// KPI en tête de page, calculés directement à partir de $charges déjà chargé (pas de
-		// requête SQL supplémentaire). Limité au DH, comme tous les agrégats financiers de ce
-		// CRM (les charges dans d'autres devises existent mais ne sont pas additionnables).
-		$totalCharges = 0;
-		$totalPayees = 0;
-		$totalNonPayees = 0;
-		foreach ($charges as $c) {
-			if ($c->getDevise() != 'DH') {
-				continue;
-			}
-			$totalCharges += (float) $c->getTotal();
-			if ($c->isPaid()) {
-				$totalPayees += (float) $c->getTotal();
-			} else {
-				$totalNonPayees += (float) $c->getTotal();
-			}
-		}
+		// KPI en tête de page + ventilation par année/mois/catégorie pour le graphique —
+		// calculés en une seule passe sur $charges déjà chargé (pas de requête SQL
+		// supplémentaire). Limité au DH, comme tous les agrégats financiers de ce CRM (les
+		// charges dans d'autres devises existent mais ne sont pas additionnables). Les KPI
+		// affichés au chargement correspondent à l'année par défaut du sélecteur du graphique
+		// (la plus récente) - $chartData[$annee] porte aussi les totaux KPI (payées/non
+		// payées) pour que le JS puisse les remettre à jour quand l'année change.
 		$idsChargesAvecBulletin = payslip::findAllIdChargeLies();
 
-		// Ventilation par année/mois/catégorie pour le graphique — calculée elle aussi
-		// entièrement à partir de $charges déjà en mémoire, aucune requête SQL de plus.
 		$chargesParAnneeMoisType = array();
+		$kpiParAnnee = array();
 		$anneesDisponibles = array();
 		foreach ($charges as $c) {
 			if ($c->getDevise() != 'DH') {
@@ -67,6 +56,16 @@
 				$chargesParAnneeMoisType[$y][$m][$t] = 0;
 			}
 			$chargesParAnneeMoisType[$y][$m][$t] += (float) $c->getTotal();
+
+			if (!isset($kpiParAnnee[$y])) {
+				$kpiParAnnee[$y] = array('payees' => 0, 'non_payees' => 0);
+			}
+			if ($c->isPaid()) {
+				$kpiParAnnee[$y]['payees'] += (float) $c->getTotal();
+			} else {
+				$kpiParAnnee[$y]['non_payees'] += (float) $c->getTotal();
+			}
+
 			$anneesDisponibles[$y] = true;
 		}
 		krsort($anneesDisponibles);
@@ -89,9 +88,16 @@
 				'fixe' => $fixe,
 				'variable' => $variable,
 				'hors_hw' => $horsHw,
-				'total' => round(array_sum($fixe) + array_sum($variable) + array_sum($horsHw), 2)
+				'total' => round(array_sum($fixe) + array_sum($variable) + array_sum($horsHw), 2),
+				'payees' => isset($kpiParAnnee[$y]['payees']) ? round($kpiParAnnee[$y]['payees'], 2) : 0,
+				'non_payees' => isset($kpiParAnnee[$y]['non_payees']) ? round($kpiParAnnee[$y]['non_payees'], 2) : 0,
 			);
 		}
+
+		$anneeParDefaut = $anneesDisponibles[0];
+		$totalCharges = $chartData[$anneeParDefaut]['total'];
+		$totalPayees = $chartData[$anneeParDefaut]['payees'];
+		$totalNonPayees = $chartData[$anneeParDefaut]['non_payees'];
 		?>
 
 		<div class="row mb-4">
@@ -102,7 +108,7 @@
 							<span class="dash-widget-icon bg-9"><i class="fa fa-dollar-sign"></i></span>
 							<div class="dash-count">
 								<div class="dash-title">Total des charges (DH)</div>
-								<div class="dash-counts"><p><span class="charge-total-counter" data-valeur="<?= $totalCharges ?>">0</span> DH</p></div>
+								<div class="dash-counts"><p><span id="kpiChargeTotal" class="charge-total-counter" data-valeur="<?= $totalCharges ?>">0</span> DH</p></div>
 							</div>
 						</div>
 					</div>
@@ -115,7 +121,7 @@
 							<span class="dash-widget-icon bg-3"><i class="fa fa-check"></i></span>
 							<div class="dash-count">
 								<div class="dash-title">Payées (DH)</div>
-								<div class="dash-counts"><p><span class="charge-total-counter" data-valeur="<?= $totalPayees ?>">0</span> DH</p></div>
+								<div class="dash-counts"><p><span id="kpiChargePayees" class="charge-total-counter" data-valeur="<?= $totalPayees ?>">0</span> DH</p></div>
 							</div>
 						</div>
 					</div>
@@ -128,7 +134,7 @@
 							<span class="dash-widget-icon bg-1"><i class="fa fa-exclamation-triangle"></i></span>
 							<div class="dash-count">
 								<div class="dash-title">Non payées (DH)</div>
-								<div class="dash-counts"><p><span class="charge-total-counter" data-valeur="<?= $totalNonPayees ?>">0</span> DH</p></div>
+								<div class="dash-counts"><p><span id="kpiChargeNonPayees" class="charge-total-counter" data-valeur="<?= $totalNonPayees ?>">0</span> DH</p></div>
 							</div>
 						</div>
 					</div>
@@ -365,10 +371,18 @@ $(function () {
 		chart.render();
 		majBadgeEvolution(anneeInitiale);
 
+		function majKpiPourAnnee(annee) {
+			var d = dataParAnnee[annee] || { total: 0, payees: 0, non_payees: 0 };
+			animerCompteurVers($('#kpiChargeTotal'), d.total || 0);
+			animerCompteurVers($('#kpiChargePayees'), d.payees || 0);
+			animerCompteurVers($('#kpiChargeNonPayees'), d.non_payees || 0);
+		}
+
 		$('#chargeChartAnnee').on('change', function () {
 			var annee = parseInt($(this).val(), 10);
 			chart.updateSeries(seriesPourAnnee(annee));
 			majBadgeEvolution(annee);
+			majKpiPourAnnee(annee);
 		});
 
 		if (typeof gsap !== 'undefined') {
@@ -418,22 +432,28 @@ $(function () {
 	});
 
 	// Compteurs animés des cartes KPI (GSAP si disponible, sinon affichage statique immédiat).
-	$('.charge-total-counter').each(function () {
-		var $el = $(this);
-		var valeurFinale = parseFloat($el.attr('data-valeur')) || 0;
+	// Fonction réutilisée par le sélecteur d'année du graphique (majKpiPourAnnee ci-dessus) pour
+	// remettre à jour ces mêmes compteurs quand l'année change, sans recharger la page.
+	function animerCompteurVers($el, valeurFinale) {
 		if (typeof gsap === 'undefined') {
 			$el.text(valeurFinale.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 			return;
 		}
-		var compteur = { valeur: 0 };
+		var valeurActuelle = parseFloat(($el.text() || '0').replace(/\s/g, '').replace(',', '.')) || 0;
+		var compteur = { valeur: valeurActuelle };
 		gsap.to(compteur, {
 			valeur: valeurFinale,
-			duration: 1.2,
+			duration: 0.8,
 			ease: 'power1.out',
 			onUpdate: function () {
 				$el.text(compteur.valeur.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 			}
 		});
+	}
+
+	$('.charge-total-counter').each(function () {
+		var $el = $(this);
+		animerCompteurVers($el, parseFloat($el.attr('data-valeur')) || 0);
 	});
 
 	var msgsucces = "Charge supprimée avec succès";

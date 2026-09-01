@@ -21,6 +21,9 @@ if (isset($task) && !empty($task)) {
         case "archiveClient":
             archiveClient($_POST);
             break;
+        case "envoyerAccesEspaceClient":
+            envoyerAccesEspaceClient($_POST);
+            break;
         case "retablirClient":
             retablirClient($_POST);
             break;
@@ -117,8 +120,12 @@ function getClientSelect()
 
 function addClient($data)
 {
-    $indices = array("nom", "fonction", "agence");
+    $indices = array("nom", "fonction", "agence", "login");
     if (fieldCheck($data, $indices)) {
+        if (client::findByLogin(trim($data['login']))) {
+            echo "2|Ce login est déjà utilisé";
+            return;
+        }
         if (buildClient($data)->add() == 1) {
             $newId = client::getLastId();
             if (isset($data['presentation_file']) && !empty($data['presentation_file'])) {
@@ -139,8 +146,13 @@ function addClient($data)
 
 function editClient($data)
 {
-    $indices = array("id", "titre", "fonction");
+    $indices = array("id", "titre", "fonction", "login");
     if (fieldCheck($data, $indices)) {
+        $existant = client::findByLogin(trim($data['login']));
+        if ($existant && $existant->getId() != $data['id']) {
+            echo "2|Ce login est déjà utilisé";
+            return;
+        }
         if (buildClient($data, $data['id'])->edit() == 1) {
             echo "1";
         } else {
@@ -199,6 +211,26 @@ function archiveClient($data)
             echo "1";
         } else {
             echo "2";
+        }
+    } else {
+        echo "0";
+    }
+}
+
+function envoyerAccesEspaceClient($data)
+{
+    $indices = array("id");
+    if (fieldCheck($data, $indices)) {
+        $client = client::find($data['id'], $_SESSION['agence']);
+        if ($client->getId() == 0) {
+            echo "2|Client introuvable";
+            return;
+        }
+        $resultat = $client->envoyerAccesEspaceClient();
+        if ($resultat['success']) {
+            echo "1|" . $resultat['message'];
+        } else {
+            echo "2|" . $resultat['message'];
         }
     } else {
         echo "0";
@@ -274,6 +306,7 @@ function buildClient($data, $id = null)
     $client->setTel2($data['tel2']);
     $client->setTel3($data['tel3']);
     $client->setEmail($data['email_client']);
+    $client->setLogin(trim($data['login']));
     $client->setCp($data['cp']);
     $client->setAdresse($data['adresse']);
     $client->setAdresse2($data['adresse2']);
@@ -633,7 +666,7 @@ function exportEmail()
 
 function loginApi($data)
 {
-    echo client::loginApi($data['email'], $data['password']);
+    echo client::loginApi($data['login'], $data['password']);
 }
 
 function googleLoginApi($data)

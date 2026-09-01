@@ -272,7 +272,7 @@ class releveLigne
     public static function compterParLot($lotImport)
     {
         global $db;
-        $compteurs = array('matched_facture' => 0, 'matched_charge' => 0, 'matched_tva' => 0, 'a_valider' => 0, 'sans_justificatif' => 0, 'ignore' => 0);
+        $compteurs = array('matched_facture' => 0, 'matched_charge' => 0, 'matched_tva' => 0, 'compte_courant' => 0, 'a_valider' => 0, 'sans_justificatif' => 0, 'ignore' => 0);
         $SQLselect = sprintf("SELECT statut, COUNT(*) as nb FROM " . static::$table . " WHERE lot_import = %s GROUP BY statut",
             GetSQLValueString($lotImport, "text")
         );

@@ -1069,7 +1069,7 @@ function pdfDevis($data)
         
         $items = $devis->getItems();
         $client = $devis->getClient();
-        $agence = agence::find($_SESSION["agence"],$_SESSION["langue"]);
+        $agence = $client->getAgence();
         $config = new config($db);
         $invoiceFor = $client->getRaisonSocial() != '' ? $client->getRaisonSocial() : $client->getNom() . ' ' . $client->getPrenom();
         $color = $agence->getColor();
@@ -1360,7 +1360,7 @@ function pdfDevisTexte($data, $forEmailAttachment = false)
         
         $items = $devis->getItems();
         $client = $devis->getClient();
-        $agence = agence::find($_SESSION["agence"],$_SESSION["langue"]);
+        $agence = $client->getAgence();
         $config = new config($db);
         $invoiceFor = $client->getRaisonSocial() != '' ? $client->getRaisonSocial() : $client->getNom() . ' ' . $client->getPrenom();
         $color = $agence->getColor();

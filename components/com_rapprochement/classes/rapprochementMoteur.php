@@ -238,6 +238,12 @@ class rapprochementMoteur
     // pourcentage reste structurellement bas même face à un nom présent en clair, donc ne pas s'y
     // fier seul serait passer à côté de la quasi-totalité des cas réels. Ne renvoie qu'une
     // SUGGESTION - jamais de liaison automatique.
+    // Hamid Kennou (id 12, + doublon inactif "Période de test" id 91) et Zakaria El Haboussi
+    // (id 11) ont chacun un compte bancaire personnel dédié (crm_bank.exclu_rapprochement=1) et
+    // leurs virements doivent passer par le mode "Compte courant" (com_rapprochement), pas être
+    // suggérés comme bulletin de paie/charge employé - donc exclus ici de la détection.
+    const RH_IDS_EXCLUS_COMPTE_COURANT = array(11, 12, 91);
+
     public static function matcherEmploye($libelle)
     {
         $libelleNormalise = self::normaliserPourComparaisonNom($libelle);
@@ -247,6 +253,9 @@ class rapprochementMoteur
         $meilleurEmploye = null;
 
         foreach (resourcehumaine::findAll() as $employe) {
+            if (in_array((int) $employe->getId(), self::RH_IDS_EXCLUS_COMPTE_COURANT, true)) {
+                continue;
+            }
             $prenom = trim((string) $employe->getFirstName());
             $nom = trim((string) $employe->getLastName());
             if ($prenom === '' && $nom === '') {
@@ -275,6 +284,38 @@ class rapprochementMoteur
             return array('id' => $meilleurEmploye->getId(), 'nom_complet' => $meilleurEmploye->getFullName(), 'score' => round($meilleurScore, 1));
         }
         return null;
+    }
+
+    // Vérifie si un libellé mentionne Hamid Kennou ou Zakaria El Haboussi (mêmes ids/logique de
+    // nom que matcherEmploye()/RH_IDS_EXCLUS_COMPTE_COURANT ci-dessus), qu'il s'agisse d'un débit
+    // OU d'un crédit - contrairement à matcherEmploye() (débit uniquement), utilisé en amont même
+    // du matching crédit (matcherCredit() peut sinon rapprocher ces virements par coïncidence de
+    // score flou avec un client, ex: "KENNOU HAMID" ~ un nom de client). Doit rester "sans
+    // justificatif" pour laisser le choix manuel ultérieur (bulletin de paie ou compte courant).
+    public static function concerneCompteCourant($libelle)
+    {
+        $libelleNormalise = self::normaliserPourComparaisonNom($libelle);
+        if ($libelleNormalise === '') {
+            return false;
+        }
+        foreach (self::RH_IDS_EXCLUS_COMPTE_COURANT as $idRh) {
+            $employe = resourcehumaine::find($idRh);
+            if (!$employe || !$employe->getId()) {
+                continue;
+            }
+            $prenom = trim((string) $employe->getFirstName());
+            $nom = trim((string) $employe->getLastName());
+            if ($prenom === '' && $nom === '') {
+                continue;
+            }
+            $concat1 = self::normaliserPourComparaisonNom($prenom . $nom);
+            $concat2 = self::normaliserPourComparaisonNom($nom . $prenom);
+            if (($concat1 !== '' && mb_strlen($concat1) >= 4 && mb_strpos($libelleNormalise, $concat1) !== false)
+                || ($concat2 !== '' && mb_strlen($concat2) >= 4 && mb_strpos($libelleNormalise, $concat2) !== false)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Même principe que matcherEmploye() ci-dessus, mais contre la table Fournisseurs (raison
