@@ -313,7 +313,13 @@ function cronPointageRappelEndpoint()
     $resultats['absences_creees'] = 0;
     if ($heureActuelle >= '20:00' && $etat['last_absence_check'] !== $aujourdhui) {
         $hier = (new DateTime('yesterday'))->format('Y-m-d');
-        $employes = resourcehumaine::findAllByStatuses(array("Titulaire", "Periode de test"));
+        // Mêmes ids exclus que filterPointageWeb() ci-dessus - ne pas leur créer d'absence
+        // automatique puisqu'ils ne sont pas suivis par le pointage web.
+        $employesExclusIds = array(11, 12, 58);
+        $employes = array_filter(
+            resourcehumaine::findAllByStatuses(array("Titulaire", "Periode de test")),
+            function ($employe) use ($employesExclusIds) { return !in_array((int) $employe->getId(), $employesExclusIds, true); }
+        );
         foreach ($employes as $employe) {
             $classification = pointageweb::classifierJour($employe, $hier);
             if (!$classification || $classification['type'] !== 'absence') {
