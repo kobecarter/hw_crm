@@ -154,6 +154,25 @@ class AuthController
         $client->setNom(GetV::value($data, 'nom'));
         $client->setPrenom(GetV::value($data, 'prenom'));
         $client->setIce(GetV::value($data, 'ice'));
+
+        // Le formulaire d'inscription ne demande pas de login - on en génère un unique à partir
+        // de la raison sociale (même règle que la migration de backfill des clients existants),
+        // sinon nom+prénom, sinon l'email, pour que le compte reste utilisable après bascule de
+        // l'authentification vers login+mot de passe.
+        $baseLogin = trim((string) GetV::value($data, 'raison_social'));
+        if ($baseLogin === '') {
+            $baseLogin = trim(GetV::value($data, 'nom') . ' ' . GetV::value($data, 'prenom'));
+        }
+        if ($baseLogin === '') {
+            $baseLogin = trim((string) GetV::value($data, 'email'));
+        }
+        $login = $baseLogin;
+        $n = 2;
+        while (\client::findByLogin($login)) {
+            $login = $baseLogin . '-' . $n;
+            $n++;
+        }
+        $client->setLogin($login);
         // $client->setTitre(GetV::value($data, 'titre'));
         // $client->setTel(GetV::value($data, 'tel'));
         // $client->setTel2(GetV::value($data, 'tel2'));
@@ -191,7 +210,7 @@ class AuthController
     }
 
     /*
-    *Logs in using email and password and generates a JWT token 
+    *Logs in using login and password and generates a JWT token
     */
     public static function login()
     {
@@ -207,13 +226,13 @@ class AuthController
                 );
             }
 
-            //TEST ?email=zineb.benkirane@mrbricolage.ma&password=zineb123
+            //TEST ?login=zineb.benkirane@mrbricolage.ma&password=zineb123
 
 
             $data = request()->body();
-            $email = $data['email'];
+            $login = $data['login'];
             $password = $data['password'];
-            $client = \client::doLogin($email, $password);
+            $client = \client::doLogin($login, $password);
             if ($client) {
                 $token = self::generateJWToken($client->getId());
                 return  response()->json(
