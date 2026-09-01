@@ -29,6 +29,9 @@ if (isset($task) && !empty($task)) {
         case 'annulerRapprochementFacture':
             annulerRapprochementFacture($_POST);
             break;
+        case 'annulerCompteCourant':
+            annulerCompteCourant($_POST);
+            break;
     }
 }
 
@@ -369,6 +372,12 @@ function previewReleve($data, $files)
                 'lot_import_existant' => $doublonsExistants[0]->getLotImport()
             ));
             $lotsImportExistantsVus[$doublonsExistants[0]->getLotImport()] = true;
+        } elseif (rapprochementMoteur::concerneCompteCourant($t['libelle'])) {
+            // Hamid/Zakaria : jamais de rapprochement auto (ni facture, ni charge), même par
+            // coïncidence de score flou côté crédit - reste "sans justificatif" pour un choix
+            // manuel ultérieur (bulletin de paie ou compte courant).
+            $ligneSimulee->setStatut('sans_justificatif');
+            $ligneSimulee->setDonneesMatchingArray(array('type' => 'debit_inconnu'));
         } elseif (!empty($t['credit'])) {
             rapprochementMoteur::matcherCredit($ligneSimulee, $idAgenceReelle);
         } else {
@@ -848,7 +857,9 @@ function creerJustificatifManuel($data, $files)
 
     $mode = isset($data['mode']) ? $data['mode'] : 'charge';
     $titre = isset($data['titre']) && trim($data['titre']) !== '' ? trim($data['titre']) : $ligne->getLibelle();
-    $montant = isset($data['montant']) && $data['montant'] !== '' ? (float) str_replace(',', '.', $data['montant']) : $ligne->getDebit();
+    // concerneCompteCourant() (rapprochementMoteur) peut désormais amener ici une ligne crédit
+    // (virement REÇU de Hamid/Zakaria, ex: remboursement) - getDebit() serait alors vide.
+    $montant = isset($data['montant']) && $data['montant'] !== '' ? (float) str_replace(',', '.', $data['montant']) : ($ligne->getDebit() ? $ligne->getDebit() : $ligne->getCredit());
     // Commune aux 3 modes (charge simple, bulletin de paie, fournisseur) - jamais spécifique à un
     // seul, exportée telle quelle dans le dossier comptable Excel (cf. exportTvaComptable()).
     $remarque = isset($data['remarque']) && trim($data['remarque']) !== '' ? trim($data['remarque']) : null;
@@ -1025,40 +1036,26 @@ function creerJustificatifManuel($data, $files)
         }
         $nomComptePerso = nomAfficheCompte($bankPerso);
 
-        $nomFichierCharge = resoudreJustificatifFichier($files, 'justificatif', $ligne);
+        // Contrairement aux autres modes de cette fonction, "Compte courant" ne crée volontairement
+        // AUCUNE charge - Hamid/Zakaria avancent régulièrement de l'argent perso pour la société,
+        // ce n'est pas une charge de l'entreprise. On se contente de marquer la ligne du relevé
+        // elle-même (statut + donnees_matching, colonnes déjà existantes sur crm_releve_ligne),
+        // sans toucher à la table charge ni à aucune autre table.
+        $nomFichierJustificatif = resoudreJustificatifFichier($files, 'justificatif', $ligne);
 
-        $charge = new charge();
-        $charge->setAgence($ligne->getAgence());
-        $charge->setUser($_SESSION['user']);
-        $charge->setPaidBy($_SESSION['user']);
-        $charge->setType('variable');
-        $charge->setTitre('Compte courant — ' . $nomComptePerso);
-        $charge->setDescription('Charge créée depuis BANK STATEMENT — transfert vers le compte courant personnel : ' . $nomComptePerso . '.');
-        $charge->setRemarque($remarque);
-        $charge->setTotal($montant);
-        $charge->setDevise('DH');
-        $charge->setTvaTaux(null);
-        $charge->setTvaDeductible(0);
-        $charge->setPaid(1);
-        $charge->setFacture(0);
-        $charge->setRefunded(0);
-        $charge->setDateCharge($ligne->getDateOperation());
-        $charge->setDatePayment($ligne->getDateOperation());
-        $charge->setModePayment('virement');
-        if ($nomFichierCharge) {
-            $charge->setPhoto($nomFichierCharge);
-        }
-        $charge->setDateAdd(date('Y-m-d H:i:s'));
-        $charge->setLastEdit(date('Y-m-d H:i:s'));
-        $charge->add();
-        $idCharge = charge::getLastId();
-
-        $ligne->setIdCharge($idCharge);
-        $ligne->setStatut('matched_charge');
+        $ligne->setIdCharge(null);
+        $ligne->setStatut('compte_courant');
+        $ligne->setDonneesMatchingArray(array(
+            'type' => 'compte_courant',
+            'id_bank_perso' => intval($data['id_bank_perso']),
+            'nom_compte_perso' => $nomComptePerso,
+            'remarque' => $remarque,
+            'justificatif' => $nomFichierJustificatif,
+        ));
         $ligne->setLastEdit(date('Y-m-d H:i:s'));
         $ligne->edit();
 
-        echo json_encode(array('success' => 1, 'action' => 'charge_creee', 'id_charge' => $idCharge));
+        echo json_encode(array('success' => 1, 'action' => 'compte_courant'));
         return;
     }
 
@@ -1427,6 +1424,36 @@ function annulerRapprochementFacture($data)
     $ligne->setIdPayment(null);
     $ligne->setStatut('a_valider');
     $ligne->setDonneesMatchingArray(array('type' => 'credit_ambigu', 'candidats' => array()));
+    $ligne->setLastEdit(date('Y-m-d H:i:s'));
+    $ligne->edit();
+
+    echo json_encode(array('success' => 1));
+}
+
+// Annule le marquage "Compte courant" d'une ligne (aucune charge n'a été créée par ce mode, voir
+// creerJustificatifManuel() ci-dessus - il n'y a donc rien à supprimer ailleurs, juste la ligne
+// elle-même à repasser à son état d'origine).
+function annulerCompteCourant($data)
+{
+    header('Content-Type: application/json');
+    if (!$_SESSION['user']->hasDroit('edit', 'com_rapprochement')) {
+        echo json_encode(array('success' => 0, 'message' => 'Accès refusé'));
+        return;
+    }
+    if (!isset($data['id']) || empty($data['id'])) {
+        echo json_encode(array('success' => 0, 'message' => 'Ligne manquante'));
+        return;
+    }
+
+    $ligne = releveLigne::find(intval($data['id']));
+    if (!$ligne->getId() || $ligne->getStatut() !== 'compte_courant') {
+        echo json_encode(array('success' => 0, 'message' => "Cette ligne n'est pas marquée comme compte courant"));
+        return;
+    }
+
+    $ligne->setIdCharge(null);
+    $ligne->setStatut('sans_justificatif');
+    $ligne->setDonneesMatchingArray(array());
     $ligne->setLastEdit(date('Y-m-d H:i:s'));
     $ligne->edit();
 

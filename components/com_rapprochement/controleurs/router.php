@@ -53,5 +53,10 @@ if (isset($_GET['task']) && !empty($_GET['task'])) {
                 include_once ("rapprochement/controleur.php");
             }
             break;
+        case 'annulerCompteCourant' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_rapprochement')) {
+                include_once ("rapprochement/controleur.php");
+            }
+            break;
     }
 }

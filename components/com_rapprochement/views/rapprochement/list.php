@@ -15,7 +15,7 @@
 		</div>
 
 		<?php
-		$compteursGlobal = array('matched_facture' => 0, 'matched_charge' => 0, 'matched_tva' => 0, 'a_valider' => 0, 'sans_justificatif' => 0, 'ignore' => 0);
+		$compteursGlobal = array('matched_facture' => 0, 'matched_charge' => 0, 'matched_tva' => 0, 'compte_courant' => 0, 'a_valider' => 0, 'sans_justificatif' => 0, 'ignore' => 0);
 		$nbLotsAJour = 0;
 		foreach ($lotsData as $ld) {
 			foreach ($ld['compteurs'] as $statut => $nb) {
@@ -25,7 +25,7 @@
 				$nbLotsAJour++;
 			}
 		}
-		$nbRapprocheesGlobal = $compteursGlobal['matched_facture'] + $compteursGlobal['matched_charge'] + $compteursGlobal['matched_tva'];
+		$nbRapprocheesGlobal = $compteursGlobal['matched_facture'] + $compteursGlobal['matched_charge'] + $compteursGlobal['matched_tva'] + $compteursGlobal['compte_courant'];
 		?>
 
 		<div class="row mb-4">
@@ -161,7 +161,7 @@
 					$lot = $ld['lot'];
 					$compteurs = $ld['compteurs'];
 					$lignesLot = $ld['lignes'];
-					$nbRapprocheesLot = $compteurs['matched_facture'] + $compteurs['matched_charge'] + $compteurs['matched_tva'];
+					$nbRapprocheesLot = $compteurs['matched_facture'] + $compteurs['matched_charge'] + $compteurs['matched_tva'] + (isset($compteurs['compte_courant']) ? $compteurs['compte_courant'] : 0);
 					$bankLot = $lot->getBank();
 					$nomCompteLot = $bankLot ? ($bankLot->getLabel() !== null && $bankLot->getLabel() !== '' ? $bankLot->getLabel() : ($bankLot->getRaisonSociale() !== null && $bankLot->getRaisonSociale() !== '' ? $bankLot->getRaisonSociale() : $bankLot->getBanque())) : '—';
 					// Replié même s'il vient d'être importé si l'utilisateur a répondu "Non" à la
@@ -212,7 +212,7 @@
 									<tbody>
 										<?php foreach ($lignesLot as $l) :?>
 										<?php $infos = $l->getDonneesMatchingArray(); ?>
-										<tr data-id="<?= $l->getId() ?>" data-statut="<?= htmlspecialchars($l->getStatut()) ?>" data-libelle="<?= htmlspecialchars($l->getLibelle(), ENT_QUOTES, 'UTF-8') ?>" data-debit="<?= $l->getDebit() ?>" data-match-type="<?= isset($infos['type']) ? htmlspecialchars($infos['type']) : '' ?>" data-employe-suggere='<?= isset($infos['employe_suggere']) && $infos['employe_suggere'] ? htmlspecialchars(json_encode($infos['employe_suggere']), ENT_QUOTES, "UTF-8") : '' ?>' data-fournisseur-suggere='<?= isset($infos['fournisseur_suggere']) && $infos['fournisseur_suggere'] ? htmlspecialchars(json_encode($infos['fournisseur_suggere']), ENT_QUOTES, "UTF-8") : '' ?>'>
+										<tr data-id="<?= $l->getId() ?>" data-statut="<?= htmlspecialchars($l->getStatut()) ?>" data-libelle="<?= htmlspecialchars($l->getLibelle(), ENT_QUOTES, 'UTF-8') ?>" data-debit="<?= $l->getDebit() ?>" data-credit="<?= $l->getCredit() ?>" data-match-type="<?= isset($infos['type']) ? htmlspecialchars($infos['type']) : '' ?>" data-employe-suggere='<?= isset($infos['employe_suggere']) && $infos['employe_suggere'] ? htmlspecialchars(json_encode($infos['employe_suggere']), ENT_QUOTES, "UTF-8") : '' ?>' data-fournisseur-suggere='<?= isset($infos['fournisseur_suggere']) && $infos['fournisseur_suggere'] ? htmlspecialchars(json_encode($infos['fournisseur_suggere']), ENT_QUOTES, "UTF-8") : '' ?>'>
 											<td><?= date('d/m/Y', strtotime($l->getDateOperation())) ?></td>
 											<td><?= htmlspecialchars($l->getLibelle()) ?></td>
 											<td><?= $l->getDebit() ? number_format($l->getDebit(), 2, ',', ' ') . ' DH' : '' ?></td>
@@ -231,8 +231,17 @@
 													case 'matched_tva':
 														echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>TVA rapprochée</span>';
 														break;
+													case 'compte_courant':
+														echo '<span class="badge bg-success-light"><i class="fa fa-wallet mr-1"></i>Compte courant' . (isset($infos['nom_compte_perso']) ? ' — ' . htmlspecialchars($infos['nom_compte_perso']) : '') . '</span>';
+														break;
 													case 'sans_justificatif':
-														echo '<span class="badge bg-danger-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour insérer le justificatif"><i class="fa fa-exclamation-triangle mr-1"></i>Débit de ' . number_format($l->getDebit(), 2, ',', ' ') . ' DH — Facture manquante</span>';
+														// Historiquement toujours un débit - concerneCompteCourant() (ci-dessus) peut
+														// désormais y faire atterrir un crédit (virement REÇU de Hamid/Zakaria).
+														if ($l->getDebit()) {
+															echo '<span class="badge bg-danger-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour insérer le justificatif"><i class="fa fa-exclamation-triangle mr-1"></i>Débit de ' . number_format($l->getDebit(), 2, ',', ' ') . ' DH — Facture manquante</span>';
+														} else {
+															echo '<span class="badge bg-danger-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour insérer le justificatif"><i class="fa fa-exclamation-triangle mr-1"></i>Crédit de ' . number_format($l->getCredit(), 2, ',', ' ') . ' DH — À traiter</span>';
+														}
 														break;
 													case 'ignore':
 														echo '<span class="badge badge-secondary">Ignorée</span>';
@@ -371,6 +380,10 @@
 													     titre/montant/type/remarque erronés ou à compléter après coup, sans repasser par la
 													     liste complète des charges pour la retrouver. -->
 													<a href="index.php?option=com_charge&task=edit&id=<?= $l->getIdCharge() ?>" target="_blank" class="btn btn-white btn-sm" data-toggle="tooltip" title="Modifier la charge affectée"><i class="fa fa-edit"></i></a>
+												<?php elseif ($l->getStatut() === 'compte_courant') :?>
+													<!-- Aucune charge n'a été créée par ce marquage (voir annulerCompteCourant() côté
+													     contrôleur) - annuler ne fait que remettre la ligne à "sans justificatif". -->
+													<button type="button" class="btn btn-white btn-sm rapprochement-annuler-compte-courant" data-toggle="tooltip" title="Annuler ce marquage"><i class="fa fa-undo text-danger"></i></button>
 												<?php else :?>
 													—
 												<?php endif;?>
@@ -1534,6 +1547,27 @@ $(function () {
 		);
 	});
 
+	// "Annuler ce marquage" (ligne "Compte courant") : retour à "sans justificatif" - aucune charge
+	// n'a été créée par ce mode (voir annulerCompteCourant() côté contrôleur), donc rien d'autre à
+	// nettoyer que la ligne elle-même.
+	$(document).on('click', '.rapprochement-annuler-compte-courant', function () {
+		var $tr = $(this).closest('tr');
+		var id = $tr.data('id');
+		var libelle = $tr.data('libelle');
+		demanderAnnulationRapprochement(
+			'La ligne <strong>' + escHtml(libelle) + '</strong> redeviendra "sans justificatif".',
+			function () {
+				$.post('components/com_rapprochement/controleurs/router.php?task=annulerCompteCourant', { id: id }, function (response) {
+					if (response.success) {
+						window.location.reload();
+					} else {
+						alert(response.message || "Erreur lors de l'annulation");
+					}
+				});
+			}
+		);
+	});
+
 	// ---- Supprimer un import entier (annulation complète du lot) ----------------------------
 	// Liaison directe (pas de délégation document) : ces boutons vivent dans l'en-tête cliquable
 	// du lot (data-toggle="collapse") - stopPropagation() ici les empêche aussi de déplier/replier
@@ -1845,11 +1879,12 @@ $(function () {
 		justificatifLigneCourante = $tr.data('id');
 		var libelle = $tr.data('libelle');
 		var debit = $tr.data('debit');
+		var credit = $tr.data('credit');
 		var dateOperation = $tr.find('td').first().text();
 
 		$('#justificatifTitre').val(libelle);
 		$('#justificatifTitreFournisseur').val('');
-		$('#justificatifMontant').val(debit);
+		$('#justificatifMontant').val(debit || credit);
 		$('#justificatifFichier').val('');
 		$('#justificatifResourcehumaine').val('');
 		$('#justificatifFournisseur').val('');
