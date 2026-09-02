@@ -224,9 +224,13 @@
 														echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>Facture rapprochée</span>';
 														break;
 													case 'matched_charge':
-														echo isset($infos['type']) && $infos['type'] === 'debit_commission'
-															? '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>Commission (agrégée)</span>'
-															: '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>Charge créée</span>';
+														if (isset($infos['type']) && $infos['type'] === 'debit_commission' && isset($infos['motif']) && $infos['motif'] === 'tva_commission') {
+															echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>TVA commission (agrégée)</span>';
+														} elseif (isset($infos['type']) && $infos['type'] === 'debit_commission') {
+															echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>Commission (agrégée)</span>';
+														} else {
+															echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>Charge créée</span>';
+														}
 														break;
 													case 'matched_tva':
 														echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>TVA rapprochée</span>';
@@ -253,6 +257,8 @@
 															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour confirmer la TVA">Paiement TVA détecté (' . htmlspecialchars($infos['periode_detectee']) . ') — à confirmer</span>';
 														} elseif (isset($infos['type']) && $infos['type'] === 'credit_ambigu') {
 															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour choisir la facture">À valider (' . count($infos['candidats']) . ' facture(s) candidate(s))</span>';
+														} elseif (isset($infos['type']) && $infos['type'] === 'debit_commission' && isset($infos['motif']) && $infos['motif'] === 'tva_commission') {
+															echo '<span class="badge bg-warning-light">TVA commission — à agréger</span>';
 														} elseif (isset($infos['type']) && $infos['type'] === 'debit_charge_existante') {
 															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour choisir la charge">Charge existante trouvée — à confirmer</span>';
 														} else {
