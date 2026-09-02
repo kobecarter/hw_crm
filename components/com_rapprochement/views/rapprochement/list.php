@@ -421,15 +421,15 @@
 				<p class="text-center mb-3" style="font-size:0.9rem;">
 					Période détectée à partir de la date de l'opération : <strong id="tvaRapprochementPeriode">—</strong>
 				</p>
+				<!-- Au cas où la déclaration correspondante n'a simplement pas encore été saisie -
+				     ouvre le formulaire TVA dans un nouvel onglet, sans perdre l'état de cette page. -->
+				<a href="index.php?option=com_accounting&task=tva" target="_blank" class="btn btn-white btn-block mb-3"><i class="fa fa-plus mr-1"></i> Ajouter une déclaration TVA</a>
 				<div id="tvaRapprochementListe"></div>
 				<p class="text-muted text-center mb-0 d-none" id="tvaRapprochementVide" style="font-size:0.85rem;">
 					Aucune déclaration TVA trouvée à proximité de cette période.
 				</p>
 			</div>
 			<div class="modal-footer">
-				<!-- Au cas où la déclaration correspondante n'a simplement pas encore été saisie -
-				     ouvre le formulaire TVA dans un nouvel onglet, sans perdre l'état de cette page. -->
-				<a href="index.php?option=com_accounting&task=tva" target="_blank" class="btn btn-white mr-auto"><i class="fa fa-plus mr-1"></i> Ajouter une déclaration TVA</a>
 				<button type="button" class="btn btn-white" data-dismiss="modal">Annuler</button>
 				<button type="button" class="btn btn-primary" id="tvaRapprochementConfirmerBtn"><i class="fa fa-check mr-1"></i> Confirmer</button>
 			</div>
