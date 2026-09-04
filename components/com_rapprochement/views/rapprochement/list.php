@@ -340,6 +340,11 @@
 													<!-- Aucune charge n'a été créée par ce marquage (voir annulerCompteCourant() côté
 													     contrôleur) - annuler ne fait que remettre la ligne à "sans justificatif". -->
 													<button type="button" class="btn btn-white btn-sm rapprochement-annuler-compte-courant" data-toggle="tooltip" title="Annuler ce marquage"><i class="fa fa-undo text-danger"></i></button>
+												<?php elseif ($l->getStatut() === 'ignore') :?>
+													<!-- Rien n'a été créé par ignorerLigne() - annuler ne fait que remettre la ligne au
+													     statut qu'elle avait juste avant d'être ignorée (voir annulerIgnorerLigne() côté
+													     contrôleur). -->
+													<button type="button" class="btn btn-white btn-sm rapprochement-annuler-ignorer" data-toggle="tooltip" title="Annuler ce marquage"><i class="fa fa-undo text-danger"></i></button>
 												<?php else :?>
 													—
 												<?php endif;?>
@@ -1566,6 +1571,26 @@ $(function () {
 			'La ligne <strong>' + escHtml(libelle) + '</strong> redeviendra "sans justificatif".',
 			function () {
 				$.post('components/com_rapprochement/controleurs/router.php?task=annulerCompteCourant', { id: id }, function (response) {
+					if (response.success) {
+						window.location.reload();
+					} else {
+						alert(response.message || "Erreur lors de l'annulation");
+					}
+				});
+			}
+		);
+	});
+
+	// "Annuler ce marquage" (ligne "Ignorée") : retour au statut qu'elle avait juste avant d'être
+	// ignorée (à valider ou sans justificatif) - voir annulerIgnorerLigne() côté contrôleur.
+	$(document).on('click', '.rapprochement-annuler-ignorer', function () {
+		var $tr = $(this).closest('tr');
+		var id = $tr.data('id');
+		var libelle = $tr.data('libelle');
+		demanderAnnulationRapprochement(
+			'La ligne <strong>' + escHtml(libelle) + '</strong> ne sera plus ignorée.',
+			function () {
+				$.post('components/com_rapprochement/controleurs/router.php?task=annulerIgnorerLigne', { id: id }, function (response) {
 					if (response.success) {
 						window.location.reload();
 					} else {
