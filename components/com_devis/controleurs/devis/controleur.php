@@ -247,6 +247,7 @@ function createInvoiceFromDevis($devis)
     $facture->setDiscount($devis->getDiscount());
     $facture->setShowSignature(0);
     $facture->setDiscountVal($devis->getDiscountVal());
+    $facture->setTvaRetenueSource($devis->getTvaRetenueSource());
     $facture->setLangue($devis->getLangue());
     $facture->setConditionPaiment($devis->getConditionPaiment());
     $facture->setRemarque($devis->getRemarque());
@@ -1048,6 +1049,7 @@ function buildDevis($data, $id = null)
     $devis->setRemarque($data['remarque']);
     //$devis->setMotifRefus($data['motif_refus']);
     $devis->setProforma($estBanquePersonnelle ? 1 : (isset($data['proforma']) ? 1 : 0));
+    $devis->setTvaRetenueSource($estBanquePersonnelle ? 0 : (isset($data['tva_retenue_source']) ? 1 : 0));
     $devis->setPack(isset($data['pack']) ? 1 : 0);
     $devis->setTVA($estBanquePersonnelle ? 0 : $data['tva']);
     $devis->setLangue($data['langue']);
@@ -1217,7 +1219,7 @@ mpdf-->
         //$tva = $devis->isProforma() ? 0 : $soustotal * $agence->getTva()/100;
         $tva = $devis->getTva();
 
-        $htmlInvoice .= '<tr><td class="totals">' . $traduction['TVA'][$devis->getLangue()] . '</td>
+        $htmlInvoice .= '<tr><td class="totals">' . $traduction['TVA'][$devis->getLangue()] . ($devis->isTvaRetenueSource() ? ' <span style="font-size:6.5pt; color:#999;">' . $traduction['TVA_RETENUE_SOURCE_MENTION'][$devis->getLangue()] . '</span>' : '') . '</td>
             <td class="totals cost">' . number_format($tva, 2, ',', ' ') . ' ' . $devis->getDevise() . '</td>
         </tr>';
 
@@ -1527,7 +1529,7 @@ mpdf-->
 
         $htmlInvoice .= '<tr>';
         if($devis->isPack()) $htmlInvoice .= '<td class="blanktotal" rowspan="6"></td>';
-        $htmlInvoice .= '<td class="totals">' . $traduction['TVA'][$devis->getLangue()] . '</td>
+        $htmlInvoice .= '<td class="totals">' . $traduction['TVA'][$devis->getLangue()] . ($devis->isTvaRetenueSource() ? ' <span style="font-size:6.5pt; color:#999;">' . $traduction['TVA_RETENUE_SOURCE_MENTION'][$devis->getLangue()] . '</span>' : '') . '</td>
             <td class="totals cost">' . number_format($tva, 2, ',', ' ') . ' ' . $devis->getDevise() . '</td>
         </tr>';
 

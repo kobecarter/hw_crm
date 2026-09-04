@@ -29,6 +29,7 @@ class facture
     private $remarque_moi;
     private $additional_information;
     private $proforma;
+    private $tva_retenue_source;
     private $show_signature;
     private $langue;
     private $date_debut;
@@ -134,7 +135,12 @@ class facture
     {
         return $this->proforma;
     }
-    
+
+    public function getTvaRetenueSource()
+    {
+        return $this->tva_retenue_source;
+    }
+
     public function getShowSignature()
     {
         return $this->show_signature;
@@ -149,7 +155,12 @@ class facture
     {
         return $this->proforma == 1 ? true : false;
     }
-    
+
+    public function isTvaRetenueSource()
+    {
+        return $this->tva_retenue_source == 1 ? true : false;
+    }
+
      public function isShowSignature()
     {
         return $this->show_signature == 1 ? true : false;
@@ -298,7 +309,12 @@ class facture
     {
         $this->proforma = $proforma;
     }
-    
+
+    public function setTvaRetenueSource($tva_retenue_source)
+    {
+        $this->tva_retenue_source = $tva_retenue_source;
+    }
+
     public function setShowSignature($show_signature)
     {
         $this->show_signature = $show_signature;
@@ -359,7 +375,7 @@ class facture
     {
         global $db;
         $SQLinsert = sprintf(
-            "INSERT INTO " . static::$table . " (id_user_added, id_bank, numero, sec_numero, id_client, id_devis, date_facture, total, statu, devise, discount, discount_val, condition_paiment, remarque, remarque_moi, additional_information, proforma, show_signature, langue, date_debut, date_fin, date_add, last_edit, avoir, archived, id_facture) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "INSERT INTO " . static::$table . " (id_user_added, id_bank, numero, sec_numero, id_client, id_devis, date_facture, total, statu, devise, discount, discount_val, condition_paiment, remarque, remarque_moi, additional_information, proforma, tva_retenue_source, show_signature, langue, date_debut, date_fin, date_add, last_edit, avoir, archived, id_facture) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->user_added->getId(), "int"),
             GetSQLValueString($this->bank ? $this->bank->getId() : null, "int"),
             GetSQLValueString($this->numero, "text"),
@@ -377,6 +393,7 @@ class facture
             GetSQLValueString($this->remarque_moi, "text"),
             GetSQLValueString($this->additional_information, "text"),
             GetSQLValueString($this->proforma, "int"),
+            GetSQLValueString($this->tva_retenue_source, "int"),
             GetSQLValueString($this->show_signature, "int"),
             GetSQLValueString($this->langue, "text"),
             GetSQLValueString($this->date_debut, "date"),
@@ -399,7 +416,7 @@ class facture
     {
         global $db;
         $SQLupdate = sprintf(
-            "UPDATE " . static::$table . " SET  id_user_edited = %s, id_bank = %s, numero = %s, sec_numero = %s, id_client = %s, id_devis = %s, date_facture = %s, total = %s, statu = %s, devise = %s, discount = %s, discount_val = %s, condition_paiment=%s, remarque=%s, remarque_moi=%s, additional_information=%s, proforma = %s, show_signature = %s, langue = %s, date_debut = %s, date_fin = %s, last_edit = %s, avoir = %s, archived = %s, id_facture = %s WHERE id = %s",
+            "UPDATE " . static::$table . " SET  id_user_edited = %s, id_bank = %s, numero = %s, sec_numero = %s, id_client = %s, id_devis = %s, date_facture = %s, total = %s, statu = %s, devise = %s, discount = %s, discount_val = %s, condition_paiment=%s, remarque=%s, remarque_moi=%s, additional_information=%s, proforma = %s, tva_retenue_source = %s, show_signature = %s, langue = %s, date_debut = %s, date_fin = %s, last_edit = %s, avoir = %s, archived = %s, id_facture = %s WHERE id = %s",
             GetSQLValueString($this->user_edited->getId(), "int"),
             GetSQLValueString($this->bank ? $this->bank->getId() : null, "int"),
             GetSQLValueString($this->numero, "text"),
@@ -417,6 +434,7 @@ class facture
             GetSQLValueString($this->remarque_moi, "text"),
             GetSQLValueString($this->additional_information, "text"),
             GetSQLValueString($this->proforma, "int"),
+            GetSQLValueString($this->tva_retenue_source, "int"),
             GetSQLValueString($this->show_signature, "int"),
             GetSQLValueString($this->langue, "text"),
             GetSQLValueString($this->date_debut, "date"),
@@ -469,7 +487,7 @@ class facture
         if ($count === 0) {
             return true;
         }
-        return $count === 1 && abs($payments[0]->getMontant() - $this->total) < 0.01;
+        return $count === 1 && abs($payments[0]->getMontant() - $this->getMontantAttendu()) < 0.01;
     }
 
     // Même règle qu'isGlobalPdfAllowed(), en SQL direct plutôt que via
@@ -733,6 +751,19 @@ class facture
         return $items;
     }
 
+    // Montant réellement dû par le client : le total TTC normalement, sauf pour une facture
+    // "TVA retenue à la source" (le client retient la totalité de la TVA et la reverse
+    // directement au fisc - l'agence n'encaissera jamais que le HT). Exclut les proforma (déjà
+    // sans TVA ajoutée - diviser à nouveau fausserait le montant).
+    public function getMontantAttendu()
+    {
+        if ($this->isTvaRetenueSource() && !$this->isProforma()) {
+            $tva = $this->getClient()->getAgence()->getTva();
+            return $tva > 0 ? $this->total / (1 + $tva / 100) : $this->total;
+        }
+        return $this->total;
+    }
+
     public function getReste()
     {
         global $db;
@@ -744,14 +775,14 @@ class facture
         $result = $db->query($SQLselect);
         $data = $db->fetch_array($result);
 
-        return $this->total - $data['total'];
+        return $this->getMontantAttendu() - $data['total'];
     }
 
     public function checkPayment()
     {
         if ($this->getReste() <= 0)
             $this->statu = 1;
-        elseif ($this->getReste() < $this->total)
+        elseif ($this->getReste() < $this->getMontantAttendu())
             $this->statu = 2;
         else
             $this->statu = 0;
@@ -851,6 +882,7 @@ class facture
         $facture->setRemarqueMoi($data['remarque_moi']);
         $facture->setAdditionalInformation($data['additional_information']);
         $facture->setProforma($data['proforma']);
+        $facture->setTvaRetenueSource($data['tva_retenue_source']);
         $facture->setShowSignature($data['show_signature']);
         $facture->setLangue($data['langue']);
         $facture->setDateDebut($data['date_debut']);
@@ -885,7 +917,7 @@ class facture
         $result = $db->query($SQLselect);
         $data = $db->fetch_array($result);
         $totalPayment = $data['totalpayment'];
-        $SQLselect = sprintf("SELECT SUM(A.total) AS totalfacture FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE C.id = $agence AND (A.archived IS NULL OR A.archived = 0) AND A.devise = '$devise'");
+        $SQLselect = sprintf("SELECT SUM(CASE WHEN A.tva_retenue_source = 1 AND (A.proforma IS NULL OR A.proforma = 0) THEN A.total / (1 + C.tva/100) ELSE A.total END) AS totalfacture FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE C.id = $agence AND (A.archived IS NULL OR A.archived = 0) AND A.devise = '$devise'");
         if ($_SESSION['user']->isSuperUser() == false) {
             $SQLselect .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
@@ -923,10 +955,10 @@ class facture
         $totalPayment = $data['totalpayment'];
 
         if($agence)
-            $SQLselect = sprintf("SELECT SUM(A.total) AS totalfacture FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE C.id = $agence AND (A.archived IS NULL OR A.archived = 0) AND A.devise = '$devise'");
+            $SQLselect = sprintf("SELECT SUM(CASE WHEN A.tva_retenue_source = 1 AND (A.proforma IS NULL OR A.proforma = 0) THEN A.total / (1 + C.tva/100) ELSE A.total END) AS totalfacture FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE C.id = $agence AND (A.archived IS NULL OR A.archived = 0) AND A.devise = '$devise'");
         else
-            $SQLselect = sprintf("SELECT SUM(A.total) AS totalfacture FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE (A.archived IS NULL OR A.archived = 0) AND A.devise = '$devise'");
-            
+            $SQLselect = sprintf("SELECT SUM(CASE WHEN A.tva_retenue_source = 1 AND (A.proforma IS NULL OR A.proforma = 0) THEN A.total / (1 + C.tva/100) ELSE A.total END) AS totalfacture FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE (A.archived IS NULL OR A.archived = 0) AND A.devise = '$devise'");
+
         if ($_SESSION['user']->isSuperUser() == false) {
             $SQLselect .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
@@ -1010,7 +1042,7 @@ class facture
     public static function total($statu = false, $year = false, $devise = 'DH', $agence = 1)
     {
         global $db;
-        $SQLcount = "SELECT SUM(A.total) as c FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE C.id = $agence and (A.archived IS NULL OR A.archived = 0) AND A.devise = '$devise'";
+        $SQLcount = "SELECT SUM(CASE WHEN A.tva_retenue_source = 1 AND (A.proforma IS NULL OR A.proforma = 0) THEN A.total / (1 + C.tva/100) ELSE A.total END) as c FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE C.id = $agence and (A.archived IS NULL OR A.archived = 0) AND A.devise = '$devise'";
         if ($_SESSION['user']->isSuperUser() == false) {
             $SQLcount .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
@@ -1037,9 +1069,9 @@ class facture
         global $db;
         
         if($agence)
-            $SQLcount = "SELECT SUM(A.total) as c FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE C.id = $agence AND (A.archived IS NULL OR A.archived = 0) AND A.devise = '$devise'";
+            $SQLcount = "SELECT SUM(CASE WHEN A.tva_retenue_source = 1 AND (A.proforma IS NULL OR A.proforma = 0) THEN A.total / (1 + C.tva/100) ELSE A.total END) as c FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE C.id = $agence AND (A.archived IS NULL OR A.archived = 0) AND A.devise = '$devise'";
         else
-            $SQLcount = "SELECT SUM(A.total) as c FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE (A.archived IS NULL OR A.archived = 0) AND A.devise = '$devise'";
+            $SQLcount = "SELECT SUM(CASE WHEN A.tva_retenue_source = 1 AND (A.proforma IS NULL OR A.proforma = 0) THEN A.total / (1 + C.tva/100) ELSE A.total END) as c FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE (A.archived IS NULL OR A.archived = 0) AND A.devise = '$devise'";
             
             
         if ($_SESSION['user']->isSuperUser() == false) {
@@ -1075,7 +1107,8 @@ class facture
     {
         $tva = null;
         if (!$this->isProforma()) {
-            $tva = ($this->getTotal() - $this->getTotal() / 1.2);
+            $taux = $this->getClient()->getAgence()->getTva();
+            $tva = $taux > 0 ? ($this->getTotal() - $this->getTotal() / (1 + $taux / 100)) : 0;
         }
         return $tva;
     }
@@ -1262,7 +1295,7 @@ mpdf-->
             $tva = $facture->isProforma() ? 0 : $soustotal * $agence->getTva() / 100;
 
             $htmlInvoice .= '<tr>
-<td class="totals">' . $traduction['TVA'][$facture->getLangue()] . '</td>
+<td class="totals">' . $traduction['TVA'][$facture->getLangue()] . ($facture->isTvaRetenueSource() ? ' <span style="font-size:6.5pt; color:#999;">' . $traduction['TVA_RETENUE_SOURCE_MENTION'][$facture->getLangue()] . '</span>' : '') . '</td>
 <td class="totals cost">' . number_format($tva, 2, ',', ' ') . ' ' . $facture->getDevise() . '</td>
 </tr>';
 
@@ -1627,7 +1660,7 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
         $tva = $facture->isProforma() ? 0 : $sstotal * $agence->getTva() / 100;
 
         $htmlInvoice .= '<tr>
-<td class="totals">' . $traduction['TVA'][$facture->getLangue()] . '</td>
+<td class="totals">' . $traduction['TVA'][$facture->getLangue()] . ($facture->isTvaRetenueSource() ? ' <span style="font-size:6.5pt; color:#999;">' . $traduction['TVA_RETENUE_SOURCE_MENTION'][$facture->getLangue()] . '</span>' : '') . '</td>
 <td class="totals cost">' . number_format($tva, 2, ',', ' ') . ' ' . $facture->getDevise() . '</td>
 </tr>';
 
@@ -1916,7 +1949,7 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
                 $tva = $facture->isProforma() ? 0 : $sstotal * $agence->getTva() / 100;
 
                 $htmlInvoice .= '<tr>
-            <td class="totals">' . $traduction['TVA'][$facture->getLangue()] . '</td>
+            <td class="totals">' . $traduction['TVA'][$facture->getLangue()] . ($facture->isTvaRetenueSource() ? ' <span style="font-size:6.5pt; color:#999;">' . $traduction['TVA_RETENUE_SOURCE_MENTION'][$facture->getLangue()] . '</span>' : '') . '</td>
             <td class="totals cost">' . number_format($tva, 2, ',', ' ') . ' ' . $facture->getDevise() . '</td>
             </tr>';
 
@@ -2092,6 +2125,7 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
             'remarque_moi' => $data['remarque_moi'],
             'additional_information' => $data['additional_information'],
             'proforma' => $data['proforma'],
+            'tva_retenue_source' => $data['tva_retenue_source'],
             'show_signature' => $data['show_signature'],
             'langue' => $data['langue'],
             'pdf' => "com_facture/controleurs/router.php?task=pdfFactureApi&id=" . $data['ID'],
@@ -2461,7 +2495,7 @@ $htmlInvoice .= '
         $tva = $facture["proforma"] ? 0 : $soustotal * $agence["tva"] / 100;
 
         $htmlInvoice .= '<tr>
-<td class="totals">' . $traduction['TVA'][$facture["langue"]] . '</td>
+<td class="totals">' . $traduction['TVA'][$facture["langue"]] . (!empty($facture["tva_retenue_source"]) ? ' <span style="font-size:6.5pt; color:#999;">' . $traduction['TVA_RETENUE_SOURCE_MENTION'][$facture["langue"]] . '</span>' : '') . '</td>
 <td class="totals cost">' . number_format($tva, 2, ',', ' ') . ' ' . $facture["devise"] . '</td>
 </tr>';
 
