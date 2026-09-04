@@ -205,8 +205,8 @@
 											<th>Libellé</th>
 											<th>Débit</th>
 											<th>Crédit</th>
-											<th>Statut</th>
 											<th>Action</th>
+											<th>Statut</th>
 										</tr>
 									</thead>
 									<tbody>
@@ -217,56 +217,6 @@
 											<td><?= htmlspecialchars($l->getLibelle()) ?></td>
 											<td><?= $l->getDebit() ? number_format($l->getDebit(), 2, ',', ' ') . ' DH' : '' ?></td>
 											<td><?= $l->getCredit() ? number_format($l->getCredit(), 2, ',', ' ') . ' DH' : '' ?></td>
-											<td>
-												<?php
-												switch ($l->getStatut()) {
-													case 'matched_facture':
-														echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>Facture rapprochée</span>';
-														break;
-													case 'matched_charge':
-														if (isset($infos['type']) && $infos['type'] === 'debit_commission' && isset($infos['motif']) && $infos['motif'] === 'tva_commission') {
-															echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>TVA commission (agrégée)</span>';
-														} elseif (isset($infos['type']) && $infos['type'] === 'debit_commission') {
-															echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>Commission (agrégée)</span>';
-														} else {
-															echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>Charge créée</span>';
-														}
-														break;
-													case 'matched_tva':
-														echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>TVA rapprochée</span>';
-														break;
-													case 'compte_courant':
-														echo '<span class="badge bg-success-light"><i class="fa fa-wallet mr-1"></i>Compte courant' . (isset($infos['nom_compte_perso']) ? ' — ' . htmlspecialchars($infos['nom_compte_perso']) : '') . '</span>';
-														break;
-													case 'sans_justificatif':
-														// Historiquement toujours un débit - concerneCompteCourant() (ci-dessus) peut
-														// désormais y faire atterrir un crédit (virement REÇU de Hamid/Zakaria).
-														if ($l->getDebit()) {
-															echo '<span class="badge bg-danger-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour insérer le justificatif"><i class="fa fa-exclamation-triangle mr-1"></i>Débit de ' . number_format($l->getDebit(), 2, ',', ' ') . ' DH — Facture manquante</span>';
-														} else {
-															echo '<span class="badge bg-danger-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour insérer le justificatif"><i class="fa fa-exclamation-triangle mr-1"></i>Crédit de ' . number_format($l->getCredit(), 2, ',', ' ') . ' DH — À traiter</span>';
-														}
-														break;
-													case 'ignore':
-														echo '<span class="badge badge-secondary">Ignorée</span>';
-														break;
-													default:
-														if (isset($infos['type']) && $infos['type'] === 'debit_reconnu') {
-															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour valider">À valider : ' . htmlspecialchars($infos['titre']) . '</span>';
-														} elseif (isset($infos['type']) && $infos['type'] === 'debit_tva') {
-															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour confirmer la TVA">Paiement TVA détecté (' . htmlspecialchars($infos['periode_detectee']) . ') — à confirmer</span>';
-														} elseif (isset($infos['type']) && $infos['type'] === 'credit_ambigu') {
-															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour choisir la facture">À valider (' . count($infos['candidats']) . ' facture(s) candidate(s))</span>';
-														} elseif (isset($infos['type']) && $infos['type'] === 'debit_commission' && isset($infos['motif']) && $infos['motif'] === 'tva_commission') {
-															echo '<span class="badge bg-warning-light">TVA commission — à agréger</span>';
-														} elseif (isset($infos['type']) && $infos['type'] === 'debit_charge_existante') {
-															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour choisir la charge">Charge existante trouvée — à confirmer</span>';
-														} else {
-															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour traiter">À valider</span>';
-														}
-												}
-												?>
-											</td>
 											<td>
 												<?php if ($l->getStatut() === 'a_valider') :?>
 													<?php if (isset($infos['type']) && $infos['type'] === 'debit_tva') :?>
@@ -393,6 +343,56 @@
 												<?php else :?>
 													—
 												<?php endif;?>
+											</td>
+											<td>
+												<?php
+												switch ($l->getStatut()) {
+													case 'matched_facture':
+														echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>Facture rapprochée</span>';
+														break;
+													case 'matched_charge':
+														if (isset($infos['type']) && $infos['type'] === 'debit_commission' && isset($infos['motif']) && $infos['motif'] === 'tva_commission') {
+															echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>TVA commission (agrégée)</span>';
+														} elseif (isset($infos['type']) && $infos['type'] === 'debit_commission') {
+															echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>Commission (agrégée)</span>';
+														} else {
+															echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>Charge créée</span>';
+														}
+														break;
+													case 'matched_tva':
+														echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>TVA rapprochée</span>';
+														break;
+													case 'compte_courant':
+														echo '<span class="badge bg-success-light"><i class="fa fa-wallet mr-1"></i>Compte courant' . (isset($infos['nom_compte_perso']) ? ' — ' . htmlspecialchars($infos['nom_compte_perso']) : '') . '</span>';
+														break;
+													case 'sans_justificatif':
+														// Historiquement toujours un débit - concerneCompteCourant() (ci-dessus) peut
+														// désormais y faire atterrir un crédit (virement REÇU de Hamid/Zakaria).
+														if ($l->getDebit()) {
+															echo '<span class="badge bg-danger-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour insérer le justificatif"><i class="fa fa-exclamation-triangle mr-1"></i>Débit de ' . number_format($l->getDebit(), 2, ',', ' ') . ' DH — Facture manquante</span>';
+														} else {
+															echo '<span class="badge bg-danger-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour insérer le justificatif"><i class="fa fa-exclamation-triangle mr-1"></i>Crédit de ' . number_format($l->getCredit(), 2, ',', ' ') . ' DH — À traiter</span>';
+														}
+														break;
+													case 'ignore':
+														echo '<span class="badge badge-secondary">Ignorée</span>';
+														break;
+													default:
+														if (isset($infos['type']) && $infos['type'] === 'debit_reconnu') {
+															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour valider">À valider : ' . htmlspecialchars($infos['titre']) . '</span>';
+														} elseif (isset($infos['type']) && $infos['type'] === 'debit_tva') {
+															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour confirmer la TVA">Paiement TVA détecté (' . htmlspecialchars($infos['periode_detectee']) . ') — à confirmer</span>';
+														} elseif (isset($infos['type']) && $infos['type'] === 'credit_ambigu') {
+															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour choisir la facture">À valider (' . count($infos['candidats']) . ' facture(s) candidate(s))</span>';
+														} elseif (isset($infos['type']) && $infos['type'] === 'debit_commission' && isset($infos['motif']) && $infos['motif'] === 'tva_commission') {
+															echo '<span class="badge bg-warning-light">TVA commission — à agréger</span>';
+														} elseif (isset($infos['type']) && $infos['type'] === 'debit_charge_existante') {
+															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour choisir la charge">Charge existante trouvée — à confirmer</span>';
+														} else {
+															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour traiter">À valider</span>';
+														}
+												}
+												?>
 											</td>
 										</tr>
 										<?php endforeach;?>
