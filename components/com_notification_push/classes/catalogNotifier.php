@@ -14,13 +14,13 @@ class catalogNotifier
         global $db;
         $result = array('formations' => 0, 'services' => 0);
 
-        $result['formations'] = self::diffAndNotify('formation', siteCatalog::findFormations('fr'), 'Nouvelle formation');
-        $result['services'] = self::diffAndNotify('service', siteCatalog::findServices('fr'), 'Nouveau service');
+        $result['formations'] = self::diffAndNotify('formation', siteCatalog::findFormations('fr'), 'Une nouveauté vient d\'arriver 🌟', ' — venez apprendre avec nous !');
+        $result['services'] = self::diffAndNotify('service', siteCatalog::findServices('fr'), 'On a pensé à vous ✨', ' est maintenant disponible, curieux de découvrir ?');
 
         return $result;
     }
 
-    private static function diffAndNotify($type, $items, $title)
+    private static function diffAndNotify($type, $items, $title, $messageSuffix = '')
     {
         global $db;
         if (empty($items)) {
@@ -40,7 +40,7 @@ class catalogNotifier
             }
 
             $clientIds = self::optedInClientIds();
-            pushNotifier::broadcast($clientIds, $title, $item['titre'], array('type' => $type, 'id' => $item['id']));
+            pushNotifier::broadcast($clientIds, $title, $item['titre'] . $messageSuffix, array('type' => $type, 'id' => $item['id']));
 
             $db->query(sprintf(
                 "INSERT INTO crm_catalog_notified (type, external_id, date_notified) VALUES ('%s', '%s', '%s')",

@@ -140,7 +140,7 @@ class fidelite
         ));
         if (is_array($unnotified)) {
             foreach ($unnotified as $row) {
-                pushNotifier::send(client::findAny($idClient), 'Récompense débloquée', 'Vous avez débloqué : ' . $row['libelle'] . ' !', array('type' => 'loyalty', 'id' => (int) $row['id']));
+                pushNotifier::send(client::findAny($idClient), 'Bravo, un cadeau vous attend ! 🎉', $row['libelle'] . ', rien que pour vous — merci de votre fidélité 💛', array('type' => 'loyalty', 'id' => (int) $row['id']));
                 $db->query(sprintf("UPDATE crm_client_rewards SET notifie = 1 WHERE id = %d", (int) $row['id']));
             }
         }
@@ -188,7 +188,7 @@ class fidelite
         ));
         $ok = empty($db->getLink()->error);
         if ($ok) {
-            pushNotifier::send(client::findAny($reward['id_client']), 'Votre récompense vous attend', 'Votre récompense ' . $reward['libelle'] . ' vous attend, contactez l\'agence !', array('type' => 'loyalty', 'id' => $rewardId));
+            pushNotifier::send(client::findAny($reward['id_client']), 'Votre cadeau est prêt 🎁', $reward['libelle'] . ' vous attend, contactez-nous vite pour le récupérer !', array('type' => 'loyalty', 'id' => $rewardId));
             $db->query(sprintf("UPDATE crm_client_rewards SET notifie_don = 1 WHERE id = %d", $rewardId));
         }
         return $ok;
