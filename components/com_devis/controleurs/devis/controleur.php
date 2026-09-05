@@ -438,6 +438,7 @@ function addDevis($data)
                 $agence = agence::find($_SESSION['agence'],$_SESSION['langue']);
                 $agence->setNumeroIncrementDevis($agence->getNumeroIncrementDevis()+1);
                 $agence->edit();
+                pushNotifier::send($devis->getClient(), 'Nouveau devis', 'Devis N°' . $devis->getNumero() . ' disponible.', array('type' => 'devis', 'id' => $devis->getId()));
             }
             if(isset($data['generate_contract']) && $data['generate_contract'] == 1){
                 $contract = new contract();

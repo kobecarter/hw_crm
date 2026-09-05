@@ -129,6 +129,21 @@ class fidelite
                 $idClient, $seuil, $db->getLink()->real_escape_string($libelle), $now
             ));
         }
+
+        // Notifie tout palier fraîchement débloqué (notifie=0, jamais mis à jour ailleurs -
+        // couvre aussi bien les INSERT IGNORE ci-dessus que d'éventuels paliers déjà en base mais
+        // jamais notifiés). Ne peut pas se fier au résultat de l'INSERT IGNORE pour savoir quels
+        // paliers sont réellement nouveaux (silencieux sur les doublons), d'où ce SELECT séparé.
+        $unnotified = $db->queryS(sprintf(
+            "SELECT id, libelle FROM crm_client_rewards WHERE id_client = %d AND notifie = 0",
+            $idClient
+        ));
+        if (is_array($unnotified)) {
+            foreach ($unnotified as $row) {
+                pushNotifier::send(client::findAny($idClient), 'Récompense débloquée', 'Vous avez débloqué : ' . $row['libelle'] . ' !', array('type' => 'loyalty', 'id' => (int) $row['id']));
+                $db->query(sprintf("UPDATE crm_client_rewards SET notifie = 1 WHERE id = %d", (int) $row['id']));
+            }
+        }
     }
 
     // Récompenses débloquées pour un client (les plus récentes d'abord).
@@ -171,7 +186,12 @@ class fidelite
             "UPDATE crm_client_rewards SET statut = 1, notifie_don = 0, date_affecte = '%s', affecte_par = '%s' WHERE id = %d",
             $now, $db->getLink()->real_escape_string((string) $affectePar), $rewardId
         ));
-        return empty($db->getLink()->error);
+        $ok = empty($db->getLink()->error);
+        if ($ok) {
+            pushNotifier::send(client::findAny($reward['id_client']), 'Votre récompense vous attend', 'Votre récompense ' . $reward['libelle'] . ' vous attend, contactez l\'agence !', array('type' => 'loyalty', 'id' => $rewardId));
+            $db->query(sprintf("UPDATE crm_client_rewards SET notifie_don = 1 WHERE id = %d", $rewardId));
+        }
+        return $ok;
     }
 
     // Supprime une ligne de l'historique des points (correction d'erreur,
