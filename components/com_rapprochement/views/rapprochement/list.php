@@ -205,8 +205,8 @@
 											<th>Libellé</th>
 											<th>Débit</th>
 											<th>Crédit</th>
-											<th>Statut</th>
 											<th>Action</th>
+											<th>Statut</th>
 										</tr>
 									</thead>
 									<tbody>
@@ -217,50 +217,6 @@
 											<td><?= htmlspecialchars($l->getLibelle()) ?></td>
 											<td><?= $l->getDebit() ? number_format($l->getDebit(), 2, ',', ' ') . ' DH' : '' ?></td>
 											<td><?= $l->getCredit() ? number_format($l->getCredit(), 2, ',', ' ') . ' DH' : '' ?></td>
-											<td>
-												<?php
-												switch ($l->getStatut()) {
-													case 'matched_facture':
-														echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>Facture rapprochée</span>';
-														break;
-													case 'matched_charge':
-														echo isset($infos['type']) && $infos['type'] === 'debit_commission'
-															? '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>Commission (agrégée)</span>'
-															: '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>Charge créée</span>';
-														break;
-													case 'matched_tva':
-														echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>TVA rapprochée</span>';
-														break;
-													case 'compte_courant':
-														echo '<span class="badge bg-success-light"><i class="fa fa-wallet mr-1"></i>Compte courant' . (isset($infos['nom_compte_perso']) ? ' — ' . htmlspecialchars($infos['nom_compte_perso']) : '') . '</span>';
-														break;
-													case 'sans_justificatif':
-														// Historiquement toujours un débit - concerneCompteCourant() (ci-dessus) peut
-														// désormais y faire atterrir un crédit (virement REÇU de Hamid/Zakaria).
-														if ($l->getDebit()) {
-															echo '<span class="badge bg-danger-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour insérer le justificatif"><i class="fa fa-exclamation-triangle mr-1"></i>Débit de ' . number_format($l->getDebit(), 2, ',', ' ') . ' DH — Facture manquante</span>';
-														} else {
-															echo '<span class="badge bg-danger-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour insérer le justificatif"><i class="fa fa-exclamation-triangle mr-1"></i>Crédit de ' . number_format($l->getCredit(), 2, ',', ' ') . ' DH — À traiter</span>';
-														}
-														break;
-													case 'ignore':
-														echo '<span class="badge badge-secondary">Ignorée</span>';
-														break;
-													default:
-														if (isset($infos['type']) && $infos['type'] === 'debit_reconnu') {
-															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour valider">À valider : ' . htmlspecialchars($infos['titre']) . '</span>';
-														} elseif (isset($infos['type']) && $infos['type'] === 'debit_tva') {
-															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour confirmer la TVA">Paiement TVA détecté (' . htmlspecialchars($infos['periode_detectee']) . ') — à confirmer</span>';
-														} elseif (isset($infos['type']) && $infos['type'] === 'credit_ambigu') {
-															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour choisir la facture">À valider (' . count($infos['candidats']) . ' facture(s) candidate(s))</span>';
-														} elseif (isset($infos['type']) && $infos['type'] === 'debit_charge_existante') {
-															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour choisir la charge">Charge existante trouvée — à confirmer</span>';
-														} else {
-															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour traiter">À valider</span>';
-														}
-												}
-												?>
-											</td>
 											<td>
 												<?php if ($l->getStatut() === 'a_valider') :?>
 													<?php if (isset($infos['type']) && $infos['type'] === 'debit_tva') :?>
@@ -384,9 +340,64 @@
 													<!-- Aucune charge n'a été créée par ce marquage (voir annulerCompteCourant() côté
 													     contrôleur) - annuler ne fait que remettre la ligne à "sans justificatif". -->
 													<button type="button" class="btn btn-white btn-sm rapprochement-annuler-compte-courant" data-toggle="tooltip" title="Annuler ce marquage"><i class="fa fa-undo text-danger"></i></button>
+												<?php elseif ($l->getStatut() === 'ignore') :?>
+													<!-- Rien n'a été créé par ignorerLigne() - annuler ne fait que remettre la ligne au
+													     statut qu'elle avait juste avant d'être ignorée (voir annulerIgnorerLigne() côté
+													     contrôleur). -->
+													<button type="button" class="btn btn-white btn-sm rapprochement-annuler-ignorer" data-toggle="tooltip" title="Annuler ce marquage"><i class="fa fa-undo text-danger"></i></button>
 												<?php else :?>
 													—
 												<?php endif;?>
+											</td>
+											<td>
+												<?php
+												switch ($l->getStatut()) {
+													case 'matched_facture':
+														echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>Facture rapprochée</span>';
+														break;
+													case 'matched_charge':
+														if (isset($infos['type']) && $infos['type'] === 'debit_commission' && isset($infos['motif']) && $infos['motif'] === 'tva_commission') {
+															echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>TVA commission (agrégée)</span>';
+														} elseif (isset($infos['type']) && $infos['type'] === 'debit_commission') {
+															echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>Commission (agrégée)</span>';
+														} else {
+															echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>Charge créée</span>';
+														}
+														break;
+													case 'matched_tva':
+														echo '<span class="badge bg-success-light"><i class="fa fa-check mr-1"></i>TVA rapprochée</span>';
+														break;
+													case 'compte_courant':
+														echo '<span class="badge bg-success-light"><i class="fa fa-wallet mr-1"></i>Compte courant' . (isset($infos['nom_compte_perso']) ? ' — ' . htmlspecialchars($infos['nom_compte_perso']) : '') . '</span>';
+														break;
+													case 'sans_justificatif':
+														// Historiquement toujours un débit - concerneCompteCourant() (ci-dessus) peut
+														// désormais y faire atterrir un crédit (virement REÇU de Hamid/Zakaria).
+														if ($l->getDebit()) {
+															echo '<span class="badge bg-danger-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour insérer le justificatif"><i class="fa fa-exclamation-triangle mr-1"></i>Débit de ' . number_format($l->getDebit(), 2, ',', ' ') . ' DH — Facture manquante</span>';
+														} else {
+															echo '<span class="badge bg-danger-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour insérer le justificatif"><i class="fa fa-exclamation-triangle mr-1"></i>Crédit de ' . number_format($l->getCredit(), 2, ',', ' ') . ' DH — À traiter</span>';
+														}
+														break;
+													case 'ignore':
+														echo '<span class="badge badge-secondary">Ignorée</span>';
+														break;
+													default:
+														if (isset($infos['type']) && $infos['type'] === 'debit_reconnu') {
+															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour valider">À valider : ' . htmlspecialchars($infos['titre']) . '</span>';
+														} elseif (isset($infos['type']) && $infos['type'] === 'debit_tva') {
+															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour confirmer la TVA">Paiement TVA détecté (' . htmlspecialchars($infos['periode_detectee']) . ') — à confirmer</span>';
+														} elseif (isset($infos['type']) && $infos['type'] === 'credit_ambigu') {
+															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour choisir la facture">À valider (' . count($infos['candidats']) . ' facture(s) candidate(s))</span>';
+														} elseif (isset($infos['type']) && $infos['type'] === 'debit_commission' && isset($infos['motif']) && $infos['motif'] === 'tva_commission') {
+															echo '<span class="badge bg-warning-light">TVA commission — à agréger</span>';
+														} elseif (isset($infos['type']) && $infos['type'] === 'debit_charge_existante') {
+															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour choisir la charge">Charge existante trouvée — à confirmer</span>';
+														} else {
+															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour traiter">À valider</span>';
+														}
+												}
+												?>
 											</td>
 										</tr>
 										<?php endforeach;?>
@@ -421,10 +432,12 @@
 				<p class="text-center mb-3" style="font-size:0.9rem;">
 					Période détectée à partir de la date de l'opération : <strong id="tvaRapprochementPeriode">—</strong>
 				</p>
+				<!-- Au cas où la déclaration correspondante n'a simplement pas encore été saisie -
+				     ouvre le formulaire TVA dans un nouvel onglet, sans perdre l'état de cette page. -->
+				<a href="index.php?option=com_accounting&task=tva" target="_blank" class="btn btn-white btn-block mb-3"><i class="fa fa-plus mr-1"></i> Ajouter une déclaration TVA</a>
 				<div id="tvaRapprochementListe"></div>
 				<p class="text-muted text-center mb-0 d-none" id="tvaRapprochementVide" style="font-size:0.85rem;">
-					Aucune déclaration TVA trouvée à proximité de cette période —
-					<a href="index.php?option=com_accounting&task=tva" target="_blank">ajoutez-la d'abord</a>.
+					Aucune déclaration TVA trouvée à proximité de cette période.
 				</p>
 			</div>
 			<div class="modal-footer">
@@ -1558,6 +1571,26 @@ $(function () {
 			'La ligne <strong>' + escHtml(libelle) + '</strong> redeviendra "sans justificatif".',
 			function () {
 				$.post('components/com_rapprochement/controleurs/router.php?task=annulerCompteCourant', { id: id }, function (response) {
+					if (response.success) {
+						window.location.reload();
+					} else {
+						alert(response.message || "Erreur lors de l'annulation");
+					}
+				});
+			}
+		);
+	});
+
+	// "Annuler ce marquage" (ligne "Ignorée") : retour au statut qu'elle avait juste avant d'être
+	// ignorée (à valider ou sans justificatif) - voir annulerIgnorerLigne() côté contrôleur.
+	$(document).on('click', '.rapprochement-annuler-ignorer', function () {
+		var $tr = $(this).closest('tr');
+		var id = $tr.data('id');
+		var libelle = $tr.data('libelle');
+		demanderAnnulationRapprochement(
+			'La ligne <strong>' + escHtml(libelle) + '</strong> ne sera plus ignorée.',
+			function () {
+				$.post('components/com_rapprochement/controleurs/router.php?task=annulerIgnorerLigne', { id: id }, function (response) {
 					if (response.success) {
 						window.location.reload();
 					} else {

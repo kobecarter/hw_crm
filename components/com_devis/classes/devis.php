@@ -34,6 +34,7 @@ class devis
     private $condition_paiment;
     private $remarque;
     private $proforma;
+    private $tva_retenue_source;
     private $pack;
     private $tva;
     private $langue;
@@ -150,7 +151,17 @@ class devis
     {
         return $this->proforma == 1 ? true : false;
     }
-    
+
+    public function getTvaRetenueSource()
+    {
+        return $this->tva_retenue_source;
+    }
+
+    public function isTvaRetenueSource()
+    {
+        return $this->tva_retenue_source == 1 ? true : false;
+    }
+
     public function getPack()
     {
         return $this->pack;
@@ -255,7 +266,12 @@ class devis
     {
         $this->proforma = $proforma;
     }
-    
+
+    public function setTvaRetenueSource($tva_retenue_source)
+    {
+        $this->tva_retenue_source = $tva_retenue_source;
+    }
+
     public function setPack($pack)
     {
         $this->pack = $pack;
@@ -285,7 +301,7 @@ class devis
     {
         global $db;
         $SQLinsert = sprintf(
-            "INSERT INTO " . static::$table . " (id_user_added, id_bank, numero, id_client, date_devis, total, statu, devise, discount, discount_val, condition_paiment, remarque, proforma, pack, tva, langue, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "INSERT INTO " . static::$table . " (id_user_added, id_bank, numero, id_client, date_devis, total, statu, devise, discount, discount_val, condition_paiment, remarque, proforma, tva_retenue_source, pack, tva, langue, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->user_added->getId(), "int"),
             GetSQLValueString($this->bank ? $this->bank->getId() : null, "int"),
             GetSQLValueString($this->numero, "text"),
@@ -299,6 +315,7 @@ class devis
             GetSQLValueString($this->condition_paiment, "text"),
             GetSQLValueString($this->remarque, "text"),
             GetSQLValueString($this->proforma, "int"),
+            GetSQLValueString($this->tva_retenue_source, "int"),
             GetSQLValueString($this->pack, "int"),
             GetSQLValueString($this->tva, "int"),
             GetSQLValueString($this->langue, "text"),
@@ -317,7 +334,7 @@ class devis
     {
         global $db;
         $SQLupdate = sprintf(
-            "UPDATE " . static::$table . " SET  id_user_edited = %s, id_bank = %s, numero = %s, id_client = %s, date_devis = %s, total = %s, statu = %s, devise = %s, discount = %s, discount_val = %s, condition_paiment=%s, remarque=%s, proforma=%s, pack=%s, tva=%s, langue=%s, last_edit = %s WHERE id = %s",
+            "UPDATE " . static::$table . " SET  id_user_edited = %s, id_bank = %s, numero = %s, id_client = %s, date_devis = %s, total = %s, statu = %s, devise = %s, discount = %s, discount_val = %s, condition_paiment=%s, remarque=%s, proforma=%s, tva_retenue_source=%s, pack=%s, tva=%s, langue=%s, last_edit = %s WHERE id = %s",
             GetSQLValueString($this->user_edited->getId(), "int"),
             GetSQLValueString($this->bank ? $this->bank->getId() : null, "int"),
             GetSQLValueString($this->numero, "text"),
@@ -331,6 +348,7 @@ class devis
             GetSQLValueString($this->condition_paiment, "text"),
             GetSQLValueString($this->remarque, "text"),
             GetSQLValueString($this->proforma, "int"),
+            GetSQLValueString($this->tva_retenue_source, "int"),
             GetSQLValueString($this->pack, "int"),
             GetSQLValueString($this->tva, "int"),
             GetSQLValueString($this->langue, "text"),
@@ -618,6 +636,7 @@ class devis
         $devis->setConditionPaiment($data['condition_paiment']);
         $devis->setRemarque($data['remarque']);
         $devis->setProforma($data['proforma']);
+        $devis->setTvaRetenueSource($data['tva_retenue_source']);
         $devis->setPack($data['pack']);
         $devis->setTVA($data['tva']);
         $devis->setLangue($data['langue']);
@@ -859,7 +878,7 @@ mpdf-->
 //$tva = $devis->isProforma() ? 0 : $soustotal * $agence->getTva()/100;	
 $tva = $this->getTva();
 		
-$htmlInvoice .= '<td class="totals">'.$traduction['TVA'][$devis->getLangue()].'</td>
+$htmlInvoice .= '<td class="totals">'.$traduction['TVA'][$devis->getLangue()].($devis->isTvaRetenueSource() ? ' <span style="font-size:6.5pt; color:#999;">' . $traduction['TVA_RETENUE_SOURCE_MENTION'][$devis->getLangue()] . '</span>' : '').'</td>
 <td class="totals cost">' . number_format($tva, 2, ',', ' ') . ' ' . $devis->getDevise() . '</td>
 </tr>';
 if ($devis->getDiscount() != '') {
@@ -1087,6 +1106,7 @@ function sendViaMailDevis($file_name = ""){
             'condition_paiment' => $data['condition_paiment'],
             'remarque' => $data['remarque'],
             'proforma' => $data['proforma'],
+            'tva_retenue_source' => $data['tva_retenue_source'],
             'langue' => $data['langue'],
             'date_add' => $data['date_add'],
             'last_edit' => $data['last_edit'],
@@ -1339,7 +1359,7 @@ mpdf-->
         // Calcule TVA		
         $tva = $devis["proforma"] ? 0 : $soustotal * $agence["tva"]/100;
 
-        $htmlInvoice .= '<td class="totals">' . $traduction['TVA'][$devis["langue"]] . '</td>
+        $htmlInvoice .= '<td class="totals">' . $traduction['TVA'][$devis["langue"]] . (!empty($devis["tva_retenue_source"]) ? ' <span style="font-size:6.5pt; color:#999;">' . $traduction['TVA_RETENUE_SOURCE_MENTION'][$devis["langue"]] . '</span>' : '') . '</td>
 <td class="totals cost">' . number_format($tva, 2, ',', ' ') . ' ' . $devis["devise"] . '</td>
 </tr>';
         if ($devis["discount"] != '') {

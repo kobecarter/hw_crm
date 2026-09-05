@@ -110,6 +110,10 @@ $traduction = array(
         'fr' => "TVA",
         'en' => "VAT"
     ),
+	'TVA_RETENUE_SOURCE_MENTION' => array (
+        'fr' => "(retenue à la source par le client)",
+        'en' => "(withheld at source by the client)"
+    ),
 	'TOTAL' => array (
         'fr' => "Total",
         'en' => "Total",

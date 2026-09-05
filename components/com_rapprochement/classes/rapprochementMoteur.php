@@ -108,6 +108,17 @@ class rapprochementMoteur
         // "PAIEMENT FACT TAXES EN LIGNE" sur le relevé bancaire, sans jamais écrire "TVA" - repéré
         // ici en confirmé sur un cas réel (relevé BMCE, 03/10/2025, 2605 DH = montant exact de la
         // déclaration TVA du mois correspondant, restée invisible côté relevés faute de ce trigger).
+        // "TVA COM..." (TVA sur commission bancaire) n'est PAS une déclaration TVA - vérifié avant
+        // le test générique 'tva' juste en dessous, sinon cette ligne y serait interceptée en
+        // premier et ouvrirait à tort la popup "Confirmer le paiement TVA". Rejoint le même agrégat
+        // que les commissions classiques (previewReleve()) - même principe que la TVA de commission
+        // scindée sur une ligne "TAXE SUR VALEUR AJOUTEE" séparée, gérée juste en dessous.
+        if (mb_strpos($libelleMin, 'tva com') !== false) {
+            $ligne->setStatut('a_valider');
+            $ligne->setDonneesMatchingArray(array('type' => 'debit_commission', 'montant' => $montant, 'motif' => 'tva_commission'));
+            return;
+        }
+
         if (mb_strpos($libelleMin, 'tva') !== false || mb_strpos($libelleMin, 'taxes en ligne') !== false) {
             $agenceObjet = agence::find($agence, isset($_SESSION['langue']) ? $_SESSION['langue'] : 'fr');
             $periodicite = $agenceObjet->getTvaPeriodicite() === 'trimestriel' ? 'trimestriel' : 'mensuel';

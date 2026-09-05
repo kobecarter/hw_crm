@@ -32,6 +32,9 @@ if (isset($task) && !empty($task)) {
         case 'annulerCompteCourant':
             annulerCompteCourant($_POST);
             break;
+        case 'annulerIgnorerLigne':
+            annulerIgnorerLigne($_POST);
+            break;
     }
 }
 
@@ -1476,9 +1479,47 @@ function ignorerLigne($data)
         echo json_encode(array('success' => 0, 'message' => 'Ligne introuvable'));
         return;
     }
+    // Le statut d'origine (a_valider ou sans_justificatif selon le bouton "Ignorer" cliqué) est
+    // conservé dans donnees_matching pour permettre annulerIgnorerLigne() d'y revenir exactement,
+    // sans perdre les infos de matching déjà calculées (candidats, type, etc.).
+    $infos = $ligne->getDonneesMatchingArray();
+    $infos['_statut_avant_ignore'] = $ligne->getStatut();
+    $ligne->setDonneesMatchingArray($infos);
     $ligne->setStatut('ignore');
     $ligne->setLastEdit(date('Y-m-d H:i:s'));
     $ligne->edit();
+    echo json_encode(array('success' => 1));
+}
+
+// Annule le marquage "Ignorée" d'une ligne - la reste au statut qu'elle avait juste avant d'être
+// ignorée (voir ignorerLigne() ci-dessus), a_valider ou sans_justificatif selon le cas. Rien
+// d'autre n'a été créé/modifié par ignorerLigne(), donc rien d'autre à défaire ici.
+function annulerIgnorerLigne($data)
+{
+    header('Content-Type: application/json');
+    if (!$_SESSION['user']->hasDroit('edit', 'com_rapprochement')) {
+        echo json_encode(array('success' => 0, 'message' => 'Accès refusé'));
+        return;
+    }
+    if (!isset($data['id']) || empty($data['id'])) {
+        echo json_encode(array('success' => 0, 'message' => 'Ligne manquante'));
+        return;
+    }
+    $ligne = releveLigne::find(intval($data['id']));
+    if (!$ligne->getId() || $ligne->getStatut() !== 'ignore') {
+        echo json_encode(array('success' => 0, 'message' => "Cette ligne n'est pas marquée comme ignorée"));
+        return;
+    }
+
+    $infos = $ligne->getDonneesMatchingArray();
+    $statutAvant = isset($infos['_statut_avant_ignore']) ? $infos['_statut_avant_ignore'] : 'a_valider';
+    unset($infos['_statut_avant_ignore']);
+
+    $ligne->setDonneesMatchingArray($infos);
+    $ligne->setStatut($statutAvant);
+    $ligne->setLastEdit(date('Y-m-d H:i:s'));
+    $ligne->edit();
+
     echo json_encode(array('success' => 1));
 }
 
