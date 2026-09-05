@@ -326,7 +326,7 @@ function addFacture($data)
 			$dossierDriveChoisi = isset($data['drive_folder_override']) && $data['drive_folder_override'] !== '' ? $data['drive_folder_override'] : null;
 			projectNotifier::launch($facture->getClient(), $facture->getDevis(), 'Facture #' . $facture->getNumero() . ' créée.', $dossierDriveChoisi);
 			if (!isset($data['proforma'])) {
-				pushNotifier::send($facture->getClient(), 'Nouvelle facture', 'Facture #' . $facture->getNumero() . ' disponible.', array('type' => 'facture', 'id' => $facture->getId()));
+				pushNotifier::send($facture->getClient(), 'Votre facture est prête ✨', 'Facture #' . $facture->getNumero() . ' vous attend, jetez-y un œil quand vous avez une minute 💫', array('type' => 'facture', 'id' => $facture->getId()));
 			}
 			echo "1";
 		} else {
