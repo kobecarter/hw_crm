@@ -52,6 +52,7 @@ function editReclamation($data)
             $newReponse = $reclamation->getReponse();
             if ($newReponse !== null && trim($newReponse) !== '' && $newReponse !== $oldReponse) {
                 $reclamation->sendReponseEmail();
+                pushNotifier::send($reclamation->getClient(), 'Réponse à votre message', 'Nous avons répondu à votre réclamation.', array('type' => 'reclamation', 'id' => $reclamation->getId()));
             }
             echo "1";
         } else {

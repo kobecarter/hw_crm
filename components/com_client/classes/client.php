@@ -17,6 +17,7 @@ class client
     private $user_edited;
     private $active;
     private $archived;
+    private $notifications_enabled;
     private $titre;
 	private $prenom;
     private $nom;
@@ -104,6 +105,35 @@ class client
     public function getArchived()
     {
         return $this->archived;
+    }
+
+    public function isNotificationsEnabled()
+    {
+        return $this->notifications_enabled ? true : false;
+    }
+
+    public function getNotificationsEnabled()
+    {
+        return $this->notifications_enabled;
+    }
+
+    public function setNotificationsEnabled($notifications_enabled)
+    {
+        $this->notifications_enabled = $notifications_enabled;
+    }
+
+    // Mise à jour ciblée d'une seule colonne, en dehors de add()/edit() (sprintf positionnel à
+    // ~28 placeholders partagé avec tout le formulaire CRM staff - trop fragile pour y ajouter une
+    // colonne juste pour ce toggle mobile). Même style que fidelite::markRewardGiven().
+    public static function setNotificationsPreference($id, $enabled)
+    {
+        global $db;
+        $db->query(sprintf(
+            "UPDATE " . static::$table . " SET notifications_enabled = %s WHERE id = %s",
+            GetSQLValueString($enabled ? 1 : 0, "int"),
+            GetSQLValueString($id, "int")
+        ));
+        return empty($db->getLink()->error);
     }
 
     public function getTitre()
@@ -240,6 +270,7 @@ class client
             "pays" => $this->pays,
             "photo" => $this->photo,
             "active" => (bool) $this->active,
+            "notifications_enabled" => (bool) $this->notifications_enabled,
         );
     }
 
@@ -1005,6 +1036,7 @@ class client
         $client->setUserEdited(user::find($data['id_user_edited']));
         $client->setActive($data['active']);
         $client->setArchived(isset($data['archived']) ? $data['archived'] : 0);
+        $client->setNotificationsEnabled(isset($data['notifications_enabled']) ? $data['notifications_enabled'] : 1);
         $client->setSource($data['source']);
         $client->setSiteWeb(isset($data['site_web']) ? $data['site_web'] : null);
         $client->setIaRecap(isset($data['ia_recap']) ? $data['ia_recap'] : null);
