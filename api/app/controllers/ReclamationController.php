@@ -62,7 +62,15 @@ class ReclamationController
                 throw (new ApiException(ResponseMessages::messages('noUserFound'), 404));
             }
             $data = array();
-            $reclamations = \reclamation::findAll(false, $client->getId());
+            // findAll() filtre par agence (défaut agence=1, voir sa signature) - conçu pour
+            // l'admin CRM où $_SESSION['agence'] scope naturellement tout. Ici (API mobile,
+            // session système bootstrapée), le défaut excluait silencieusement tous les clients
+            // d'une autre agence (ex: id_agence=3) : la liste revenait vide même après un ajout
+            // réussi. Passer la vraie agence du client résolu par Auth::user() plutôt que de
+            // laisser le défaut agence=1. (findAllByClientApi() existe aussi mais dépend de
+            // getToken()/getallheaders(), une vérification de token indépendante qui échoue dans
+            // ce contexte - pas utilisée ici pour cette raison.)
+            $reclamations = \reclamation::findAll(false, $client->getId(), $client->getAgence()->getId());
             foreach ($reclamations as $reclamation) {
                 array_push($data, $reclamation->toArray());
             }
