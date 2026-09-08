@@ -19,6 +19,10 @@ class ContactMail
         // l'envoie pas) - valeur par défaut pour que {{ source }} du template
         // ne reste jamais littéralement affiché dans l'email.
         $data['source'] = $data['source'] ?? 'Site web';
+        // Idem : le champ date du formulaire mobile est optionnel (voir
+        // ContactEmailValidator) - sans valeur par défaut ici, {{ date }}
+        // resterait affiché littéralement dans l'email.
+        $data['date'] = $data['date'] ?? 'Non précisée';
         $this->data = $data;
     }
 

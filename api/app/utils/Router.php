@@ -29,6 +29,9 @@ class Router
         app()->group('/token', function () {
             app()->post('/check', 'App\Controllers\AuthController@check');
         });
+        app()->group('/notifications', function () {
+            app()->post('/preferences', 'App\Controllers\NotificationController@updatePreference');
+        });
         // Publiques (sans compte) : page de garde avant connexion.
         app()->get('/public/site-services', 'App\Controllers\PublicCatalogController@services');
         app()->get('/public/site-formations', 'App\Controllers\PublicCatalogController@formations');

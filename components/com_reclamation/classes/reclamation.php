@@ -161,11 +161,12 @@ class reclamation
             GetSQLValueString($this->etat, "int"),
             GetSQLValueString($this->date_add, "date")
         );
-        if (!$db->query($SQLinsert)) {
-            return 1;
-        } else {
-            return 0;
-        }
+        // $db->query() ne retourne jamais rien (voir components/com_config/classes/mysql.php) -
+        // tester son retour ici renvoyait donc toujours 1 (succès), même sur un INSERT en échec.
+        // Vérifier l'erreur réelle après coup, même pattern que client::setNotificationsPreference()
+        // et fidelite::markRewardGiven() plus haut dans cette session.
+        $db->query($SQLinsert);
+        return empty($db->getLink()->error) ? 1 : 0;
     }
 
     public function edit()

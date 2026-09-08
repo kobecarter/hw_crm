@@ -43,7 +43,28 @@ class DashboardController
                     );
                 }
             }
-            return response()->json(['success' => true, 'data' => $data]);
+
+            // Payé/reste agrégés sur toutes les factures actives du client, pour le diagramme
+            // "payé vs reste à payer" de l'app mobile - réutilise getMontantAttendu()/getReste(),
+            // déjà le calcul de référence affiché sur la fiche facture. Les proforma sont des
+            // brouillons (pas encore de montant réellement dû), donc exclues des deux totaux.
+            $totalPaye = 0.0;
+            $totalReste = 0.0;
+            foreach (\facture::ofClient($client->getId()) as $facture) {
+                if ($facture->isProforma()) {
+                    continue;
+                }
+                $reste = $facture->getReste();
+                $totalReste += max(0, $reste);
+                $totalPaye += $facture->getMontantAttendu() - $reste;
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $data,
+                'totalPaye' => $totalPaye,
+                'totalReste' => $totalReste,
+            ]);
         } catch (ApiException $ae) {
             return response()->json(
                 array("success" => false, "message" => $ae->getData()),

@@ -49,7 +49,15 @@ class AuthController
 
         try {
             if (self::$userID == 0) return null;
-            return \client::find(self::$userID);
+            // client::find() filtre par id_agence + id_user_added (le staff
+            // qui a ajouté le client), pertinent pour l'UI CRM mais pas ici :
+            // le user système simulé par check() (bootstrapSystemSession)
+            // n'a ajouté qu'une partie des clients, donc find() renvoyait un
+            // client "vide" (id=0, tout null) pour tous les autres - c'est
+            // exactement le cas d'usage documenté de client::findAny() (voir
+            // son commentaire), qui charge par id seul sans ce filtre.
+            $client = \client::findAny(self::$userID);
+            return $client->getId() ? $client : null;
         } catch (\Throwable $th) {
             return null;
         }
