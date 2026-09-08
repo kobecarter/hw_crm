@@ -183,11 +183,15 @@ function filterPointageWeb($data)
         return;
     }
     $mois = isset($data['month']) && $data['month'] !== '' ? $data['month'] : date('Y-m');
-    // Exclus de "Statistique de pointage" à la demande (par id, noms en base avec espaces
-    // parasites - HAMID KENNOU=12, ZAKARIA EL HABOUSSI=11, RACHIDA ED-DABBOUGH=58) - sans toucher
-    // aux autres cartes de la page (calendrier "Jours de travail"/"Horaires" restent globaux, pas
-    // par employé).
-    $employesExclusIds = array(11, 12, 58);
+    // Exclue de "Statistique de pointage" à la demande (par id, nom en base avec espaces
+    // parasites - RACHIDA ED-DABBOUGH=58) - sans toucher aux autres cartes de la page (calendrier
+    // "Jours de travail"/"Horaires" restent globaux, pas par employé).
+    $employesExclusIds = array(58);
+    // Hamid Kennou (12) et Zakaria El Haboussi (11) sont les patrons : ils réapparaissent dans la
+    // liste (jours pointés/heures/absences suivis normalement) mais leur retard n'est pas
+    // comptabilisé - ni dans leur stat de ligne/les totaux globaux, ni dans leur calendrier (cases
+    // "retard"/"retard justifié" neutralisées en "à l'heure").
+    $employesPatronsRetardNonComptabiliseIds = array(11, 12);
     $resources_humaines = array_values(array_filter(
         resourcehumaine::findAllByStatuses(array("Titulaire", "Periode de test")),
         function ($employe) use ($employesExclusIds) {
@@ -215,6 +219,10 @@ function filterPointageWeb($data)
         $arriveeMoyenneMinutes = !empty($arriveesMinutes) ? array_sum($arriveesMinutes) / count($arriveesMinutes) : null;
 
         $statsMois = pointageweb::calculerStatsMois($employe, $mois);
+        $estPatronRetardNonComptabilise = in_array((int) $employe->getId(), $employesPatronsRetardNonComptabiliseIds, true);
+        $retardMinutesEmploye = $estPatronRetardNonComptabilise ? 0 : $statsMois['retard_minutes'];
+        $retardJoursEmploye = $estPatronRetardNonComptabilise ? 0 : $statsMois['retard_jours'];
+
         $absenceJoursEmploye = 0;
         foreach (absence::findByDateMonthly($employe->getId(), $mois) as $uneAbsence) {
             if ($uneAbsence->getNatureOfAbsence() == 3) {
@@ -222,20 +230,30 @@ function filterPointageWeb($data)
             }
         }
 
+        $calendrierEmploye = pointageweb::calendrierMois($employe, $mois);
+        if ($estPatronRetardNonComptabilise) {
+            foreach ($calendrierEmploye as &$jourEntry) {
+                if ($jourEntry['type'] === 'retard' || $jourEntry['type'] === 'retard_justifie') {
+                    $jourEntry['type'] = 'ok';
+                }
+            }
+            unset($jourEntry);
+        }
+
         $lignes[] = array(
             'employe' => $employe,
             'jours' => count($pointages),
             'minutes' => $minutesEmploye,
             'arrivee_moyenne' => $arriveeMoyenneMinutes !== null ? sprintf('%02d:%02d', floor($arriveeMoyenneMinutes / 60), $arriveeMoyenneMinutes % 60) : '—',
-            'retard_minutes' => $statsMois['retard_minutes'],
-            'retard_jours' => $statsMois['retard_jours'],
+            'retard_minutes' => $retardMinutesEmploye,
+            'retard_jours' => $retardJoursEmploye,
             'absence_jours' => $absenceJoursEmploye,
-            'calendrier' => pointageweb::calendrierMois($employe, $mois),
+            'calendrier' => $calendrierEmploye,
         );
         $totalMinutesGlobal += $minutesEmploye;
         $totalJoursGlobal += count($pointages);
-        $totalRetardMinutesGlobal += $statsMois['retard_minutes'];
-        $totalRetardJoursGlobal += $statsMois['retard_jours'];
+        $totalRetardMinutesGlobal += $retardMinutesEmploye;
+        $totalRetardJoursGlobal += $retardJoursEmploye;
         $totalAbsenceJoursGlobal += $absenceJoursEmploye;
     }
 
