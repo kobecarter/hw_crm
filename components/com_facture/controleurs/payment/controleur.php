@@ -539,17 +539,25 @@ function paymentForm($data)
 						<label class="avatar avatar-xl profile-cover-avatar m-0" for="edit_img">
 							<?php $photoLink = isset($payment) && $payment->getRegImg() != '' ? "images/reglements/" . $payment->getRegImg() : "assets/img/profiles/avatar-02.jpg"; ?>
                             <?php $filename = isset($payment) ? explode('.',$payment->getRegImg()) : '';?>
-                            <?php if(isset($filename[1]) && strtolower($filename[1]) == 'pdf'): ?>
-							    <a href="<?php echo $photoLink;?>" target="_blank"><img id="avatarImg" class="avatar-img" src="assets/img/pdf.png" alt="Profile Image"></a>
-                            <?php else: ?>
-                                <a href="<?php echo $photoLink;?>"data-fancybox><img id="avatarImg" class="avatar-img" src="<?php echo $photoLink; ?>" alt="Profile Image"></a>
-							<?php endif; ?>
+                            <?php $extension = isset($filename[1]) ? strtolower($filename[1]) : ''; ?>
+                            <?php
+                                // Pas de <a>/data-fancybox autour de l'avatar : un lien à l'intérieur du
+                                // <label for="edit_img"> intercepte le clic (ouvre la visionneuse au lieu
+                                // du sélecteur de fichier), empêchant tout remplacement du justificatif -
+                                // voir le lien "Voir le règlement" séparé ci-dessous pour la consultation.
+                                $avatarSrc = $extension == 'pdf' ? "assets/img/pdf.png" : (in_array($extension, array('heic', 'heif')) ? "assets/img/profiles/avatar-02.jpg" : $photoLink);
+                            ?>
+                            <img id="avatarImg" class="avatar-img" src="<?php echo $avatarSrc; ?>" alt="Profile Image">
                             <input type="file" name="photo[]" id="edit_img">
-							
+
                             <span class="avatar-edit" style="bottom:0;color:green;">
 								<i data-feather="edit-2" class="fa fa-upload shadow-soft"></i>
 							</span>
 						</label>
+
+                        <?php if (isset($payment) && $payment->getRegImg() != '') : ?>
+                        <a href="images/reglements/<?php echo $payment->getRegImg(); ?>" data-fancybox class="btn btn-sm btn-white text-success mr-2" style="margin-left:10px;" data-toggle="tooltip" data-placement="top" title="Voir le règlement"><i class="fa fa-file-alt"></i></a>
+                        <?php endif; ?>
 
                         <?php if (isset($payment)) : ?>
                         <a class="avatar-remove" style="top:0;color:red;left: 72px;" data-id="<?php echo $payment->getId(); ?>">
@@ -673,7 +681,10 @@ function buildPayment($data, $id = null)
     $payment = new payment();
 
     if(isset($_FILES['photo']) && $_FILES['photo']['name'][0]!=''){
-        $photo = uploadFiles('photo','../../../images/reglements/',  array('jpg','jpeg','gif','png','pdf','JPG','JPEG','GIF','PNG','PDF'));    
+        // webp/heic/heif ajoutés : formats par défaut des captures d'écran/photos récentes
+        // (iPhone notamment) - jusqu'ici absents de la liste, l'upload échouait silencieusement
+        // (aucune erreur affichée, le paiement s'enregistrait quand même sans justificatif).
+        $photo = uploadFiles('photo','../../../images/reglements/',  array('jpg','jpeg','gif','png','pdf','webp','heic','heif'));
     }
 
     if ($id) {

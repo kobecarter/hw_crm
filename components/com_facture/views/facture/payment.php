@@ -130,8 +130,14 @@
 			var title = id != '0' ? 'Modifier paiement' : 'Ajouter paiement';
 			var order = 'id=' + id + '&id_facture=<?php echo $facture->getId(); ?>';
 			$.post("components/com_facture/controleurs/router.php?task=paymentForm", order, function(theResponse) {
-				$(".modal-title").html(title);
-				$(".modal-body").html(theResponse);
+				// Scopé à #dialog-custom : ".modal-title"/".modal-body" non scopés matchaient AUSSI
+				// le Centre d'alertes global (#alertCenterModal, includes/tpl/bottom.php, présent sur
+				// toute page) - le formulaire de paiement (avec son input#edit_img) s'y dupliquait en
+				// plus de la popup visible, créant deux id="edit_img" dans le DOM. Le navigateur
+				// résolvait alors le clic sur l'icône crayon vers l'input caché du Centre d'alertes au
+				// lieu de celui de la popup visible : le fichier ne partait jamais avec le formulaire.
+				$("#dialog-custom .modal-title").html(title);
+				$("#dialog-custom .modal-body").html(theResponse);
 
 				$("#dialog-custom").modal('show');
 			})
