@@ -13,6 +13,7 @@ class cnss
     private $status;
     private $remark;
     private $justification;
+    private $bordereau;
     private $date_add;
     private $last_edit;
 
@@ -52,6 +53,10 @@ class cnss
 
     public function getJustification(){
         return $this->justification;
+    }
+
+    public function getBordereau(){
+        return $this->bordereau;
     }
 
 
@@ -96,6 +101,10 @@ class cnss
         $this->justification = $justification;
     }
 
+    public function setBordereau($bordereau){
+        $this->bordereau = $bordereau;
+    }
+
     public function setDateAdd($date_add){
         $this->date_add = $date_add;
     }
@@ -107,7 +116,7 @@ class cnss
     public function add()
     {
         global $db;
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence, amount, increasion, date, status, remark, justification, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence, amount, increasion, date, status, remark, justification, bordereau, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->agence->getId(), "int"),
             GetSQLValueString($this->amount, "double"),
             GetSQLValueString($this->increasion, "double"),
@@ -115,6 +124,7 @@ class cnss
             GetSQLValueString($this->status, "int"),
             GetSQLValueString($this->remark, "text"),
             GetSQLValueString($this->justification, "text"),
+            GetSQLValueString($this->bordereau, "text"),
             GetSQLValueString($this->date_add, "date"),
             GetSQLValueString($this->last_edit, "date")
         );
@@ -128,13 +138,14 @@ class cnss
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET amount = %s, increasion = %s, date = %s, status = %s, remark = %s, justification = %s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET amount = %s, increasion = %s, date = %s, status = %s, remark = %s, justification = %s, bordereau = %s, last_edit = %s WHERE id = %s",
             GetSQLValueString($this->amount, "double"),
             GetSQLValueString($this->increasion, "double"),
             GetSQLValueString($this->date, "date"),
             GetSQLValueString($this->status, "int"),
             GetSQLValueString($this->remark, "text"),
             GetSQLValueString($this->justification, "text"),
+            GetSQLValueString($this->bordereau, "text"),
             GetSQLValueString($this->last_edit, "date"),
             GetSQLValueString($this->getId(), "int")
         );
@@ -251,6 +262,7 @@ class cnss
         $cnss->setStatus($data['status']);
         $cnss->setRemark($data['remark']);
         $cnss->setJustification($data['justification']);
+        $cnss->setBordereau(isset($data['bordereau']) ? $data['bordereau'] : null);
         $cnss->setDateAdd($data['date_add']);
         $cnss->setLastEdit($data['last_edit']);
         return $cnss;

@@ -241,6 +241,7 @@
                                         <th>Date</th>
                                         <th>Statut</th>
                                         <th>Justification</th>
+                                        <th>Bordereau</th>
                                         <th class="text-right">Actions</th>
                                     </tr>
                                 </thead>
@@ -264,6 +265,11 @@
                                             <td>
                                                 <?php if(isset($cnss) && $cnss->getJustification()) :?>
                                                     <a href="./images/accounting/cnss/<?php echo $cnss->getJustification();?>" class="btn btn-success ml-2" target="_blank"><i class="fa fa-file-alt mt-2"></i></a>
+                                                <?php endif;?>
+                                            </td>
+                                            <td>
+                                                <?php if(isset($cnss) && $cnss->getBordereau()) :?>
+                                                    <a href="./images/accounting/cnss/<?php echo $cnss->getBordereau();?>" class="btn btn-success ml-2" target="_blank"><i class="fa fa-file-alt mt-2"></i></a>
                                                 <?php endif;?>
                                             </td>
                                             <td class="text-right">

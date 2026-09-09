@@ -96,13 +96,20 @@ function buildCnss($data, $id = null)
     if(isset($_FILES['justification']) && $_FILES['justification']['name'][0]!=''){
         $justification = uploadFiles('justification','../../../images/accounting/cnss',  array('PDF','pdf','jpg','jpeg','gif','png','webp','JPG','JPEG','GIF','PNG','WEBP'));
     }
+    $bordereau = array();
+    if(isset($_FILES['bordereau']) && $_FILES['bordereau']['name'][0]!=''){
+        $bordereau = uploadFiles('bordereau','../../../images/accounting/cnss',  array('PDF','pdf','jpg','jpeg','gif','png','webp','JPG','JPEG','GIF','PNG','WEBP'));
+    }
 
     if($id){
         $cnss = cnss::find($id,$data['id_agence']);
     }
-	
+
 	if(isset($justification[0])) {
 		$cnss->setJustification($justification[0]);
+	}
+	if(isset($bordereau[0])) {
+		$cnss->setBordereau($bordereau[0]);
 	}
 
 	$cnss->setAgence(agence::find($data['id_agence'], $_SESSION['langue']));

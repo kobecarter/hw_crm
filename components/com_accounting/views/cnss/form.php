@@ -34,7 +34,20 @@
                         <a href="./images/accounting/cnss/<?php echo $cnss->getJustification();?>" class="btn btn-success ml-2"><i class="fa fa-file-alt mt-2"></i></a>
                     <?php endif;?>
                 </div>
-				
+
+			</div>
+		</div>
+
+		<div class="col-md-4">
+			<div class="form-group">
+				<label>Bordereau</label>
+                <div class="d-flex">
+                    <input type="file" name="bordereau[]" id="edit_img_bordereau" class="form-control">
+                    <?php if(isset($cnss) && $cnss->getBordereau()) :?>
+                        <a href="./images/accounting/cnss/<?php echo $cnss->getBordereau();?>" class="btn btn-success ml-2"><i class="fa fa-file-alt mt-2"></i></a>
+                    <?php endif;?>
+                </div>
+
 			</div>
 		</div>
 
