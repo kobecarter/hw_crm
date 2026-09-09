@@ -336,6 +336,13 @@
 													     titre/montant/type/remarque erronés ou à compléter après coup, sans repasser par la
 													     liste complète des charges pour la retrouver. -->
 													<a href="index.php?option=com_charge&task=edit&id=<?= $l->getIdCharge() ?>" target="_blank" class="btn btn-white btn-sm" data-toggle="tooltip" title="Modifier la charge affectée"><i class="fa fa-edit"></i></a>
+													<?php if (!(isset($infos['type']) && $infos['type'] === 'debit_commission')) :?>
+													<!-- Retour à "à valider"/"sans justificatif" (voir annulerMarquageCharge() côté
+													     contrôleur) - la charge n'est supprimée que si elle a été CRÉÉE par ce
+													     rapprochement, jamais si elle a seulement été liée à une charge déjà existante.
+													     Exclu pour la commission agrégée (une charge partagée entre plusieurs lignes). -->
+													<button type="button" class="btn btn-white btn-sm rapprochement-annuler-charge" data-toggle="tooltip" title="Annuler ce marquage"><i class="fa fa-undo text-danger"></i></button>
+													<?php endif;?>
 												<?php elseif ($l->getStatut() === 'compte_courant') :?>
 													<!-- Aucune charge n'a été créée par ce marquage (voir annulerCompteCourant() côté
 													     contrôleur) - annuler ne fait que remettre la ligne à "sans justificatif". -->
@@ -1571,6 +1578,27 @@ $(function () {
 			'La ligne <strong>' + escHtml(libelle) + '</strong> redeviendra "sans justificatif".',
 			function () {
 				$.post('components/com_rapprochement/controleurs/router.php?task=annulerCompteCourant', { id: id }, function (response) {
+					if (response.success) {
+						window.location.reload();
+					} else {
+						alert(response.message || "Erreur lors de l'annulation");
+					}
+				});
+			}
+		);
+	});
+
+	// "Annuler ce marquage" (ligne "Charge créée/liée") : retour à "à valider"/"sans justificatif" -
+	// voir annulerMarquageCharge() côté contrôleur pour la suppression conditionnelle de la charge
+	// (jamais si elle a seulement été liée à une charge déjà existante).
+	$(document).on('click', '.rapprochement-annuler-charge', function () {
+		var $tr = $(this).closest('tr');
+		var id = $tr.data('id');
+		var libelle = $tr.data('libelle');
+		demanderAnnulationRapprochement(
+			'La ligne <strong>' + escHtml(libelle) + '</strong> redeviendra "à traiter".<br><span class="text-muted" style="font-size:0.8rem;">Si une nouvelle charge (ou un nouveau bulletin de paie) avait été créée pour ce marquage, elle sera supprimée. Une charge déjà existante, elle, ne sera jamais supprimée — seulement déliée.</span>',
+			function () {
+				$.post('components/com_rapprochement/controleurs/router.php?task=annulerMarquageCharge', { id: id }, function (response) {
 					if (response.success) {
 						window.location.reload();
 					} else {

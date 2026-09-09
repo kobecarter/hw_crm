@@ -35,6 +35,9 @@ if (isset($task) && !empty($task)) {
         case 'annulerIgnorerLigne':
             annulerIgnorerLigne($_POST);
             break;
+        case 'annulerMarquageCharge':
+            annulerMarquageCharge($_POST);
+            break;
     }
 }
 
@@ -896,6 +899,12 @@ function creerJustificatifManuel($data, $files)
                 $chargeExistante->setRemarque($remarque);
                 $chargeExistante->edit();
             }
+            // charge_action='liee' : ce bulletin/charge existait déjà, annulerMarquageCharge() ne
+            // devra jamais le supprimer, seulement délier la ligne.
+            $infosLien = $ligne->getDonneesMatchingArray();
+            $infosLien['charge_action'] = 'liee';
+            $infosLien['_statut_avant_charge'] = $ligne->getStatut();
+            $ligne->setDonneesMatchingArray($infosLien);
             $ligne->setIdCharge($chargeExistante->getId());
             $ligne->setStatut('matched_charge');
             $ligne->setLastEdit(date('Y-m-d H:i:s'));
@@ -966,6 +975,12 @@ function creerJustificatifManuel($data, $files)
             }
         }
 
+        // charge_action='creee' : ce bulletin/charge (et le fichier payslip lié ci-dessus) ont été
+        // créés PAR ce clic - annulerMarquageCharge() pourra les supprimer entièrement.
+        $infosCree = $ligne->getDonneesMatchingArray();
+        $infosCree['charge_action'] = 'creee';
+        $infosCree['_statut_avant_charge'] = $ligne->getStatut();
+        $ligne->setDonneesMatchingArray($infosCree);
         $ligne->setIdCharge($idCharge);
         $ligne->setStatut('matched_charge');
         $ligne->setLastEdit(date('Y-m-d H:i:s'));
@@ -1018,6 +1033,11 @@ function creerJustificatifManuel($data, $files)
         $charge->add();
         $idCharge = charge::getLastId();
 
+        // charge_action='creee' : voir commentaire équivalent ci-dessus (mode 'payslip').
+        $infosCree = $ligne->getDonneesMatchingArray();
+        $infosCree['charge_action'] = 'creee';
+        $infosCree['_statut_avant_charge'] = $ligne->getStatut();
+        $ligne->setDonneesMatchingArray($infosCree);
         $ligne->setIdCharge($idCharge);
         $ligne->setStatut('matched_charge');
         $ligne->setLastEdit(date('Y-m-d H:i:s'));
@@ -1217,6 +1237,11 @@ function validerLigne($data, $files = array())
                 $chargeExistante->edit();
             }
         }
+        // charge_action='liee' (jamais 'creee') : cette charge existait déjà avant ce clic, seul
+        // le lien est défait par annulerMarquageCharge(), jamais la charge elle-même supprimée.
+        $infos['charge_action'] = 'liee';
+        $infos['_statut_avant_charge'] = $ligne->getStatut();
+        $ligne->setDonneesMatchingArray($infos);
         $ligne->setIdCharge($chargeExistante->getId());
         $ligne->setStatut('matched_charge');
         $ligne->setLastEdit(date('Y-m-d H:i:s'));
@@ -1242,6 +1267,10 @@ function validerLigne($data, $files = array())
                 echo json_encode($conflit);
                 return;
             }
+            // charge_action='liee' : voir commentaire équivalent ci-dessus (debit_charge_existante).
+            $infos['charge_action'] = 'liee';
+            $infos['_statut_avant_charge'] = $ligne->getStatut();
+            $ligne->setDonneesMatchingArray($infos);
             $ligne->setIdCharge($chargeExistante->getId());
             $ligne->setStatut('matched_charge');
             $ligne->setLastEdit(date('Y-m-d H:i:s'));
@@ -1283,6 +1312,11 @@ function validerLigne($data, $files = array())
         $charge->add();
         $idCharge = charge::getLastId();
 
+        // charge_action='creee' : cette charge a été créée PAR ce clic - annulerMarquageCharge()
+        // pourra donc la supprimer entièrement (jamais pour 'liee' ci-dessus).
+        $infos['charge_action'] = 'creee';
+        $infos['_statut_avant_charge'] = $ligne->getStatut();
+        $ligne->setDonneesMatchingArray($infos);
         $ligne->setIdCharge($idCharge);
         $ligne->setStatut('matched_charge');
         $ligne->setLastEdit(date('Y-m-d H:i:s'));
@@ -1523,6 +1557,70 @@ function annulerIgnorerLigne($data)
     echo json_encode(array('success' => 1));
 }
 
+// Annule le marquage "Charge créée/liée" d'une ligne. charge_action (posé au moment du marquage
+// par validerLigne()/creerJustificatifManuel()/creerChargeEtLier() ci-dessus) dit si la charge a
+// été CRÉÉE par ce rapprochement (alors supprimée avec la ligne, ainsi que le bulletin de paie
+// lié le cas échéant) ou seulement LIÉE à une charge/un bulletin déjà existant avant cet import
+// (alors seulement déliée, jamais supprimée - même prudence que annulerRapprochementFacture() pour
+// "credit_reglement_existant"). Les lignes marquées avant l'introduction de charge_action n'ont pas
+// ce marqueur : traitées par défaut comme 'liee', donc jamais supprimées à l'aveugle.
+function annulerMarquageCharge($data)
+{
+    header('Content-Type: application/json');
+    if (!$_SESSION['user']->hasDroit('edit', 'com_rapprochement')) {
+        echo json_encode(array('success' => 0, 'message' => 'Accès refusé'));
+        return;
+    }
+    if (!isset($data['id']) || empty($data['id'])) {
+        echo json_encode(array('success' => 0, 'message' => 'Ligne manquante'));
+        return;
+    }
+
+    $ligne = releveLigne::find(intval($data['id']));
+    if (!$ligne->getId() || $ligne->getStatut() !== 'matched_charge') {
+        echo json_encode(array('success' => 0, 'message' => "Cette ligne n'est pas marquée comme charge"));
+        return;
+    }
+
+    $infos = $ligne->getDonneesMatchingArray();
+    // Commission agrégée (confirmerReleve()) : une même charge est partagée entre plusieurs lignes
+    // du relevé - la délier/supprimer depuis une seule ligne casserait les autres. Non géré ici.
+    if (isset($infos['type']) && $infos['type'] === 'debit_commission') {
+        echo json_encode(array('success' => 0, 'message' => "Cette charge de commission est partagée entre plusieurs lignes du relevé — elle ne peut pas être annulée depuis une seule ligne."));
+        return;
+    }
+
+    $idCharge = $ligne->getIdCharge();
+    if ($idCharge && isset($infos['charge_action']) && $infos['charge_action'] === 'creee') {
+        $bulletinLie = payslip::findByIdCharge($idCharge);
+        if ($bulletinLie->getId()) {
+            $cheminFichier = '../../../images/resourceshumaines/payslips/' . $bulletinLie->getFile();
+            if ($bulletinLie->getFile() && file_exists($cheminFichier)) {
+                @unlink($cheminFichier);
+            }
+            $bulletinLie->delete();
+        }
+        $charge = charge::find($idCharge, $ligne->getAgence()->getId());
+        if ($charge && $charge->getId()) {
+            $charge->delete();
+        }
+    }
+
+    $statutAvant = isset($infos['_statut_avant_charge']) && in_array($infos['_statut_avant_charge'], array('a_valider', 'sans_justificatif'))
+        ? $infos['_statut_avant_charge']
+        : 'a_valider';
+    unset($infos['charge_action']);
+    unset($infos['_statut_avant_charge']);
+
+    $ligne->setIdCharge(null);
+    $ligne->setStatut($statutAvant);
+    $ligne->setDonneesMatchingArray($infos);
+    $ligne->setLastEdit(date('Y-m-d H:i:s'));
+    $ligne->edit();
+
+    echo json_encode(array('success' => 1));
+}
+
 // Fenêtre "Choisir la charge correspondante" (debit_reconnu / debit_charge_existante) : quand
 // aucune charge de la liste ne correspond réellement (ex: un virement fourre-tout au nom d'un
 // employé, sans rapport avec la charge suggérée par le montant/la date), l'utilisateur doit pouvoir
@@ -1574,6 +1672,12 @@ function creerChargeEtLier($data)
     $charge->add();
     $idCharge = charge::getLastId();
 
+    // charge_action='creee' : cette fenêtre ne fait QUE créer (jamais lier une charge existante,
+    // voir "Choisir" plus haut pour ce cas) - annulerMarquageCharge() pourra donc la supprimer.
+    $infos = $ligne->getDonneesMatchingArray();
+    $infos['charge_action'] = 'creee';
+    $infos['_statut_avant_charge'] = $ligne->getStatut();
+    $ligne->setDonneesMatchingArray($infos);
     $ligne->setIdCharge($idCharge);
     $ligne->setStatut('matched_charge');
     $ligne->setLastEdit(date('Y-m-d H:i:s'));
