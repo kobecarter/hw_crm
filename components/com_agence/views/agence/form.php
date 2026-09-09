@@ -152,16 +152,6 @@
 
 		<div class="col-md-3">
 			<div class="form-group">
-				<label>Périodicité de déclaration TVA</label>
-				<select class="form-control" name="tva_periodicite">
-					<option value="mensuel" <?php if(isset($agenceToEdit) && $agenceToEdit->getTvaPeriodicite() != 'trimestriel') echo 'selected'; ?>>Mensuelle</option>
-					<option value="trimestriel" <?php if(isset($agenceToEdit) && $agenceToEdit->getTvaPeriodicite() == 'trimestriel') echo 'selected'; ?>>Trimestrielle</option>
-				</select>
-			</div>
-		</div>
-
-		<div class="col-md-3">
-			<div class="form-group">
 				<label>Site web </label>
 				<input type="text" class="form-control" name="website" value="<?php if(isset($agenceToEdit)) echo $agenceToEdit->getWebsite(); ?>">
 			</div>
@@ -199,6 +189,53 @@
 			<div class="form-group">
 				<label>ICE</label>
 				<input type="text" class="form-control" name="ice" value="<?php if(isset($agenceToEdit)) echo $agenceToEdit->getIce(); ?>">
+			</div>
+		</div>
+
+		<div class="col-md-12">
+			<hr>
+			<div class="form-group">
+				<label><strong>Régime TVA par année</strong></label>
+				<div class="regime-tva-box" style="background:#E9E9E9;padding:15px 15px 5px 15px;border-radius:5px;margin-bottom:10px;">
+					<div class="regime-tva-msg alert alert-warning" style="display:none;"></div>
+					<div class="myResponsivTable mb-2">
+						<table class="table table-stripped table-center table-hover" id="regime-tva-table">
+							<thead>
+								<tr>
+									<th>Année</th>
+									<th>Périodicité</th>
+									<th>Actions</th>
+								</tr>
+							</thead>
+							<tbody>
+								<?php
+									$regimesTva = isset($agenceToEdit) ? regimeTva::findAll($agenceToEdit->getId()) : array();
+									if (!$regimesTva) {
+										$regimesTva = array(array(
+											'annee' => date('Y'),
+											'periodicite' => isset($agenceToEdit) ? $agenceToEdit->getTvaPeriodicite() : 'mensuel',
+										));
+									}
+								?>
+								<?php foreach ($regimesTva as $regimeTvaRow) : ?>
+								<tr>
+									<td><input type="number" class="form-control regime-annee-input" name="regime_annee[]" value="<?php echo $regimeTvaRow['annee']; ?>" max="<?php echo date('Y'); ?>"></td>
+									<td>
+										<select class="form-control" name="regime_periodicite[]">
+											<option value="mensuel" <?php if($regimeTvaRow['periodicite'] != 'trimestriel') echo 'selected'; ?>>Mensuelle</option>
+											<option value="trimestriel" <?php if($regimeTvaRow['periodicite'] == 'trimestriel') echo 'selected'; ?>>Trimestrielle</option>
+										</select>
+									</td>
+									<td>
+										<i class="fas fa-plus-circle add-row-regime-tva" data-toggle="tooltip" data-placement="top" data-original-title="Ajouter ligne"></i>
+										<i class="fas fa-minus-circle remove-row-regime-tva" data-toggle="tooltip" data-placement="top" data-original-title="Supprimer ligne"></i>
+									</td>
+								</tr>
+								<?php endforeach; ?>
+							</tbody>
+						</table>
+					</div>
+				</div>
 			</div>
 		</div>
 
@@ -261,6 +298,9 @@
         // envoi du formulaire en ajax
         $('form#agenceForm').ajaxForm({
             beforeSubmit: function () {
+                if (!regimeTvaAnneesValides()) {
+                    return false;
+                }
                 $("#agenceForm .loading").css('display','inline-block');
             },
             success: function (theResponse) {
@@ -348,9 +388,55 @@
 			let file = self.prop('files')[0]
 			var reader = new FileReader();
 			reader.onload = function (evt) {
-				$("#avatarImgSignature").attr("src",evt.target.result);	
+				$("#avatarImgSignature").attr("src",evt.target.result);
 			};
 			reader.readAsDataURL(file);
+		});
+
+		var anneeCourante = new Date().getFullYear();
+
+		function afficherMsgRegimeTva(msg) {
+			$(".regime-tva-msg").text(msg).stop(true, true).fadeIn();
+			setTimeout(function() { $(".regime-tva-msg").fadeOut(); }, 4000);
+		}
+
+		// Le régime TVA ne peut se fixer que pour une année déjà entamée (année courante ou
+		// passée) - une année future n'a pas encore de périodicité de déclaration à statuer.
+		function regimeTvaAnneesValides() {
+			var valide = true;
+			$(".regime-annee-input").each(function() {
+				var val = parseInt($(this).val(), 10);
+				if (val && val > anneeCourante) {
+					afficherMsgRegimeTva("Impossible de définir un régime TVA pour une année future (max : " + anneeCourante + ").");
+					$(this).val("");
+					valide = false;
+				}
+			});
+			return valide;
+		}
+
+		$(document).on("change", ".regime-annee-input", function() {
+			regimeTvaAnneesValides();
+		});
+
+		$(document).on("click", ".add-row-regime-tva", function() {
+			var $row = $(this).closest("tr").clone();
+			$row.find("input[name='regime_annee[]']").val("");
+			$row.find("select[name='regime_periodicite[]']").val("mensuel");
+			$(this).closest("tr").after($row);
+		});
+
+		$(document).on("click", ".remove-row-regime-tva", function() {
+			if ($("#regime-tva-table tbody tr").length <= 1) {
+				return;
+			}
+			var $tr = $(this).closest("tr");
+			if (confirm("Etes-vous sure !")) {
+				$tr.addClass("table-danger");
+				setTimeout(function() {
+					$tr.remove();
+				}, 1000);
+			}
 		});
     })
 </script>

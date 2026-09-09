@@ -28,6 +28,7 @@ function addAgence($data)
     $indices = array("nom","color");
     if (fieldCheck($data, $indices)) {
         if (buildAgence($data)->add() == 1) {
+            regimeTva::syncForAgence(agence::getLastId(), isset($data['regime_annee']) ? $data['regime_annee'] : array(), isset($data['regime_periodicite']) ? $data['regime_periodicite'] : array());
             echo "1";
         } else {
             echo "2";
@@ -42,6 +43,7 @@ function editAgence($data)
     $indices = array("id","nom","color");
     if (fieldCheck($data, $indices)) {
         if (buildAgence($data, $data['id'])->edit() == 1) {
+            regimeTva::syncForAgence($data['id'], isset($data['regime_annee']) ? $data['regime_annee'] : array(), isset($data['regime_periodicite']) ? $data['regime_periodicite'] : array());
             echo "1";
         } else {
             echo "2";
@@ -194,7 +196,13 @@ function buildAgence($data, $id = null)
     $agence->setNumeroIncrementDevis($data['numero_increment_devis']);
     $agence->setTva($data['tva']);
     $agence->setTvaSeuilAlerte(isset($data['tva_seuil_alerte']) && $data['tva_seuil_alerte'] !== '' ? $data['tva_seuil_alerte'] : null);
-    $agence->setTvaPeriodicite(isset($data['tva_periodicite']) ? $data['tva_periodicite'] : 'mensuel');
+    // Le formulaire n'expose plus de sélecteur dédié à ce champ (remplacé par le tableau
+    // "Régime TVA par année") - on garde tva_periodicite à jour à partir de la ligne de
+    // l'année courante, pour ne rien casser chez ses consommateurs actuels (TVA, rapprochement).
+    $agence->setTvaPeriodicite(regimeTva::periodiciteAnneeCourante(
+        isset($data['regime_annee']) ? $data['regime_annee'] : array(),
+        isset($data['regime_periodicite']) ? $data['regime_periodicite'] : array()
+    ));
     $agence->setWebsite($data['website']);
     $agence->setColor($data['color']);
     $agence->setIf($data['if']);

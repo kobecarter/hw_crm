@@ -28,23 +28,68 @@
         $objectifAtteint = $seuil > 0 ? $simulation['tva_due'] <= $seuil : true;
         $ecartDeclaration = $declarationOfficielle - $simulation['tva_due'];
 
-        // KPI d'alerte : liste des mois sans aucune déclaration de TVA enregistrée pour
-        // l'agence courante, depuis janvier 2022 jusqu'au mois en cours inclus — permet de
-        // repérer d'un coup d'œil les trous dans l'historique comptable (ex: mois jamais reçus
-        // du comptable), indépendamment de $start_year/$end_year qui ne couvrent que la plage
-        // déjà renseignée.
+        // Régime par année (crm_regime_tva) - défaut trimestriel quand aucune ligne n'a été
+        // saisie pour cette année (cf. regimeTva::periodiciteAnnee()). Récupéré une seule fois
+        // ici, réutilisé par le KPI "périodes manquantes", le rappel d'échéance et le cumul par
+        // année plus bas.
+        $regimesParAnnee = array();
+        foreach (regimeTva::findAll($agence->getId()) as $regimeRow) {
+            $regimesParAnnee[(int) $regimeRow['annee']] = $regimeRow['periodicite'];
+        }
+
+        // KPI d'alerte : liste des périodes (mois, ou trimestres si le régime de l'année est
+        // trimestriel) sans aucune déclaration de TVA enregistrée pour l'agence courante, depuis
+        // janvier 2022 jusqu'à la période en cours incluse — permet de repérer d'un coup d'œil les
+        // trous dans l'historique comptable (ex: mois/trimestres jamais reçus du comptable),
+        // indépendamment de $start_year/$end_year qui ne couvrent que la plage déjà renseignée.
+        // Un trimestre est considéré "reçu" dès qu'une ligne existe sur l'un de ses 3 mois (le
+        // comptable ne dépose souvent qu'une seule ligne, datée dans le trimestre) - même logique
+        // que le cumul par année plus bas.
         $manquantsParAnnee = array();
         $anneeCourante = (int) date('Y');
         $moisCourant = (int) date('n');
         for ($y = 2022; $y <= $anneeCourante; $y++) {
             $moisMax = ($y == $anneeCourante) ? $moisCourant : 12;
-            for ($m = 1; $m <= $moisMax; $m++) {
-                $ligneMois = tva::findByDate($_SESSION['agence'], $y . '-' . sprintf('%02d', $m));
-                if (empty($ligneMois)) {
-                    if (!isset($manquantsParAnnee[$y])) {
-                        $manquantsParAnnee[$y] = array();
+            $regimeAnnee = isset($regimesParAnnee[$y]) ? $regimesParAnnee[$y] : 'trimestriel';
+
+            if ($regimeAnnee === 'trimestriel') {
+                $trimestreMax = (int) ceil($moisMax / 3);
+                for ($q = 1; $q <= $trimestreMax; $q++) {
+                    $moisDuTrimestre = array(($q - 1) * 3 + 1, ($q - 1) * 3 + 2, ($q - 1) * 3 + 3);
+                    $aUneDeclaration = false;
+                    foreach ($moisDuTrimestre as $mn) {
+                        if ($mn > $moisMax) {
+                            continue;
+                        }
+                        if (!empty(tva::findByDate($_SESSION['agence'], $y . '-' . sprintf('%02d', $mn)))) {
+                            $aUneDeclaration = true;
+                            break;
+                        }
                     }
-                    $manquantsParAnnee[$y][] = array('num' => $m, 'nom' => $moisNomsFr[$m]);
+                    if (!$aUneDeclaration) {
+                        if (!isset($manquantsParAnnee[$y])) {
+                            $manquantsParAnnee[$y] = array();
+                        }
+                        // Mois cible pour le pré-remplissage du formulaire : le dernier mois du
+                        // trimestre déjà entamé (le mois courant si le trimestre est en cours).
+                        $manquantsParAnnee[$y][] = array(
+                            'num' => min($moisDuTrimestre[2], $moisMax),
+                            'nom' => 'T' . $q,
+                            'sousNom' => implode(', ', array_map(function ($m) use ($moisNomsFr) {
+                                return mb_substr($moisNomsFr[$m], 0, 3);
+                            }, $moisDuTrimestre)),
+                        );
+                    }
+                }
+            } else {
+                for ($m = 1; $m <= $moisMax; $m++) {
+                    $ligneMois = tva::findByDate($_SESSION['agence'], $y . '-' . sprintf('%02d', $m));
+                    if (empty($ligneMois)) {
+                        if (!isset($manquantsParAnnee[$y])) {
+                            $manquantsParAnnee[$y] = array();
+                        }
+                        $manquantsParAnnee[$y][] = array('num' => $m, 'nom' => $moisNomsFr[$m], 'sousNom' => null);
+                    }
                 }
             }
         }
@@ -54,7 +99,7 @@
         // trimestrielle, cf. agence::getTvaPeriodicite()). On regarde d'abord la dernière période
         // pleinement écoulée : si elle n'est pas encore déclarée, c'est elle qu'on affiche avec sa
         // date limite (le 20 du mois suivant) ; sinon on affiche calmement la période en cours.
-        $periodiciteTva = $agence->getTvaPeriodicite() === 'trimestriel' ? 'trimestriel' : 'mensuel';
+        $periodiciteTva = regimeTva::periodiciteAnnee($agence->getId(), (int) date('Y'));
         $periodeCloturee = tva::periodeReference($periodiciteTva, null, -1);
         $periodeDeclaree = true;
         $curseurPeriode = clone $periodeCloturee['debut'];
@@ -86,11 +131,12 @@
                                 <span class="dash-widget-icon bg-9 mr-3"><i class="fa fa-exclamation-triangle"></i></span>
                                 <div class="flex-grow-1">
                                     <h5 class="mb-1 text-danger">
-                                        <span id="tva-manquants-count"><?= $nbMoisManquants ?></span> mois sans déclaration TVA enregistrée depuis 2022
+                                        <span id="tva-manquants-count"><?= $nbMoisManquants ?></span> période(s) sans déclaration TVA enregistrée depuis 2022
                                     </h5>
                                     <p class="text-muted mb-2" style="font-size:0.85rem;">
-                                        Aucune ligne trouvée pour ces mois dans le suivi comptable ci-dessous — cliquez sur un mois pour
-                                        l'ajouter rapidement (à compléter ensuite), ou vérifiez auprès du comptable.
+                                        Aucune ligne trouvée pour ces périodes dans le suivi comptable ci-dessous (mois, ou trimestres pour
+                                        une année en régime trimestriel) — cliquez pour l'ajouter rapidement (à compléter ensuite), ou
+                                        vérifiez auprès du comptable.
                                     </p>
                                     <?php foreach ($manquantsParAnnee as $anneeM => $listeMois) : ?>
                                         <div class="mb-1 tva-manquants-annee" id="tva-manquants-annee-<?= $anneeM ?>">
@@ -101,6 +147,9 @@
                                                    data-annee="<?= $anneeM ?>" data-mois="<?= $moisInfo['num'] ?>" data-mois-nom="<?= $moisInfo['nom'] ?>"
                                                    data-toggle="tooltip" data-placement="top" data-original-title="Cliquez pour ajouter la TVA de <?= $moisInfo['nom'] ?> <?= $anneeM ?>">
                                                     <?= $moisInfo['nom'] ?>
+                                                    <?php if (!empty($moisInfo['sousNom'])) : ?>
+                                                        <small style="font-size:0.75em;">(<?= $moisInfo['sousNom'] ?>)</small>
+                                                    <?php endif; ?>
                                                 </a>
                                             <?php endforeach; ?>
                                         </div>
@@ -260,7 +309,8 @@
                         // agence mensuelle, tout le trimestre civil pour une agence trimestrielle —
                         // sinon un export "mensuel" par défaut couperait artificiellement les 2/3 des
                         // achats/ventes d'un trimestre réel.
-                        $periodeExportDefaut = tva::periodeReference($periodiciteTva, new DateTime(sprintf('%04d-%02d-01', $simAnnee, $simMois)), 0);
+                        $periodiciteExport = regimeTva::periodiciteAnnee($agence->getId(), (int) $simAnnee);
+                        $periodeExportDefaut = tva::periodeReference($periodiciteExport, new DateTime(sprintf('%04d-%02d-01', $simAnnee, $simMois)), 0);
                         ?>
                         <div class="row align-items-end mt-4 pt-3" style="border-top:1px dashed var(--border-soft, rgba(30,30,60,0.08));">
                             <div class="col-md-12 mb-2">
@@ -304,39 +354,81 @@
         <?php
         // Cumul par année : montant net déclaré, majorations et statut de dépôt au fisc,
         // calculés une fois ici pour être réutilisés à la fois par la ligne de synthèse et
-        // par le détail mensuel dépliable de chaque année (évite de reparcourir tva::findByDate()
-        // deux fois pour la même donnée).
+        // par le détail dépliable de chaque année (évite de reparcourir tva::findByDate()
+        // deux fois pour la même donnée). Le détail est mensuel ou trimestriel selon le
+        // régime de CETTE année précise (une agence peut changer de régime d'une année à
+        // l'autre) - les lignes crm_tva restent, elles, toujours saisies/datées par mois.
         $anneesTva = array();
         for ($i = $end_year; $i >= $start_year; $i--) {
             $tvaAnnee = tva::findByYear($_SESSION['agence'], $i);
             if (empty($tvaAnnee) && $i != date('Y')) {
                 continue;
             }
-            $moisDetail = array();
+            $regimeAnnee = isset($regimesParAnnee[$i]) ? $regimesParAnnee[$i] : 'trimestriel';
+            $periodeDetail = array();
             $cumulMontant = 0;
             $cumulMajoration = 0;
             $montantDepose = 0;
             $montantNonDepose = 0;
-            foreach (months() as $month) {
-                $tvaMois = tva::findByDate($_SESSION['agence'], $i . '-' . $month['number']);
-                $mMontant = 0;
-                $mMajoration = 0;
-                $mDeposeComplet = !empty($tvaMois);
-                foreach ($tvaMois as $t) {
-                    $mMontant += (float) $t->getAmount();
-                    $mMajoration += (float) $t->getIncreasion();
-                    $cumulMontant += (float) $t->getAmount();
-                    $cumulMajoration += (float) $t->getIncreasion();
-                    $ligneTotal = (float) $t->getAmount() + (float) $t->getIncreasion();
-                    if ($t->getStatus() == 1) {
-                        $montantDepose += $ligneTotal;
-                    } else {
-                        $montantNonDepose += $ligneTotal;
-                        $mDeposeComplet = false;
+
+            // Groupes de mois à agréger pour construire une "période" du détail : un par mois
+            // en régime mensuel, un par trimestre (3 mois fusionnés) en régime trimestriel.
+            $groupes = array();
+            if ($regimeAnnee === 'trimestriel') {
+                foreach (array(1, 2, 3, 4) as $q) {
+                    $moisDuTrimestre = array(($q - 1) * 3 + 1, ($q - 1) * 3 + 2, ($q - 1) * 3 + 3);
+                    $groupes[] = array(
+                        'label' => 'T' . $q,
+                        'sousLabel' => implode(' · ', array_map(function ($m) use ($moisNomsFr) {
+                            return mb_substr($moisNomsFr[$m], 0, 3);
+                        }, $moisDuTrimestre)),
+                        'mois' => $moisDuTrimestre,
+                    );
+                }
+            } else {
+                foreach (months() as $month) {
+                    $groupes[] = array(
+                        'label' => mb_substr($month['name'], 0, 3),
+                        'sousLabel' => null,
+                        'mois' => array((int) $month['number']),
+                    );
+                }
+            }
+
+            foreach ($groupes as $groupe) {
+                $gMontant = 0;
+                $gMajoration = 0;
+                $gHas = false;
+                $gDeposeComplet = true;
+                foreach ($groupe['mois'] as $moisNum) {
+                    $tvaMois = tva::findByDate($_SESSION['agence'], $i . '-' . sprintf('%02d', $moisNum));
+                    if (!empty($tvaMois)) {
+                        $gHas = true;
+                    }
+                    foreach ($tvaMois as $t) {
+                        $gMontant += (float) $t->getAmount();
+                        $gMajoration += (float) $t->getIncreasion();
+                        $cumulMontant += (float) $t->getAmount();
+                        $cumulMajoration += (float) $t->getIncreasion();
+                        $ligneTotal = (float) $t->getAmount() + (float) $t->getIncreasion();
+                        if ($t->getStatus() == 1) {
+                            $montantDepose += $ligneTotal;
+                        } else {
+                            $montantNonDepose += $ligneTotal;
+                            $gDeposeComplet = false;
+                        }
                     }
                 }
-                $moisDetail[] = array('nom' => $month['name'], 'montant' => $mMontant, 'majoration' => $mMajoration, 'has' => !empty($tvaMois), 'depose' => $mDeposeComplet);
+                $periodeDetail[] = array(
+                    'label' => $groupe['label'],
+                    'sousLabel' => $groupe['sousLabel'],
+                    'montant' => $gMontant,
+                    'majoration' => $gMajoration,
+                    'has' => $gHas,
+                    'depose' => $gHas && $gDeposeComplet,
+                );
             }
+
             $totalDu = $cumulMontant + $cumulMajoration;
             $anneesTva[] = array(
                 'annee' => $i,
@@ -347,7 +439,8 @@
                 'depose' => $montantDepose,
                 'non_depose' => $montantNonDepose,
                 'pct_depose' => $totalDu > 0 ? round($montantDepose / $totalDu * 100) : 0,
-                'mois' => $moisDetail,
+                'regime' => $regimeAnnee,
+                'detail' => $periodeDetail,
             );
         }
         ?>
@@ -411,14 +504,19 @@
                                                                 <table class="table table-sm text-center mb-0">
                                                                     <thead>
                                                                         <tr>
-                                                                            <?php foreach ($an['mois'] as $m) : ?>
-                                                                                <th class="text-secondary" style="font-size:0.75rem;"><?= mb_substr($m['nom'], 0, 3) ?></th>
+                                                                            <?php foreach ($an['detail'] as $m) : ?>
+                                                                                <th class="text-secondary" style="font-size:0.75rem;">
+                                                                                    <?php if ($m['sousLabel']) : ?>
+                                                                                        <small class="text-muted" style="font-size:0.65rem;font-weight:normal;"><?= $m['sousLabel'] ?></small><br>
+                                                                                    <?php endif; ?>
+                                                                                    <?= $m['label'] ?>
+                                                                                </th>
                                                                             <?php endforeach; ?>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody>
                                                                         <tr>
-                                                                            <?php foreach ($an['mois'] as $m) : ?>
+                                                                            <?php foreach ($an['detail'] as $m) : ?>
                                                                                 <td>
                                                                                     <?php if (!$m['has']) : ?>
                                                                                         <span class="text-muted">—</span>
@@ -627,7 +725,7 @@
             <div class="modal-body text-center">
                 <p class="mb-1">Voulez-vous ajouter la TVA de <strong id="tva-missing-modal-mois">—</strong> ?</p>
                 <p class="text-muted mb-0" style="font-size:0.85rem;">
-                    Vous allez être amené(e) au formulaire ci-dessous avec ce mois déjà sélectionné —
+                    Vous allez être amené(e) au formulaire ci-dessous avec cette période déjà sélectionnée —
                     <strong>il faudra ensuite saisir le montant et cliquer sur "Ajouter" pour l'enregistrer réellement.</strong>
                 </p>
             </div>
