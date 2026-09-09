@@ -285,6 +285,8 @@ function createInvoiceFromDevis($devis)
     $agence->setNumeroIncrementFacture($agence->getNumeroIncrementFacture() + 1);
     $agence->edit();
 
+    pushNotifier::send($facture->getClient(), 'Votre facture est prête ✨', 'Facture #' . $facture->getNumero() . ' vous attend, jetez-y un œil quand vous avez une minute 💫', array('type' => 'facture', 'id' => $facture->getId()));
+
     return $facture;
 }
 
