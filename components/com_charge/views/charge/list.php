@@ -27,12 +27,11 @@
 		// supplémentaire). Limité au DH, comme tous les agrégats financiers de ce CRM (les
 		// charges dans d'autres devises existent mais ne sont pas additionnables). Les KPI
 		// affichés au chargement correspondent à l'année par défaut du sélecteur du graphique
-		// (la plus récente) - $chartData[$annee] porte aussi les totaux KPI (payées/non
-		// payées) pour que le JS puisse les remettre à jour quand l'année change.
+		// (la plus récente) - $chartData[$annee] porte aussi les totaux KPI (fixes/variables)
+		// pour que le JS puisse les remettre à jour quand l'année change.
 		$idsChargesAvecBulletin = payslip::findAllIdChargeLies();
 
 		$chargesParAnneeMoisType = array();
-		$kpiParAnnee = array();
 		$anneesDisponibles = array();
 		foreach ($charges as $c) {
 			if ($c->getDevise() != 'DH') {
@@ -57,15 +56,6 @@
 			}
 			$chargesParAnneeMoisType[$y][$m][$t] += (float) $c->getTotal();
 
-			if (!isset($kpiParAnnee[$y])) {
-				$kpiParAnnee[$y] = array('payees' => 0, 'non_payees' => 0);
-			}
-			if ($c->isPaid()) {
-				$kpiParAnnee[$y]['payees'] += (float) $c->getTotal();
-			} else {
-				$kpiParAnnee[$y]['non_payees'] += (float) $c->getTotal();
-			}
-
 			$anneesDisponibles[$y] = true;
 		}
 		krsort($anneesDisponibles);
@@ -89,15 +79,15 @@
 				'variable' => $variable,
 				'hors_hw' => $horsHw,
 				'total' => round(array_sum($fixe) + array_sum($variable) + array_sum($horsHw), 2),
-				'payees' => isset($kpiParAnnee[$y]['payees']) ? round($kpiParAnnee[$y]['payees'], 2) : 0,
-				'non_payees' => isset($kpiParAnnee[$y]['non_payees']) ? round($kpiParAnnee[$y]['non_payees'], 2) : 0,
+				'fixe_total' => round(array_sum($fixe), 2),
+				'variable_total' => round(array_sum($variable), 2),
 			);
 		}
 
 		$anneeParDefaut = $anneesDisponibles[0];
 		$totalCharges = $chartData[$anneeParDefaut]['total'];
-		$totalPayees = $chartData[$anneeParDefaut]['payees'];
-		$totalNonPayees = $chartData[$anneeParDefaut]['non_payees'];
+		$totalFixe = $chartData[$anneeParDefaut]['fixe_total'];
+		$totalVariable = $chartData[$anneeParDefaut]['variable_total'];
 		?>
 
 		<div class="row mb-4">
@@ -120,8 +110,8 @@
 						<div class="dash-widget-header">
 							<span class="dash-widget-icon bg-3"><i class="fa fa-check"></i></span>
 							<div class="dash-count">
-								<div class="dash-title">Payées (DH)</div>
-								<div class="dash-counts"><p><span id="kpiChargePayees" class="charge-total-counter" data-valeur="<?= $totalPayees ?>">0</span> DH</p></div>
+								<div class="dash-title">Charges fixes (DH)</div>
+								<div class="dash-counts"><p><span id="kpiChargeFixe" class="charge-total-counter" data-valeur="<?= $totalFixe ?>">0</span> DH</p></div>
 							</div>
 						</div>
 					</div>
@@ -131,10 +121,10 @@
 				<div class="card flex-fill mb-0">
 					<div class="card-body">
 						<div class="dash-widget-header">
-							<span class="dash-widget-icon bg-1"><i class="fa fa-exclamation-triangle"></i></span>
+							<span class="dash-widget-icon bg-1"><i class="fa fa-sync-alt"></i></span>
 							<div class="dash-count">
-								<div class="dash-title">Non payées (DH)</div>
-								<div class="dash-counts"><p><span id="kpiChargeNonPayees" class="charge-total-counter" data-valeur="<?= $totalNonPayees ?>">0</span> DH</p></div>
+								<div class="dash-title">Charges variables (DH)</div>
+								<div class="dash-counts"><p><span id="kpiChargeVariable" class="charge-total-counter" data-valeur="<?= $totalVariable ?>">0</span> DH</p></div>
 							</div>
 						</div>
 					</div>
@@ -219,7 +209,6 @@
 										<th>Charge</th>
 										<th>Montant</th>
 										<th>Payée</th>
-										<th>Remboursé</th>
 										<th>Bulletin</th>
 										<th>Date charge</th>
 										<th>Date paiement</th>
@@ -265,17 +254,6 @@
 											<?php else : ?>
 												<span class="badge <?php echo $charge->isPaid() ? 'badge-success' : 'badge-danger'; ?>"><?php echo $charge->isPaid() ? 'Payée' : 'Non payée'; ?></span>
 											<?php endif; ?>
-										</td>
-										<td>
-										    <?php if($charge->getPaidBy()->getId() != 0): ?>
-										    <?php if($charge->isRefunded()) : ?>
-										        <span class="badge badge-success">Rembourssé</span>
-										    <?php else : ?>
-										        <span class="badge badge-danger">Non Rembourssé</span>
-										    <?php endif; ?>
-										    <?php else : ?>
-										        <span class="text-muted">—</span>
-										    <?php endif; ?>
 										</td>
 										<td>
 											<?php if ($aBulletin) : ?>
@@ -372,10 +350,10 @@ $(function () {
 		majBadgeEvolution(anneeInitiale);
 
 		function majKpiPourAnnee(annee) {
-			var d = dataParAnnee[annee] || { total: 0, payees: 0, non_payees: 0 };
+			var d = dataParAnnee[annee] || { total: 0, fixe_total: 0, variable_total: 0 };
 			animerCompteurVers($('#kpiChargeTotal'), d.total || 0);
-			animerCompteurVers($('#kpiChargePayees'), d.payees || 0);
-			animerCompteurVers($('#kpiChargeNonPayees'), d.non_payees || 0);
+			animerCompteurVers($('#kpiChargeFixe'), d.fixe_total || 0);
+			animerCompteurVers($('#kpiChargeVariable'), d.variable_total || 0);
 		}
 
 		$('#chargeChartAnnee').on('change', function () {
@@ -391,11 +369,11 @@ $(function () {
 	})();
 
 	// Table dédiée (classe distincte de ".datatable" utilisée globalement ailleurs dans
-	// l'app) : la colonne 8 (Actions) n'est pas triable, tri initial par date de charge
-	// décroissante (colonne 6, triée sur son data-sort en timestamp, pas le texte affiché).
+	// l'app) : la colonne 7 (Actions) n'est pas triable, tri initial par date de charge
+	// décroissante (colonne 5, triée sur son data-sort en timestamp, pas le texte affiché).
 	var chargesTable = $('.datatable-charges').DataTable({
-		order: [[6, 'desc']],
-		columnDefs: [{ orderable: false, targets: [8] }]
+		order: [[5, 'desc']],
+		columnDefs: [{ orderable: false, targets: [7] }]
 	});
 
 	// Filtre "Date début"/"Date fin" : filtrage client (mêmes champs que l'export, qui lui
@@ -410,7 +388,7 @@ $(function () {
 		if (!from && !to) {
 			return true;
 		}
-		var dateCharge = chargesTable.cell(dataIndex, 6).render('sort');
+		var dateCharge = chargesTable.cell(dataIndex, 5).render('sort');
 		if (from) {
 			var fromTs = new Date(from.split('/').reverse().join('-')).getTime() / 1000;
 			if (dateCharge < fromTs) {

@@ -3852,6 +3852,15 @@ table.table td h2.table-avatar span.avatar-sleep-badge {
 .tva-manquants-card {
 	border-left: 4px solid #dc3545;
 }
+/* Cette carte n'a pas de .dash-widget-header, donc elle échappe au :has() qui donne
+   aux tuiles KPI leur fond dégradé — sans cette règle, l'icône .bg-9 hérite quand
+   même du blanc forcé plus haut et devient invisible sur le fond blanc de la carte. */
+.tva-manquants-card .dash-widget-icon.bg-9 {
+	background: #fac1c1 !important;
+}
+.tva-manquants-card .dash-widget-icon.bg-9 i {
+	color: #ef3737 !important;
+}
 .tva-section-separator {
 	display: flex;
 	align-items: center;

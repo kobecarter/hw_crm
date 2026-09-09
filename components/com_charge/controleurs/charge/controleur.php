@@ -220,7 +220,6 @@ function exportCharges($data)
 		"Charge",
 		"Type",
 		"Montant",
-		"Rembourssé",
 		"Date charge",
 		"Date paiement",
 		"Description"
@@ -244,7 +243,6 @@ function exportCharges($data)
 			$charge->getTitre(),
 			$charge->getType(),
 			number_format($charge->getTotal(), 2, ',', ' '). ' ' . $charge->getDevise(),
-			$charge->isRefunded() ? "Rembourssé" : "Non Rembourssé",
 			normaldate($charge->getDateCharge()),
 			normaldate($charge->getDatePayment()),
 			$charge->getDescription()

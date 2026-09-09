@@ -122,7 +122,7 @@
         }
         ?>
 
-        <div class="row">
+        <div class="row mb-4">
             <div class="col-md-12">
                 <div class="card <?= $nbMoisManquants > 0 ? 'tva-manquants-card kpi-blink' : '' ?> mb-0" id="tva-manquants-card">
                     <div class="card-body">

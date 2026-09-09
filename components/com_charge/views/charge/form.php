@@ -264,22 +264,6 @@
 		</div>
 		<!-- /Toggle Switch -->
 
-			<!-- Toggle Switch -->
-		<div class="col-md-3">
-			<label class="row form-group toggle-switch">
-				<span class="col-8 col-sm-8 toggle-switch-content ml-0">
-					<span class="d-block text-dark">Rembourssé</span>
-				</span>
-				<span class="col-4 col-sm-4">
-					<input type="checkbox" name="refunded" class="toggle-switch-input" <?php if(isset($charge) && $charge->isRefunded()) echo "checked"; ?>>
-					<span class="toggle-switch-label ml-auto">
-						<span class="toggle-switch-indicator"></span>
-					</span>
-				</span>
-			</label>
-		</div>
-		<!-- /Toggle Switch -->
-
 		<div class="col-md-12">
 			<div class="charge-section-title"><i class="fa fa-paperclip mr-2"></i>Description &amp; justificatif</div>
 		</div>
