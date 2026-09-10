@@ -526,7 +526,51 @@ class relance
         }
     }
 
-    private static function sendReminderEmail($facture, $condition, $etape)
+    // Déclenchement manuel d'une relance de paiement - bouton "Envoyer une relance" sur chaque
+    // ligne de règlement sans preuve jointe (com_facture/views/facture/payment.php). Contrairement
+    // à runDailyReminders()/sendIfNotAlreadySentToday() (automatique, idempotent une fois par jour
+    // et par étape), ceci envoie immédiatement à la demande, sans vérification de doublon du
+    // jour - un renvoi volontaire par un utilisateur doit toujours rester possible. $montant est
+    // celui DE CE RÈGLEMENT précis (pas le reste dû global de la facture) : le mail annonce le
+    // montant que le client est censé avoir réglé, pas un solde. Lève une \Exception (message
+    // destiné à l'utilisateur) si la facture est déjà soldée ou si le client n'a pas d'email, pour
+    // que l'appelant puisse afficher un message clair plutôt qu'un échec silencieux.
+    public static function envoyerRelanceManuelle($facture, $montant)
+    {
+        if ($facture->getReste() <= 0) {
+            throw new \Exception("Cette facture est déjà soldée, aucune relance à envoyer.");
+        }
+        $client = $facture->getClient();
+        if (!$client || !$client->getEmail()) {
+            throw new \Exception("Ce client n'a pas d'adresse email enregistrée.");
+        }
+
+        $relance = new relance();
+        $relance->setClient($client);
+        $relance->setFacture($facture);
+        $relance->setType('Email');
+        $relance->setIdCondition(null);
+        $relance->setEtape('manuel');
+        $relance->setDate(date('Y-m-d'));
+        $relance->setTraite(1);
+        $relance->setDateAdd(date('Y-m-d'));
+        $relance->setLastEdit(date('Y-m-d'));
+        $relance->add();
+        $relance->setId(self::getLastId());
+
+        self::sendReminderEmail($facture, null, 'manuel', $montant);
+
+        $relance->setDateEnvoi(date('Y-m-d H:i:s'));
+        $relance->edit();
+
+        return $relance;
+    }
+
+    // $montantOverride : uniquement pour l'étape 'manuel' (relance déclenchée depuis une ligne de
+    // règlement précise, voir envoyerRelanceManuelle() ci-dessus) - le montant à annoncer est alors
+    // celui DE CE RÈGLEMENT, pas facture->getReste(). Les étapes automatiques (J-15/J-10/J-5/J0/
+    // retard) continuent d'utiliser le reste dû global comme avant (ne passent jamais ce paramètre).
+    private static function sendReminderEmail($facture, $condition, $etape, $montantOverride = null)
     {
         if (!defined('SMTP_HOST') || SMTP_HOST == '') {
             return;
@@ -539,7 +583,7 @@ class relance
         require_once __DIR__ . '/../../../vendor/autoload.php';
 
         $isEn = ($facture->getLangue() == 'en');
-        $montant = number_format($facture->getReste(), 2, ',', ' ') . ' ' . $facture->getDevise();
+        $montant = number_format($montantOverride !== null ? $montantOverride : $facture->getReste(), 2, ',', ' ') . ' ' . $facture->getDevise();
 
         if ($etape === 'retard') {
             $joursRetard = (int) ((strtotime(date('Y-m-d')) - strtotime($condition ? $condition->getDate() : $facture->getDateFacture())) / 86400);
@@ -552,6 +596,15 @@ class relance
             $corps = $isEn
                 ? "Hello,<br><br>This is a reminder that the payment of " . $montant . " for invoice N°" . $facture->getNumero() . " is due today.<br><br>Thank you."
                 : "Bonjour,<br><br>Nous vous rappelons que le règlement de " . $montant . " pour la facture N°" . $facture->getNumero() . " arrive à échéance aujourd'hui.<br><br>Cordialement.";
+        } elseif ($etape === 'manuel') {
+            // Déclenchée à la main (bouton "Envoyer une relance" sur chaque ligne de règlement de
+            // la facture, com_facture/views/facture/payment.php) - pas de délai J-X à annoncer
+            // puisqu'elle n'est pas liée à l'échéance d'une condition précise, juste un rappel du
+            // solde restant dû, envoyé à la demande.
+            $sujet = $isEn ? "Payment reminder - Invoice N°" . $facture->getNumero() : "Rappel de paiement - Facture N°" . $facture->getNumero();
+            $corps = $isEn
+                ? "Hello,<br><br>This is a reminder that a balance of " . $montant . " remains due on invoice N°" . $facture->getNumero() . ". Please arrange this payment at your earliest convenience.<br><br>Thank you."
+                : "Bonjour,<br><br>Nous vous rappelons qu'un montant de " . $montant . " reste dû sur la facture N°" . $facture->getNumero() . ". Merci de bien vouloir régulariser ce règlement dans les meilleurs délais.<br><br>Cordialement.";
         } else {
             $joursRestants = array('J-15' => 15, 'J-10' => 10, 'J-5' => 5)[$etape];
             $sujet = $isEn ? "Upcoming payment - Invoice N°" . $facture->getNumero() : "Échéance à venir - Facture N°" . $facture->getNumero();

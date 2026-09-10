@@ -54,6 +54,9 @@
 											<td data-sort="<?= strtotime($payment->getDatePayment())?>"><?php echo normaldate($payment->getDatePayment()); ?></td>
 											<td data-sort="<?= strtotime($payment->getDateValidation())?>"><?php echo normaldate($payment->getDateValidation()); ?></td>
 											<td class="text-right">
+												<?php if ($_SESSION['user']->hasDroit('add', 'com_relance') && $facture->getReste() > 0 && $payment->getRegImg() == '') :?>
+													<a href="javascript:void(0);" class="btn btn-sm btn-white text-primary mr-2 relance-payment-btn" data-id="<?= $payment->getId(); ?>" data-montant="<?= $payment->getMontant(); ?>" data-toggle="tooltip" data-placement="top" data-original-title="Envoyer une relance de paiement"><i class="fa fa-paper-plane"></i></a>
+												<?php endif;?>
 											    <?php if($payment->getRegImg() != ''): ?>
 													<a href="images/reglements/<?php echo $payment->getRegImg(); ?>" data-fancybox class="btn btn-sm btn-white text-success mr-2" data-toggle="tooltip" data-placement="top" data-original-title="Reglement"><i class="fa fa-file-alt"></i></a> 
 												<?php endif; ?>
@@ -97,6 +100,40 @@
 	</div>
 </div>
 <!-- /Add Category Modal -->
+
+<!-- Confirmation avant l'envoi d'une relance de paiement manuelle (bouton "enveloppe" sur chaque
+     ligne de règlement ci-dessus) - un email réel part vers le client, donc jamais un envoi
+     silencieux au premier clic (même patron .tva-confirm-modal que les autres confirmations de
+     l'app, pas de confirm() natif). -->
+<?php if ($_SESSION['user']->hasDroit('add', 'com_relance') && $facture->getReste() > 0) :
+	$clientRelance = $facture->getClient();
+	$nomClientRelance = $clientRelance ? trim($clientRelance->getPrenom() . ' ' . $clientRelance->getNom()) : '';
+?>
+<div id="relancePaymentModal" class="modal custom-modal tva-confirm-modal fade" role="dialog">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+				<div class="tva-confirm-icon"><i class="fa fa-paper-plane"></i></div>
+				<h5 class="modal-title mt-3">Envoyer une relance de paiement ?</h5>
+			</div>
+			<div class="modal-body text-center">
+				<p class="mb-0">
+					Un email sera envoyé à <strong><?= htmlspecialchars($nomClientRelance) ?></strong> pour lui rappeler
+					le règlement de <strong id="relancePaymentMontantTexte">—</strong>
+					sur la facture <strong>#<?= $facture->getNumero() ?></strong>.
+				</p>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-white" data-dismiss="modal">Annuler</button>
+				<button type="button" class="btn btn-primary" id="relancePaymentConfirmerBtn"><span class="spinner-border spinner-border-sm mr-2 relance-payment-loading" style="display:none;"></span><i class="fa fa-paper-plane mr-1"></i> Envoyer</button>
+			</div>
+		</div>
+	</div>
+</div>
+<?php endif;?>
 
 <script type="text/javascript">
 	$(function() {
@@ -142,6 +179,40 @@
 				$("#dialog-custom").modal('show');
 			})
 		})
+
+		// Relance de paiement manuelle - ouvre la confirmation (montant DE CE RÈGLEMENT précis,
+		// pas le reste dû global de la facture), puis envoie au clic sur "Envoyer" (voir
+		// relance::envoyerRelanceManuelle()). Un seul modal partagé par toutes les lignes, mais son
+		// contenu et l'id_payment envoyé changent selon le bouton cliqué (data-id/data-montant).
+		var relancePaymentIdCourant = null;
+		$(document).on("click", ".relance-payment-btn", function() {
+			var $btn = $(this);
+			relancePaymentIdCourant = $btn.data('id');
+			var montant = parseFloat($btn.data('montant')) || 0;
+			$('#relancePaymentMontantTexte').text(montant.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' <?php echo $facture->getDevise(); ?>');
+			$('#relancePaymentModal').modal('show');
+		});
+
+		$(document).on("click", "#relancePaymentConfirmerBtn", function() {
+			var $btn = $(this);
+			$btn.prop('disabled', true);
+			$btn.find('.relance-payment-loading').show();
+			$.post("components/com_relance/controleurs/router.php?task=envoyerRelanceManuelle", { id_payment: relancePaymentIdCourant }, function(response) {
+				$('#relancePaymentModal').modal('hide');
+				$btn.prop('disabled', false);
+				$btn.find('.relance-payment-loading').hide();
+				if (response && response.success) {
+					$('.msgbox').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><strong>Succès!</strong> Relance envoyée avec succès<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+				} else {
+					$('.msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Erreur!</strong> ' + ((response && response.message) || "Erreur lors de l'envoi de la relance") + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+				}
+			}, 'json').fail(function() {
+				$('#relancePaymentModal').modal('hide');
+				$btn.prop('disabled', false);
+				$btn.find('.relance-payment-loading').hide();
+				$('.msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Erreur!</strong> Impossible de contacter le serveur.<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+			});
+		});
 
 	});
 </script>

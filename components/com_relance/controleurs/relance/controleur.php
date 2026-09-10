@@ -16,7 +16,41 @@ if (isset($task) && !empty($task)) {
             break;  
         case 'getFactureByClient':
             getFactureByClient($_POST);
-            break;       
+            break;
+        case 'envoyerRelanceManuelle':
+            envoyerRelanceManuelle($_POST);
+            break;
+    }
+}
+
+// Déclenché depuis com_facture/views/facture/payment.php (bouton "Envoyer une relance" sur
+// chaque ligne de règlement sans preuve jointe) - envoie immédiatement un rappel annonçant le
+// montant DE CE RÈGLEMENT précis (pas le reste dû global de la facture), voir
+// relance::envoyerRelanceManuelle(). id_payment (pas id_facture) : le montant vient du paiement
+// lui-même, retrouvé via payment::find() (même restriction d'accès - superuser ou payment ajouté
+// par l'utilisateur courant - que la liste affichée sur cette page). Répond en JSON (pas juste
+// "1"/"0") pour pouvoir afficher le message d'erreur précis (facture déjà soldée, client sans
+// email...) plutôt qu'un message générique.
+function envoyerRelanceManuelle($data)
+{
+    header('Content-Type: application/json');
+    $indices = array("id_payment");
+    if (!fieldCheck($data, $indices)) {
+        echo json_encode(array('success' => 0, 'message' => "Règlement manquant."));
+        return;
+    }
+    $payment = payment::find(intval($data['id_payment']));
+    if (!$payment || $payment->getId() == 0) {
+        echo json_encode(array('success' => 0, 'message' => "Règlement introuvable."));
+        return;
+    }
+    $facture = $payment->getFacture();
+    try {
+        relance::envoyerRelanceManuelle($facture, $payment->getMontant());
+        echo json_encode(array('success' => 1));
+    } catch (\Throwable $e) {
+        error_log('envoyerRelanceManuelle - paiement ' . $payment->getId() . ' - ' . $e->getMessage());
+        echo json_encode(array('success' => 0, 'message' => $e->getMessage()));
     }
 }
 

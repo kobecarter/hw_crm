@@ -32,6 +32,11 @@ if (isset($_GET['task']) && !empty($_GET['task'])) {
                 include_once("relance/controleur.php");
             }
             break;
+        case 'envoyerRelanceManuelle':
+            if ($_SESSION['user']->hasDroit('add', 'com_relance')) {
+                include_once("relance/controleur.php");
+            }
+            break;
         case 'runDailyReminders':
             // Endpoint public (pas de cron serveur disponible) : appelé une fois par jour par un
             // service externe planifié (ex: cron-job.org). Aucune session utilisateur active, donc
