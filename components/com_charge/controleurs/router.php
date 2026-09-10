@@ -34,5 +34,10 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
                 include_once ("charge/controleur.php");
             }
             break;
+        case "formCharge":
+            if ($_SESSION['user']->hasDroit('edit', 'com_charge')) {
+                include_once ("charge/controleur.php");
+            }
+            break;
     }
 }

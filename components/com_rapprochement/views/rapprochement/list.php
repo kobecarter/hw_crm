@@ -335,7 +335,7 @@
 													<!-- La charge (créée ou liée depuis ce relevé) reste modifiable sans quitter la page -
 													     titre/montant/type/remarque erronés ou à compléter après coup, sans repasser par la
 													     liste complète des charges pour la retrouver. -->
-													<a href="index.php?option=com_charge&task=edit&id=<?= $l->getIdCharge() ?>" target="_blank" class="btn btn-white btn-sm" data-toggle="tooltip" title="Modifier la charge affectée"><i class="fa fa-edit"></i></a>
+													<a href="index.php?option=com_charge&task=edit&id=<?= $l->getIdCharge() ?>" target="_blank" class="btn btn-white btn-sm rapprochement-edit-charge" data-id="<?= $l->getIdCharge() ?>" data-toggle="tooltip" title="Modifier la charge affectée"><i class="fa fa-edit"></i></a>
 													<?php if (!(isset($infos['type']) && $infos['type'] === 'debit_commission')) :?>
 													<!-- Retour à "à valider"/"sans justificatif" (voir annulerMarquageCharge() côté
 													     contrôleur) - la charge n'est supprimée que si elle a été CRÉÉE par ce
@@ -879,6 +879,26 @@
 			<div class="modal-footer">
 				<button type="button" class="btn btn-white" data-dismiss="modal">Annuler</button>
 				<button type="button" class="btn btn-primary" id="exportLotConfirmerBtn"><i class="far fa-file-excel mr-1"></i> Confirmer et exporter</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Édition de la charge affectée en popup - évite de quitter la page de rapprochement (voir
+     bouton "Modifier la charge affectée" ci-dessus). Le contenu est chargé depuis
+     com_charge/controleurs/router.php?task=formCharge, qui rend le même form.php que la page
+     dédiée mais sans le chrome de page. -->
+<div id="rapprochementChargeModal" class="modal fade" role="dialog">
+	<div class="modal-dialog modal-dialog-scrollable modal-lg" role="document" style="max-width: 900px;">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title"><i class="fa fa-edit mr-2"></i>Modifier la charge affectée</h5>
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+			</div>
+			<div class="modal-body" id="rapprochementChargeModalBody">
+				<div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x text-muted"></i></div>
 			</div>
 		</div>
 	</div>
@@ -1586,6 +1606,42 @@ $(function () {
 				});
 			}
 		);
+	});
+
+	// "Modifier la charge affectée" : ouvre le formulaire com_charge en popup sur place plutôt que
+	// de rediriger vers le module Charges - fetch le fragment (form.php seul, sans le chrome de
+	// page) puis ré-initialise les widgets (Select2, datetimepicker, tooltips) qui ne s'appliquent
+	// normalement qu'au chargement initial de la page et ignorent le contenu injecté après coup.
+	$(document).on('click', '.rapprochement-edit-charge', function (e) {
+		e.preventDefault();
+		var id = $(this).data('id');
+		var $modal = $('#rapprochementChargeModal');
+		var $body = $('#rapprochementChargeModalBody');
+
+		$body.html('<div class="text-center py-5"><i class="fa fa-spinner fa-spin fa-2x text-muted"></i></div>');
+		$modal.modal('show');
+		$body.load('components/com_charge/controleurs/router.php?task=formCharge&id=' + encodeURIComponent(id), function (response, status) {
+			if (status === 'error') {
+				$body.html('<div class="alert alert-danger mb-0">Impossible de charger le formulaire de la charge.</div>');
+				return;
+			}
+			if (typeof $.fn.select2 === 'function') {
+				$body.find('.chosen-select').select2();
+				$body.find('.select').select2({ minimumResultsForSearch: -1, width: '100%' });
+			}
+			if (typeof $.fn.datetimepicker === 'function') {
+				$body.find('.datetimepicker').datetimepicker({
+					format: 'DD/MM/YYYY',
+					icons: {
+						up: "fas fa-angle-up",
+						down: "fas fa-angle-down",
+						next: 'fas fa-angle-right',
+						previous: 'fas fa-angle-left'
+					}
+				});
+			}
+			$body.find('[data-toggle="tooltip"]').tooltip();
+		});
 	});
 
 	// "Annuler ce marquage" (ligne "Charge créée/liée") : retour à "à valider"/"sans justificatif" -

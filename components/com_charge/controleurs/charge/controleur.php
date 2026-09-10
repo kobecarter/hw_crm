@@ -17,7 +17,35 @@ if (isset($task) && !empty($task)) {
         case "exportCharges":
             exportCharges($_GET);
             break;
+        case "formCharge":
+            formCharge($_GET);
+            break;
     }
+}
+
+// Rend le formulaire d'édition d'une charge en fragment HTML seul (sans le chrome de page
+// index.php/sidebar) - permet à d'autres modules (ex: com_rapprochement) de l'ouvrir en popup
+// sur place plutôt que de rediriger vers com_charge.
+function formCharge($data)
+{
+    if (!isset($data['id']) || empty($data['id'])) {
+        return;
+    }
+    $charge = charge::find(intval($data['id']), $_SESSION['agence']);
+    if (!$charge || $charge->getId() == 0) {
+        return;
+    }
+
+    $users = user::findAll();
+    $employes = resourcehumaine::findAll();
+    $clients = client::findAll(true, false, $_SESSION['agence']);
+    $fournisseurs = fournisseur::findAll(true);
+    $bulletinLie = payslip::findByIdCharge($charge->getId());
+    $action = "components/com_charge/controleurs/router.php?task=editCharge";
+    $submitName = "edit";
+    $submitValue = "Modifier charge";
+
+    include(__DIR__ . "/../../views/charge/form.php");
 }
 
 function addCharge($data)
