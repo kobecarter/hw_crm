@@ -222,6 +222,14 @@
 													<?php if (isset($infos['type']) && $infos['type'] === 'debit_tva') :?>
 														<button type="button" class="btn btn-primary btn-sm rapprochement-tva-confirmer" data-toggle="tooltip" title="Confirmer la déclaration TVA" data-tva-info='<?= htmlspecialchars(json_encode($infos), ENT_QUOTES, "UTF-8") ?>'><i class="fa fa-file-invoice-dollar"></i></button>
 														<button type="button" class="btn btn-white btn-sm rapprochement-ignorer" data-toggle="tooltip" title="Ignorer"><i class="fa fa-times"></i></button>
+													<?php elseif (!isset($infos['type']) || !in_array($infos['type'], array('credit_ambigu', 'debit_charge_existante', 'debit_reconnu'), true)) :?>
+														<!-- Type non reconnu (ligne à montant nul, commission bancaire non agrégée...) : le
+														     badge affiche alors le simple "À valider" générique (switch plus bas) et
+														     validerLigne() n'a AUCUNE action possible pour ce cas ("Aucune action de
+														     validation possible pour cette ligne", toujours en échec côté serveur) - même
+														     flux que "sans_justificatif" plutôt qu'un bouton "Valider" mort. -->
+														<button type="button" class="btn btn-danger btn-sm rapprochement-justificatif-manuel" data-toggle="tooltip" title="Insérer le justificatif"><i class="fa fa-paperclip"></i></button>
+														<button type="button" class="btn btn-white btn-sm rapprochement-ignorer" data-toggle="tooltip" title="Ignorer"><i class="fa fa-times"></i></button>
 													<?php else :?>
 														<?php if (isset($infos['type']) && $infos['type'] === 'credit_ambigu') :?>
 															<?php
@@ -401,7 +409,7 @@
 														} elseif (isset($infos['type']) && $infos['type'] === 'debit_charge_existante') {
 															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour choisir la charge">Charge existante trouvée — à confirmer</span>';
 														} else {
-															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour traiter">À valider</span>';
+															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour insérer le justificatif">À valider</span>';
 														}
 												}
 												?>

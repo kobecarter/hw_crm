@@ -856,7 +856,19 @@ function creerJustificatifManuel($data, $files)
         return;
     }
     $ligne = releveLigne::find(intval($data['id']));
-    if (!$ligne->getId() || $ligne->getStatut() !== 'sans_justificatif') {
+    if (!$ligne->getId()) {
+        echo json_encode(array('success' => 0, 'message' => 'Ligne introuvable ou déjà traitée'));
+        return;
+    }
+    // 'a_valider' n'est accepté ici QUE pour le cas générique sans type reconnu (montant nul,
+    // commission bancaire non agrégée...) - même filtre que côté vue (views/rapprochement/list.php,
+    // colonne Actions) : un type avec une action dédiée (credit_ambigu, debit_charge_existante,
+    // debit_reconnu, debit_tva) doit toujours passer par validerLigne(), jamais créer une charge à
+    // l'aveugle ici.
+    $infosLigne = $ligne->getDonneesMatchingArray();
+    $estAValiderGenerique = $ligne->getStatut() === 'a_valider'
+        && (!isset($infosLigne['type']) || !in_array($infosLigne['type'], array('credit_ambigu', 'debit_charge_existante', 'debit_reconnu', 'debit_tva'), true));
+    if ($ligne->getStatut() !== 'sans_justificatif' && !$estAValiderGenerique) {
         echo json_encode(array('success' => 0, 'message' => 'Ligne introuvable ou déjà traitée'));
         return;
     }
