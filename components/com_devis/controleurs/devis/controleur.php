@@ -1785,6 +1785,14 @@ function sendDevisPdfEmailToClient($devis)
         $mail->setFrom($mailCreds['username'], 'Hello World');
         $mail->addAddress($client->getEmail(), trim($client->getPrenom() . ' ' . $client->getNom()));
         $mail->addCC('contact@helloworld-agency.com');
+
+        // Copie BCC au commercial créateur du devis (profil 'Commercial' uniquement) - simple
+        // copie mail dans sa boîte, pas de dépôt IMAP comme copierEmailEnvoyeVersDossierEnvoyes().
+        $devisCreateur = $devis->getUserAdded();
+        if ($devisCreateur && $devisCreateur->getEmail() && $devisCreateur->getProfil() && $devisCreateur->getProfil()->getProfil() == 'Commercial') {
+            $mail->addBCC($devisCreateur->getEmail());
+        }
+
         $mail->addAttachment($pdfPath, 'Devis-' . $devis->getNumero() . '.pdf');
 
         $mail->isHTML(true);
@@ -1865,6 +1873,14 @@ function sendDevisAcceptedEmailToClient($devis)
         $mail->setFrom($mailCreds['username'], 'Hello World');
         $mail->addAddress($client->getEmail(), trim($client->getPrenom() . ' ' . $client->getNom()));
         $mail->addCC('contact@helloworld-agency.com');
+
+        // Copie BCC au commercial créateur du devis (profil 'Commercial' uniquement) - simple
+        // copie mail dans sa boîte, pas de dépôt IMAP comme copierEmailEnvoyeVersDossierEnvoyes().
+        $devisCreateur = $devis->getUserAdded();
+        if ($devisCreateur && $devisCreateur->getEmail() && $devisCreateur->getProfil() && $devisCreateur->getProfil()->getProfil() == 'Commercial') {
+            $mail->addBCC($devisCreateur->getEmail());
+        }
+
         $mail->isHTML(true);
 
         $montant = number_format($devis->getTotal(), 2, ',', ' ') . ' ' . $devis->getDevise();

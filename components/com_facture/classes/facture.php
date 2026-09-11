@@ -1477,6 +1477,14 @@ mpdf-->
         //Set who the message is to be sent to
         $mail->addAddress($client->getEmail(), $client->getNom() . ' ' . $client->getPrenom());
         $mail->addAddress($mailCreds['username']);
+
+        // Copie BCC au commercial créateur de la facture (profil 'Commercial' uniquement) -
+        // simple copie mail dans sa boîte, pas de dépôt IMAP comme copierEmailEnvoyeVersDossierEnvoyes().
+        $factureCreateur = $this->getUserAdded();
+        if ($factureCreateur && $factureCreateur->getEmail() && $factureCreateur->getProfil() && $factureCreateur->getProfil()->getProfil() == 'Commercial') {
+            $mail->addBCC($factureCreateur->getEmail());
+        }
+
         //Set the subject line
         $mail->Subject = 'Facture ' . $config->getNom();
         //Read an HTML message body from an external file, convert referenced images to embedded,
