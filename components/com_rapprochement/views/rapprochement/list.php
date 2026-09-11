@@ -794,6 +794,30 @@
 	</div>
 </div>
 
+<!-- Popup "Alerte" générique de la page — remplace alert() natif du navigateur pour tous les
+     messages d'erreur/validation de la page (import, affectation, annulation, TVA, suppression
+     de lot...), même habillage que justificatifErreurModal plus bas (.tva-confirm-modal +
+     .charge-doublon-icon) mais réutilisable au lieu d'être scopé à un seul flux. -->
+<div id="rapprochementAlertModal" class="modal custom-modal tva-confirm-modal fade" role="dialog">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+				<div class="charge-doublon-icon"><i class="fa fa-exclamation-triangle"></i></div>
+				<h5 class="modal-title mt-3">Attention</h5>
+			</div>
+			<div class="modal-body">
+				<p class="text-center mb-0" id="rapprochementAlertTexte" style="font-size:0.9rem;">—</p>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-primary" data-dismiss="modal">Compris</button>
+			</div>
+		</div>
+	</div>
+</div>
+
 <!-- Popup "Réaffectation" (sécurité anti-doublon) — la charge (ou le bulletin de paie) choisi est
      déjà rattaché à une AUTRE ligne de relevé bancaire : bloque la validation immédiate et montre
      l'ancienne affectation avant de laisser l'utilisateur écraser le lien ou annuler. Même
@@ -925,6 +949,12 @@ $(function () {
 		if (!iso) { return ''; }
 		var p = iso.split('-');
 		return p.length === 3 ? (p[2] + '/' + p[1] + '/' + p[0]) : iso;
+	}
+
+	// Remplace alert() natif partout sur la page (voir #rapprochementAlertModal ci-dessus).
+	function afficherAlerteRapprochement(message) {
+		$('#rapprochementAlertTexte').text(message);
+		$('#rapprochementAlertModal').modal('show');
 	}
 
 	// Dernier verrou avant d'écrire en base pour un rapprochement crédit -> facture (nouveau
@@ -1111,7 +1141,7 @@ $(function () {
 	$(document).on('click', '#compteManuelConfirmerBtn', function () {
 		var idChoisi = $('#compteManuelSelect').val();
 		if (!idChoisi) {
-			alert('Veuillez sélectionner un compte.');
+			afficherAlerteRapprochement('Veuillez sélectionner un compte.');
 			return;
 		}
 		if (!dernierFichierImporte) {
@@ -1248,7 +1278,7 @@ $(function () {
 			if (response.success) {
 				afficherGatePeriode(response);
 			} else {
-				alert(response.message || 'Erreur lors de la validation');
+				afficherAlerteRapprochement(response.message || 'Erreur lors de la validation');
 				$btn.prop('disabled', false).html('<i class="fa fa-check mr-1"></i> Valider la lecture');
 			}
 		});
@@ -1507,7 +1537,7 @@ $(function () {
 	$('#affecterConfirmerBtn').on('click', function () {
 		var valeur = $('#affecterSelect').val();
 		if (!valeur) {
-			alert(affecterTypeCourant === 'facture' ? 'Choisissez une facture.' : 'Choisissez une charge.');
+			afficherAlerteRapprochement(affecterTypeCourant === 'facture' ? 'Choisissez une facture.' : 'Choisissez une charge.');
 			return;
 		}
 
@@ -1515,7 +1545,7 @@ $(function () {
 			var titre = $('#affecterNouvelleChargeTitre').val();
 			var montant = $('#affecterNouvelleChargeMontant').val();
 			if (!montant || !parseFloat(montant.toString().replace(',', '.'))) {
-				alert('Indiquez le montant de la charge.');
+				afficherAlerteRapprochement('Indiquez le montant de la charge.');
 				return;
 			}
 			var $btn = $(this).prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Création...');
@@ -1528,7 +1558,7 @@ $(function () {
 				if (response.success) {
 					window.location.reload();
 				} else {
-					alert(response.message || 'Erreur lors de la création de la charge');
+					afficherAlerteRapprochement(response.message || 'Erreur lors de la création de la charge');
 					$btn.prop('disabled', false).html('<i class="fa fa-plus mr-1"></i> Créer et lier');
 				}
 			});
@@ -1588,7 +1618,7 @@ $(function () {
 					if (response.success) {
 						window.location.reload();
 					} else {
-						alert(response.message || "Erreur lors de l'annulation");
+						afficherAlerteRapprochement(response.message || "Erreur lors de l'annulation");
 					}
 				});
 			}
@@ -1609,7 +1639,7 @@ $(function () {
 					if (response.success) {
 						window.location.reload();
 					} else {
-						alert(response.message || "Erreur lors de l'annulation");
+						afficherAlerteRapprochement(response.message || "Erreur lors de l'annulation");
 					}
 				});
 			}
@@ -1666,7 +1696,7 @@ $(function () {
 					if (response.success) {
 						window.location.reload();
 					} else {
-						alert(response.message || "Erreur lors de l'annulation");
+						afficherAlerteRapprochement(response.message || "Erreur lors de l'annulation");
 					}
 				});
 			}
@@ -1686,7 +1716,7 @@ $(function () {
 					if (response.success) {
 						window.location.reload();
 					} else {
-						alert(response.message || "Erreur lors de l'annulation");
+						afficherAlerteRapprochement(response.message || "Erreur lors de l'annulation");
 					}
 				});
 			}
@@ -1734,7 +1764,7 @@ $(function () {
 			if (response.success) {
 				window.location.reload();
 			} else {
-				alert(response.message || "Erreur lors de la suppression de l'import");
+				afficherAlerteRapprochement(response.message || "Erreur lors de la suppression de l'import");
 				$btn.prop('disabled', false).html('<i class="fa fa-trash mr-1"></i> Supprimer définitivement');
 			}
 		});
@@ -1811,7 +1841,7 @@ $(function () {
 				if (gererBesoinConfirmation(response, function () { envoyerValiderDirect(true); })) {
 					return;
 				}
-				alert(response.message || 'Erreur lors de la validation');
+				afficherAlerteRapprochement(response.message || 'Erreur lors de la validation');
 				// Le choix de règlement échoué (introuvable/refusé) ne doit pas rester collé à la
 				// ligne pour un prochain essai - la prochaine ouverture du modal doit repartir propre.
 				$tr.find('.rapprochement-payment-existant').val('');
@@ -1849,11 +1879,11 @@ $(function () {
 					$btn.prop('disabled', false).html('<i class="fa fa-check mr-1"></i> Confirmer');
 					return;
 				}
-				alert(response.message || 'Erreur lors de la validation');
+				afficherAlerteRapprochement(response.message || 'Erreur lors de la validation');
 				$btn.prop('disabled', false).html('<i class="fa fa-check mr-1"></i> Confirmer');
 			},
 			error: function () {
-				alert('Erreur lors de la validation');
+				afficherAlerteRapprochement('Erreur lors de la validation');
 				$btn.prop('disabled', false).html('<i class="fa fa-check mr-1"></i> Confirmer');
 			}
 		});
@@ -1923,14 +1953,14 @@ $(function () {
 	$('#tvaRapprochementConfirmerBtn').on('click', function () {
 		var idTva = $('#tvaRapprochementListe input[name=tvaCandidatChoix]:checked').val();
 		if (!idTva) {
-			alert('Choisissez la déclaration TVA correspondante.');
+			afficherAlerteRapprochement('Choisissez la déclaration TVA correspondante.');
 			return;
 		}
 		$.post('components/com_rapprochement/controleurs/router.php?task=validerLigne', { id: tvaLigneCourante, id_tva: idTva }, function (response) {
 			if (response.success) {
 				window.location.reload();
 			} else {
-				alert(response.message || 'Erreur lors de la confirmation');
+				afficherAlerteRapprochement(response.message || 'Erreur lors de la confirmation');
 			}
 		});
 	});
