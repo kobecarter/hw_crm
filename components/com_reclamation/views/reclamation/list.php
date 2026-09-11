@@ -82,37 +82,69 @@
 
 			</div>					
 		</div>					
-	</div>			
+	</div>
 </div>
 <!-- /Page Wrapper -->
+
+<!-- Confirmation de suppression - remplace confirm() natif du navigateur (même patron
+     .tva-confirm-modal / .charge-doublon-icon que le reste de l'app, ex. com_charge). -->
+<div id="reclamationDeleteConfirmModal" class="modal custom-modal tva-confirm-modal fade" role="dialog">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+				<div class="charge-doublon-icon"><i class="fa fa-trash-alt"></i></div>
+				<h5 class="modal-title mt-3">Supprimer cette réclamation ?</h5>
+			</div>
+			<div class="modal-body text-center">
+				<p class="text-muted mb-0" style="font-size:0.9rem;">Cette action est irréversible.</p>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-white" data-dismiss="modal">Annuler</button>
+				<button type="button" class="btn btn-danger" id="reclamationDeleteConfirmBtn"><i class="fa fa-trash-alt mr-1"></i> Supprimer</button>
+			</div>
+		</div>
+	</div>
+</div>
 
 <script type="text/javascript">
 $(function () {
 
 	
 	var msgsucces = "Reclamation supprimée avec succès";
-	
-	$(document).on( "click", ".delete", function() {	
+
+	// Confirmation stylée (voir #reclamationDeleteConfirmModal) - remplace confirm() natif. Le
+	// bouton cliqué est mémorisé pour retirer la bonne ligne au succès, la modale étant partagée
+	// par toutes les lignes du tableau.
+	var reclamationDeleteBtnCourant = null;
+	$(document).on( "click", ".delete", function(event) {
 		event.preventDefault();
-		var $btn = $(this);
-		if (confirm("Etes-vous sure !")) {
-			var id = $(this).attr("data-id");
-			var order = 'id=' + id;
-			$.post("components/com_reclamation/controleurs/router.php?task=deleteReclamation", order, function (theResponse) {
-				if (parseInt(theResponse) == 1) {
-					
-					$btn.parent().parent().addClass("table-danger");
-					setTimeout(function () {
-						$btn.parent().parent().remove()
-					}, 1000);
-					
-					$('.msgbox').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><strong>Success!</strong> ' + msgsucces + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
-				}
-				else {
-					$('.msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> Erreur lors de la suppression<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
-				}
-			});
-		}
+		reclamationDeleteBtnCourant = $(this);
+		$('#reclamationDeleteConfirmModal').modal('show');
+	})
+
+	$(document).on("click", "#reclamationDeleteConfirmBtn", function() {
+		$('#reclamationDeleteConfirmModal').modal('hide');
+		var $btn = reclamationDeleteBtnCourant;
+		if (!$btn) { return; }
+		var id = $btn.attr("data-id");
+		var order = 'id=' + id;
+		$.post("components/com_reclamation/controleurs/router.php?task=deleteReclamation", order, function (theResponse) {
+			if (parseInt(theResponse) == 1) {
+
+				$btn.parent().parent().addClass("table-danger");
+				setTimeout(function () {
+					$btn.parent().parent().remove()
+				}, 1000);
+
+				$('.msgbox').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><strong>Success!</strong> ' + msgsucces + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+			}
+			else {
+				$('.msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> Erreur lors de la suppression<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+			}
+		});
 	})
 
 	$(document).on( "click", ".enable", function() {	
