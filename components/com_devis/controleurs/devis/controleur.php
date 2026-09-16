@@ -246,7 +246,7 @@ function createInvoiceFromDevis($devis)
     $facture->setTotal($devis->getTotal());
     $facture->setDevise($devis->getDevise());
     $facture->setDiscount($devis->getDiscount());
-    $facture->setShowSignature(0);
+    $facture->setShowSignature(1);
     $facture->setDiscountVal($devis->getDiscountVal());
     $facture->setTvaRetenueSource($devis->getTvaRetenueSource());
     $facture->setLangue($devis->getLangue());

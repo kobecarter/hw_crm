@@ -353,7 +353,23 @@
 					<span class="d-block text-dark">Afficher la signature</span>
 				</span>
 				<span class="col-12">
-					<input type="checkbox" name="show_signature" value="1" class="toggle-switch-input" <?php if (isset($facture) && $facture->isShowSignature()) echo "checked"; ?>>
+					<input type="checkbox" name="show_signature" value="1" class="toggle-switch-input" <?php if (!isset($facture) || $facture->isShowSignature()) echo "checked"; ?>>
+					<span class="toggle-switch-label mr-auto mt-2">
+						<span class="toggle-switch-indicator"></span>
+					</span>
+				</span>
+			</label>
+		</div>
+		<!-- /Toggle Switch -->
+
+		<!-- Toggle Switch -->
+		<div class="col-md-3">
+			<label class="row form-group toggle-switch">
+				<span class="col-12 toggle-switch-content ml-0">
+					<span class="d-block text-dark">TVA retenue à la source</span>
+				</span>
+				<span class="col-12">
+					<input type="checkbox" name="tva_retenue_source" class="toggle-switch-input" <?php if (isset($facture) && $facture->isTvaRetenueSource()) echo "checked"; ?>>
 					<span class="toggle-switch-label mr-auto mt-2">
 						<span class="toggle-switch-indicator"></span>
 					</span>

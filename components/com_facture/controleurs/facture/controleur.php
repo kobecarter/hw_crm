@@ -112,9 +112,9 @@ function filterFacture($data)
 					return $facture->getStatu() == 3;
 				}else{
 					if($data['status'] == 'unpaid'){
-						return $facture->getTotal() == $facture->getReste() && $facture->getStatu() != 3;
+						return $facture->getMontantAttendu() == $facture->getReste() && $facture->getStatu() != 3;
 					}else if($data['status'] == 'partial'){
-						return $facture->getTotal() > $facture->getReste() && $facture->getReste() > 0 && $facture->getStatu() != 3;
+						return $facture->getMontantAttendu() > $facture->getReste() && $facture->getReste() > 0 && $facture->getStatu() != 3;
 					}else if($data['status'] == 'paid'){
 						return $facture->getReste() <= 0 && $facture->getStatu() != 3;
 					}
@@ -147,9 +147,9 @@ function filterFacture($data)
 					if ($facture->getStatu() == 3) {
 						$statu = '<span class="badge bg-primary-light">Litige (' . $nbrPayment . ')</span>';
 					} else {
-						if ($facture->getTotal() == $facture->getReste()) {
+						if ($facture->getMontantAttendu() == $facture->getReste()) {
 							$statu = '<span class="badge bg-danger-light">Impayée (' . $nbrPayment . ')</span>';
-						} elseif ($facture->getTotal() > $facture->getReste() && $facture->getReste() > 0) {
+						} elseif ($facture->getMontantAttendu() > $facture->getReste() && $facture->getReste() > 0) {
 							$statu = '<span class="badge bg-warning-light">Payée partialement (' . $nbrPayment . ')</span>';
 						} elseif ($facture->getReste() <= 0) {
 							$statu = '<span class="badge bg-success-light">Payée (' . $nbrPayment . ')</span>';
@@ -758,7 +758,11 @@ function buildFacture($data, $id = null, $factureavoir = false)
 	$facture->setDiscount($data['discount']);
 	$facture->setDiscountVal($data['discount_val']);
 	$facture->setProforma($estBanquePersonnelleFacture ? 1 : (isset($data['proforma']) ? 1 : 0));
-	$facture->setShowSignature(isset($data['show_signature']) ? 1 : 0);
+	$facture->setTvaRetenueSource(isset($data['tva_retenue_source']) ? 1 : 0);
+	// Le formulaire "avoir" n'a pas de case à cocher pour ce champ (jamais dans $data) - signature
+	// affichée par défaut comme pour toute facture, désactivable ensuite via le formulaire
+	// d'édition standard si besoin.
+	$facture->setShowSignature($factureavoir ? 1 : (isset($data['show_signature']) ? 1 : 0));
 	$facture->setLangue($data['langue']);
 	$facture->setConditionPaiment($data['condition_paiment']);
 	$facture->setRemarque($data['remarque']);
@@ -821,9 +825,9 @@ function pdfFactures($data)
 					return $facture->getStatu() == 3;
 				}else{
 					if($data['status'] == 'unpaid'){
-						return $facture->getTotal() == $facture->getReste() && $facture->getStatu() != 3;
+						return $facture->getMontantAttendu() == $facture->getReste() && $facture->getStatu() != 3;
 					}else if($data['status'] == 'partial'){
-						return $facture->getTotal() > $facture->getReste() && $facture->getReste() > 0 && $facture->getStatu() != 3;
+						return $facture->getMontantAttendu() > $facture->getReste() && $facture->getReste() > 0 && $facture->getStatu() != 3;
 					}else if($data['status'] == 'paid'){
 						return $facture->getReste() <= 0 && $facture->getStatu() != 3;
 					}
@@ -865,9 +869,9 @@ function exportFacture($data)
 					return $facture->getStatu() == 3;
 				}else{
 					if($data['status'] == 'unpaid'){
-						return $facture->getTotal() == $facture->getReste() && $facture->getStatu() != 3;
+						return $facture->getMontantAttendu() == $facture->getReste() && $facture->getStatu() != 3;
 					}else if($data['status'] == 'partial'){
-						return $facture->getTotal() > $facture->getReste() && $facture->getReste() > 0 && $facture->getStatu() != 3;
+						return $facture->getMontantAttendu() > $facture->getReste() && $facture->getReste() > 0 && $facture->getStatu() != 3;
 					}else if($data['status'] == 'paid'){
 						return $facture->getReste() <= 0 && $facture->getStatu() != 3;
 					}
@@ -939,9 +943,9 @@ function exportFacture($data)
 
 			$payments = payment::findAll($facture->getId());
 			$nbrPayment = sizeof($payments);
-			if ($facture->getTotal() == $facture->getReste())
+			if ($facture->getMontantAttendu() == $facture->getReste())
 				$statu = 'Impayée(' . $nbrPayment . ')';
-			elseif ($facture->getTotal() > $facture->getReste() && $facture->getReste() > 0)
+			elseif ($facture->getMontantAttendu() > $facture->getReste() && $facture->getReste() > 0)
 				$statu = 'Payée partialement(' . $nbrPayment . ')';
 			elseif ($facture->getReste() <= 0)
 				$statu = 'Payée(' . $nbrPayment . ')';
@@ -982,9 +986,9 @@ function exportFactureTest($data)
 					return $facture->getStatu() == 3;
 				}else{
 					if($data['status'] == 'unpaid'){
-						return $facture->getTotal() == $facture->getReste() && $facture->getStatu() != 3;
+						return $facture->getMontantAttendu() == $facture->getReste() && $facture->getStatu() != 3;
 					}else if($data['status'] == 'partial'){
-						return $facture->getTotal() > $facture->getReste() && $facture->getReste() > 0 && $facture->getStatu() != 3;
+						return $facture->getMontantAttendu() > $facture->getReste() && $facture->getReste() > 0 && $facture->getStatu() != 3;
 					}else if($data['status'] == 'paid'){
 						return $facture->getReste() <= 0 && $facture->getStatu() != 3;
 					}
