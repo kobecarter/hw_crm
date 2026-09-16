@@ -52,7 +52,8 @@
 					<?php foreach ($banks as $bank) : ?>
 						<?php $sl = isset($facture) && $facture->getBank() && $facture->getBank()->getId() == $bank->getId() ? "selected" : ""; ?>
 						<?php $estPersoOption = stripos($bank->getRaisonSociale(), 'PERSO') !== false; ?>
-						<option value="<?php echo $bank->getId() ?>" <?php echo $sl; ?><?php echo $estPersoOption ? ' data-perso="1"' : ''; ?>><?php echo $bank->getRaisonSociale() . ' ' . $bank->getRib(); ?></option>
+						<?php $exceptionProformaOption = stripos($bank->getRaisonSociale(), 'COMPTE SUR DEVISE') !== false; ?>
+						<option value="<?php echo $bank->getId() ?>" <?php echo $sl; ?><?php echo $estPersoOption ? ' data-perso="1"' : ''; ?><?php echo $exceptionProformaOption ? ' data-proforma-exception="1"' : ''; ?>><?php echo $bank->getRaisonSociale() . ' ' . $bank->getRib(); ?></option>
 					<?php endforeach; ?>
 				</select>
 			</div>

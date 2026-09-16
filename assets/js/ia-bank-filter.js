@@ -61,13 +61,14 @@ function appliquerReglePersoBanque() {
 }
 
 // Sens inverse de appliquerReglePersoBanque() : cocher "Proforma" à la main (avant même d'avoir
-// choisi une banque) ne doit proposer que les comptes perso dans le select, puisque c'est la seule
-// catégorie de compte éligible au proforma. Filtrage purement local (jamais d'appel réseau, jamais
-// de refreshBankSelect() ici) : appelée aussi bien après un refreshBankSelect() classique qu'au
-// chargement initial, un appel réseau depuis cette fonction rebouclerait sur bankSelectRefreshed
-// qui la rappelle elle-même - boucle infinie si "Proforma" n'est pas coché à ce moment-là. Ne fait
-// rien si la case n'est pas cochée ; restaurer la liste complète est géré par le handler de clic
-// sur la case elle-même, plus bas.
+// choisi une banque) ne doit proposer que les comptes perso (+ exceptions explicites, voir
+// data-proforma-exception plus bas - ex. "COMPTE SUR DEVISE", en devise étrangère donc
+// légitimement proforma sans être un compte personnel) dans le select. Filtrage purement local
+// (jamais d'appel réseau, jamais de refreshBankSelect() ici) : appelée aussi bien après un
+// refreshBankSelect() classique qu'au chargement initial, un appel réseau depuis cette fonction
+// rebouclerait sur bankSelectRefreshed qui la rappelle elle-même - boucle infinie si "Proforma"
+// n'est pas coché à ce moment-là. Ne fait rien si la case n'est pas cochée ; restaurer la liste
+// complète est géré par le handler de clic sur la case elle-même, plus bas.
 function filtrerBanquesSurProforma() {
     var $bankSelect = $('.bank-select');
     var $proforma = $('input[name="proforma"]');
@@ -75,22 +76,24 @@ function filtrerBanquesSurProforma() {
         return;
     }
 
-    var currentEstPerso = $bankSelect.find('option:selected').data('perso') == 1;
+    var $selected = $bankSelect.find('option:selected');
+    var currentEstPerso = $selected.data('perso') == 1;
+    var currentEstException = $selected.data('proforma-exception') == 1;
 
-    // Si un compte perso est déjà sélectionné, ne PAS filtrer : appliquerReglePersoBanque()
-    // bloque le décochage de "Proforma" tant que ce compte reste choisi, et le seul moyen d'en
-    // sortir est de choisir un compte NON perso dans ce même select. Le filtrer ici supprimerait
-    // cette unique échappatoire et verrouillerait le devis en proforma de façon définitive (bug
-    // vécu : après réouverture d'un devis proforma/perso, impossible de changer ni la case ni le
-    // compte). Le filtrage ne s'applique donc qu'à la sélection initiale d'un compte, avant que
-    // "Proforma" ne force un compte perso.
-    if (currentEstPerso) {
+    // Si un compte perso ou une exception (ex. COMPTE SUR DEVISE) est déjà sélectionné, ne PAS
+    // filtrer : appliquerReglePersoBanque() bloque le décochage de "Proforma" tant qu'un compte
+    // perso reste choisi, et le seul moyen d'en sortir est de choisir un compte NON perso dans ce
+    // même select. Le filtrer ici supprimerait cette unique échappatoire et verrouillerait le
+    // devis en proforma de façon définitive (bug vécu : après réouverture d'un devis proforma/
+    // perso, impossible de changer ni la case ni le compte). Le filtrage ne s'applique donc qu'à
+    // la sélection initiale d'un compte, avant que "Proforma" ne force un compte perso.
+    if (currentEstPerso || currentEstException) {
         return;
     }
 
-    var $persoOptions = $bankSelect.find('option[data-perso="1"]');
+    var $persoOptions = $bankSelect.find('option[data-perso="1"], option[data-proforma-exception="1"]');
     if (!$persoOptions.length) {
-        return; // aucun compte perso disponible pour cette agence : rien à filtrer
+        return; // aucun compte perso/exception disponible pour cette agence : rien à filtrer
     }
 
     // Options reconstruites à partir de zéro (plutôt que détacher/ré-attacher les <option>
@@ -98,7 +101,8 @@ function filtrerBanquesSurProforma() {
     // sélection dessus dès qu'il est ré-inséré, même si l'utilisateur n'a rien choisi.
     var optionsHtml = '<option value="" selected disabled>Sélectionner</option>';
     $persoOptions.each(function () {
-        optionsHtml += '<option value="' + $(this).val() + '" data-perso="1">' + $(this).text() + '</option>';
+        var attrs = $(this).data('perso') == 1 ? ' data-perso="1"' : ' data-proforma-exception="1"';
+        optionsHtml += '<option value="' + $(this).val() + '"' + attrs + '>' + $(this).text() + '</option>';
     });
 
     if ($bankSelect.data('select2')) {

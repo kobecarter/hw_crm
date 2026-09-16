@@ -138,6 +138,10 @@ function getBanksByAgence($data)
         // filter.js) force automatiquement "Proforma" + TVA à 0 dès qu'un de ces comptes est
         // choisi - ces comptes ne sont pas éligibles à une facturation avec TVA.
         $estPerso = stripos($bank->getRaisonSociale(), 'PERSO') !== false;
-        echo '<option value="' . $bank->getId() . '"' . ($estPerso ? ' data-perso="1"' : '') . '>' . htmlspecialchars($bank->getRaisonSociale() . ' ' . $bank->getRib()) . '</option>';
+        // Exception : "HW LABEL COMPTE SUR DEVISE - BMCE" reste proposé même quand "Proforma" est
+        // coché à la main - un devis/une facture en devise étrangère sur ce compte est
+        // légitimement en proforma sans être un compte personnel (cf. assets/js/ia-bank-filter.js).
+        $exceptionProforma = stripos($bank->getRaisonSociale(), 'COMPTE SUR DEVISE') !== false;
+        echo '<option value="' . $bank->getId() . '"' . ($estPerso ? ' data-perso="1"' : '') . ($exceptionProforma ? ' data-proforma-exception="1"' : '') . '>' . htmlspecialchars($bank->getRaisonSociale() . ' ' . $bank->getRib()) . '</option>';
     }
 }
