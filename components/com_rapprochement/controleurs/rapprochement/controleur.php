@@ -896,8 +896,11 @@ function creerJustificatifManuel($data, $files)
         // Un bulletin de paie de cet employé existe déjà (saisi par ailleurs, ou un mois
         // précédent laissé de côté) : on se contente de lier sa charge, jamais de recréer un
         // doublon - même principe que "Choisir la charge correspondante" pour un débit reconnu.
+        // findAny() (pas find()) : listerBulletinsPaie() liste les bulletins de l'employé sans
+        // filtre d'agence (compte bancaire mutualisé $groupeMaroc), donc la charge du bulletin
+        // choisi peut légitimement appartenir à une autre agence que celle de $ligne.
         if (isset($data['id_charge_bulletin_existant']) && !empty($data['id_charge_bulletin_existant'])) {
-            $chargeExistante = charge::find(intval($data['id_charge_bulletin_existant']), $ligne->getAgence()->getId());
+            $chargeExistante = charge::findAny(intval($data['id_charge_bulletin_existant']));
             if (!$chargeExistante || !$chargeExistante->getId()) {
                 echo json_encode(array('success' => 0, 'message' => 'Bulletin introuvable'));
                 return;

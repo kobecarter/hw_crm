@@ -417,6 +417,27 @@ class charge
         return $charge;
     }
 
+    // Lookup sans filtre d'agence - nécessaire pour le rapprochement bancaire des comptes
+    // mutualisés ($groupeMaroc) : les charges de paie sont enregistrées sous une agence (Verse
+    // Concept) alors que la ligne de relevé à rapprocher appartient à une autre (HW Label), donc
+    // find($id, $ligne->getAgence()->getId()) échoue à tort ("Bulletin introuvable") sur une
+    // charge pourtant réelle.
+    public static function findAny($id)
+    {
+        global $db;
+        $charge = new charge();
+        $SQLselect = sprintf(
+            "SELECT A.id as ID, A.* FROM " . static::$table . " A WHERE A.id = %s",
+            GetSQLValueString($id, "int")
+        );
+        $result = $db->query($SQLselect);
+        if ($db->num_rows($result) == 1) {
+            $data = $db->fetch_assoc($result);
+            $charge = static::build($data);
+        }
+        return $charge;
+    }
+
     public static function findAll($ordre = false,$agence=1)
     {
         global $db;
