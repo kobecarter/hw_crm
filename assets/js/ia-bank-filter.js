@@ -75,13 +75,23 @@ function filtrerBanquesSurProforma() {
         return;
     }
 
+    var currentEstPerso = $bankSelect.find('option:selected').data('perso') == 1;
+
+    // Si un compte perso est déjà sélectionné, ne PAS filtrer : appliquerReglePersoBanque()
+    // bloque le décochage de "Proforma" tant que ce compte reste choisi, et le seul moyen d'en
+    // sortir est de choisir un compte NON perso dans ce même select. Le filtrer ici supprimerait
+    // cette unique échappatoire et verrouillerait le devis en proforma de façon définitive (bug
+    // vécu : après réouverture d'un devis proforma/perso, impossible de changer ni la case ni le
+    // compte). Le filtrage ne s'applique donc qu'à la sélection initiale d'un compte, avant que
+    // "Proforma" ne force un compte perso.
+    if (currentEstPerso) {
+        return;
+    }
+
     var $persoOptions = $bankSelect.find('option[data-perso="1"]');
     if (!$persoOptions.length) {
         return; // aucun compte perso disponible pour cette agence : rien à filtrer
     }
-
-    var currentBankId = $bankSelect.val() || '';
-    var currentEstPerso = $bankSelect.find('option:selected').data('perso') == 1;
 
     // Options reconstruites à partir de zéro (plutôt que détacher/ré-attacher les <option>
     // existantes) : un <option> détaché qui garde selected=true côté DOM ferait sinon basculer la
@@ -95,9 +105,6 @@ function filtrerBanquesSurProforma() {
         $bankSelect.select2('destroy');
     }
     $bankSelect.html(optionsHtml);
-    if (currentEstPerso && currentBankId) {
-        $bankSelect.val(currentBankId);
-    }
     $bankSelect.select2();
 }
 
