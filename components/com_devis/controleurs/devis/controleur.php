@@ -128,6 +128,7 @@ function duplicateDevis($data)
         $devisCopy->setRemarque($devis->getRemarque());
         $devisCopy->setProforma($devis->getProforma());
         $devisCopy->setPack($devis->getPack());
+        $devisCopy->setTvaRetenueSource($devis->getTvaRetenueSource());
         $devisCopy->setDateAdd(date("Y-m-d H:i:s"));
         $devisCopy->setLastEdit(date("Y-m-d H:i:s"));
 
