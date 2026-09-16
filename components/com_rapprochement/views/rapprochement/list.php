@@ -2005,8 +2005,10 @@ $(function () {
 			if (!response.success) {
 				return;
 			}
+			// value = id du BULLETIN (pas de sa charge) : le serveur résout lui-même la charge à
+			// partir du bulletin, y compris quand elle est absente/cassée (cf. creerJustificatifManuel()).
 			(response.bulletins || []).forEach(function (b) {
-				$select.append('<option value="' + b.id_charge + '">' + escHtml(b.title) + '</option>');
+				$select.append('<option value="' + b.id + '">' + escHtml(b.title) + '</option>');
 			});
 			// Règle 4 (listes distinctes) : les bulletins déjà rattachés à une AUTRE ligne de relevé
 			// restent proposés (pas cachés) dans un second groupe visuellement marqué - les
@@ -2014,7 +2016,7 @@ $(function () {
 			if (response.bulletins_deja_affectes && response.bulletins_deja_affectes.length) {
 				var $optgroup = $('<optgroup label="⚠ Bulletins déjà affectés (réaffectation possible)"></optgroup>');
 				response.bulletins_deja_affectes.forEach(function (b) {
-					$optgroup.append('<option value="' + b.id_charge + '">⚠ ' + escHtml(b.title) + '</option>');
+					$optgroup.append('<option value="' + b.id + '">⚠ ' + escHtml(b.title) + '</option>');
 				});
 				$select.append($optgroup);
 			}
@@ -2108,7 +2110,7 @@ $(function () {
 			formData.append('id_resourcehumaine', $('#justificatifResourcehumaine').val());
 			var idBulletinExistant = $('#justificatifPayslipExistant').val();
 			if (idBulletinExistant) {
-				formData.append('id_charge_bulletin_existant', idBulletinExistant);
+				formData.append('id_payslip_existant', idBulletinExistant);
 			} else {
 				formData.append('payslip_mois', $('#justificatifPayslipMois').val());
 				formData.append('payslip_annee', $('#justificatifPayslipAnnee').val());

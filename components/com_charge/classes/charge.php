@@ -391,6 +391,15 @@ class charge
     public function delete()
     {
         global $db;
+        // Une charge peut être le bulletin de paie rapproché d'un employé (com_resourcehumaine) -
+        // la supprimer sans délier ce lien laisse le bulletin pointer vers une charge fantôme,
+        // introuvable dès qu'on tente de le relier ensuite (incident Khadija/Rachida 09/2026 :
+        // 6 bulletins cassés après une suppression directe de leur charge depuis ce module).
+        $bulletinLie = payslip::findByIdCharge($this->getId());
+        if ($bulletinLie->getId()) {
+            $bulletinLie->setIdCharge(null);
+            $bulletinLie->edit();
+        }
         $SQLdelete = sprintf("DELETE FROM " . static::$table . " WHERE id = %s",
             GetSQLValueString($this->getId(), "int")
         );

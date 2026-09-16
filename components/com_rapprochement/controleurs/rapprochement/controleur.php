@@ -822,13 +822,18 @@ function listerBulletinsPaie($data)
     $disponibles = array();
     $dejaAffectes = array();
     foreach ($bulletins as $b) {
+        // Un id_charge stocké peut pointer vers une charge supprimée depuis (ex: suppression
+        // directe depuis Gestion des charges, avant le nettoyage ajouté dans charge::delete()) -
+        // vérifié ici plutôt que de faire confiance à la colonne, sinon le bulletin reste une
+        // impasse "Bulletin introuvable" permanente dans ce menu.
+        $chargeValide = $b->getIdCharge() && charge::findAny($b->getIdCharge())->getId();
         $entree = array(
             'id' => $b->getId(),
             'title' => $b->getTitle(),
             'date' => $b->getDate(),
-            'id_charge' => $b->getIdCharge()
+            'id_charge' => $chargeValide ? $b->getIdCharge() : null
         );
-        if ($b->getIdCharge() && in_array($b->getIdCharge(), $idsChargeDejaLies)) {
+        if ($chargeValide && in_array($b->getIdCharge(), $idsChargeDejaLies)) {
             $dejaAffectes[] = $entree;
         } else {
             $disponibles[] = $entree;
@@ -896,36 +901,77 @@ function creerJustificatifManuel($data, $files)
         // Un bulletin de paie de cet employé existe déjà (saisi par ailleurs, ou un mois
         // précédent laissé de côté) : on se contente de lier sa charge, jamais de recréer un
         // doublon - même principe que "Choisir la charge correspondante" pour un débit reconnu.
-        // findAny() (pas find()) : listerBulletinsPaie() liste les bulletins de l'employé sans
-        // filtre d'agence (compte bancaire mutualisé $groupeMaroc), donc la charge du bulletin
-        // choisi peut légitimement appartenir à une autre agence que celle de $ligne.
-        if (isset($data['id_charge_bulletin_existant']) && !empty($data['id_charge_bulletin_existant'])) {
-            $chargeExistante = charge::findAny(intval($data['id_charge_bulletin_existant']));
-            if (!$chargeExistante || !$chargeExistante->getId()) {
+        // Identifié par l'id du BULLETIN (pas de sa charge) : listerBulletinsPaie() peut proposer
+        // un bulletin dont la charge d'origine a été supprimée depuis (référence cassée, ex.
+        // suppression directe depuis Gestion des charges) - dans ce cas on répare le bulletin en
+        // lui recréant une charge, plutôt que d'échouer avec "Bulletin introuvable" ou de créer
+        // un second bulletin en doublon.
+        if (isset($data['id_payslip_existant']) && !empty($data['id_payslip_existant'])) {
+            $payslipExistant = payslip::find(intval($data['id_payslip_existant']));
+            if (!$payslipExistant || !$payslipExistant->getId()) {
                 echo json_encode(array('success' => 0, 'message' => 'Bulletin introuvable'));
                 return;
             }
-            $conflit = verifierReaffectationCharge($chargeExistante->getId(), $ligne, !empty($data['force_reaffectation']));
-            if ($conflit !== null) {
-                echo json_encode($conflit);
-                return;
+            // findAny() (pas find()) : listerBulletinsPaie() liste les bulletins de l'employé sans
+            // filtre d'agence (compte bancaire mutualisé $groupeMaroc), donc la charge du bulletin
+            // choisi peut légitimement appartenir à une autre agence que celle de $ligne.
+            $chargeExistante = $payslipExistant->getIdCharge() ? charge::findAny($payslipExistant->getIdCharge()) : null;
+
+            if ($chargeExistante && $chargeExistante->getId()) {
+                $conflit = verifierReaffectationCharge($chargeExistante->getId(), $ligne, !empty($data['force_reaffectation']));
+                if ($conflit !== null) {
+                    echo json_encode($conflit);
+                    return;
+                }
+                if ($remarque !== null) {
+                    $chargeExistante->setRemarque($remarque);
+                    $chargeExistante->edit();
+                }
+                $idChargeLiee = $chargeExistante->getId();
+            } else {
+                // Bulletin réel (fichier déjà présent côté employé) mais sans charge valide :
+                // on recrée la charge manquante et on la rattache à CE bulletin, sans toucher à
+                // son fichier ni en créer un second.
+                $charge = new charge();
+                $charge->setAgence($ligne->getAgence());
+                $charge->setUser($_SESSION['user']);
+                $charge->setPaidBy($_SESSION['user']);
+                $charge->setType('fixe');
+                $charge->setTitre($payslipExistant->getTitle() . ' — ' . $resourcehumaine->getFullName());
+                $charge->setDescription('Charge recréée depuis BANK STATEMENT — la charge d\'origine de ce bulletin avait été supprimée.');
+                $charge->setRemarque($remarque);
+                $charge->setTotal($montant);
+                $charge->setDevise('DH');
+                $charge->setTvaTaux(null);
+                $charge->setTvaDeductible(0);
+                $charge->setPaid(1);
+                $charge->setFacture(0);
+                $charge->setRefunded(0);
+                $charge->setDateCharge($ligne->getDateOperation());
+                $charge->setDatePayment($ligne->getDateOperation());
+                $charge->setModePayment('virement');
+                $charge->setDateAdd(date('Y-m-d H:i:s'));
+                $charge->setLastEdit(date('Y-m-d H:i:s'));
+                $charge->add();
+                $idChargeLiee = charge::getLastId();
+
+                $payslipExistant->setIdCharge($idChargeLiee);
+                $payslipExistant->edit();
             }
-            if ($remarque !== null) {
-                $chargeExistante->setRemarque($remarque);
-                $chargeExistante->edit();
-            }
-            // charge_action='liee' : ce bulletin/charge existait déjà, annulerMarquageCharge() ne
-            // devra jamais le supprimer, seulement délier la ligne.
+
+            // charge_action='liee' : ce bulletin existait déjà avant ce clic (que sa charge ait
+            // été retrouvée ou recréée ci-dessus) - annulerMarquageCharge() ne devra jamais le
+            // supprimer, seulement délier la ligne et la charge.
             $infosLien = $ligne->getDonneesMatchingArray();
             $infosLien['charge_action'] = 'liee';
             $infosLien['_statut_avant_charge'] = $ligne->getStatut();
             $ligne->setDonneesMatchingArray($infosLien);
-            $ligne->setIdCharge($chargeExistante->getId());
+            $ligne->setIdCharge($idChargeLiee);
             $ligne->setStatut('matched_charge');
             $ligne->setLastEdit(date('Y-m-d H:i:s'));
             $ligne->edit();
 
-            echo json_encode(array('success' => 1, 'action' => 'bulletin_lie', 'id_charge' => $chargeExistante->getId()));
+            echo json_encode(array('success' => 1, 'action' => 'bulletin_lie', 'id_charge' => $idChargeLiee));
             return;
         }
 
