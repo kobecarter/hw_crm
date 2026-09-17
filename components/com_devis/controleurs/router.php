@@ -14,7 +14,10 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
     // (jeton client, webhook Slack, secret cron) et n'ont jamais de $_SESSION['user'].
     $__tachesSansSessionAdmin = array('findAllByClientApi', 'pdfDevisApi', 'slackEventWebhook', 'cronVerifierValidationDevisSlack');
     if (!in_array($task, $__tachesSansSessionAdmin, true) && (!isset($_SESSION['user']) || !$_SESSION['user']->isConnected())) {
-        header('location: ../../../index.php?option=com_login');
+        // Absolu (pas de ../../../) : le lien PDF envoyé sur Slack (sendSlackDevis()) passe
+        // désormais par l'URL propre /devis-pdf/<id> (.htaccess), plus courte de 2 niveaux que ce
+        // fichier - un chemin relatif y renverrait vers le mauvais domaine/dossier.
+        header('location: ' . $siteURL . 'index.php?option=com_login');
         exit;
     }
     switch ($task)

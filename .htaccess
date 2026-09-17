@@ -1,0 +1,11 @@
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# URL conviviale pour l'espace employé (com_elogin), qui reste sinon accessible via
+# index.php?option=com_elogin.
+RewriteRule ^employe/?$ index.php?option=com_elogin [L,QSA]
+
+# URL propre pour le lien PDF de devis envoyé sur Slack (sendSlackDevis(), com_devis) : évite le
+# "?"/"&" du lien direct vers router.php, qui casse parfois le rendu du lien dans Slack.
+RewriteRule ^devis-pdf/([0-9]+)/?$ components/com_devis/controleurs/router.php?task=pdfDevisTexte&id=$1 [L,QSA]
+</IfModule>

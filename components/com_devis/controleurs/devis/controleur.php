@@ -695,7 +695,9 @@ function sendSlackDevis($data)
     }
 
     global $siteURL;
-    $pdfLink = $siteURL . "components/com_devis/controleurs/router.php?task=pdfDevisTexte&id=" . $devis->getId();
+    // URL propre (voir .htaccess) plutôt que le lien direct vers router.php?task=...&id=... : les
+    // "?"/"&" cassaient parfois le rendu du lien dans Slack (aperçu tronqué ou lien coupé).
+    $pdfLink = $siteURL . "devis-pdf/" . $devis->getId();
     $client = $devis->getClient();
 
     $texte = ":page_facing_up: *Nouveau devis à valider* — N°" . $devis->getNumero() . "\n"
