@@ -68,7 +68,7 @@ $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFa
 						<?php $sl = isset($devis) && $devis->getBank() && $devis->getBank()->getId() == $bank->getId() ? "selected" : ""; ?>
 						<?php $estPersoOption = stripos($bank->getRaisonSociale(), 'PERSO') !== false; ?>
 						<?php $exceptionProformaOption = stripos($bank->getRaisonSociale(), 'COMPTE SUR DEVISE') !== false; ?>
-						<option value="<?php echo $bank->getId() ?>" <?php echo $sl; ?><?php echo $estPersoOption ? ' data-perso="1"' : ''; ?><?php echo $exceptionProformaOption ? ' data-proforma-exception="1"' : ''; ?>><?php echo $bank->getRaisonSociale() . ' ' . $bank->getRib(); ?></option>
+						<option value="<?php echo $bank->getId() ?>" <?php echo $sl; ?><?php echo $estPersoOption ? ' data-perso="1"' : ''; ?><?php echo $exceptionProformaOption ? ' data-proforma-exception="1" data-devise-etrangere="1"' : ''; ?>><?php echo $bank->getRaisonSociale() . ' ' . $bank->getRib(); ?></option>
 					<?php endforeach; ?>
 				</select>
 				<small class="text-muted">La liste se filtre selon l'agence du client sélectionné.</small>
@@ -407,7 +407,7 @@ $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFa
 				}
 				?>
 				<label>Devise</label>
-				<select class="select" name="devise">
+				<select class="select devise-select" name="devise">
 					<?php foreach ($deviseOptions as $val) : ?>
 						<?php $sl = $currentDevise !== '' ? ($currentDevise == $val ? "selected" : "") : (!isset($devis) && $isDubaiAgence && $val == 'AED' ? "selected" : ""); ?>
 						<option value="<?php echo $val; ?>" <?php echo $sl; ?>><?php echo isset($deviseLabels[$val]) ? $deviseLabels[$val] : $val; ?></option>

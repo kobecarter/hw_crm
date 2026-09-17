@@ -141,7 +141,11 @@ function getBanksByAgence($data)
         // Exception : "HW LABEL COMPTE SUR DEVISE - BMCE" reste proposé même quand "Proforma" est
         // coché à la main - un devis/une facture en devise étrangère sur ce compte est
         // légitimement en proforma sans être un compte personnel (cf. assets/js/ia-bank-filter.js).
+        // Ce même compte n'a par ailleurs de sens qu'en devise étrangère (Euro/Dollar/Pound) :
+        // marqué séparément pour que le JS le retire du menu tant que la devise choisie est
+        // locale (DH/AED), indépendamment de la règle Proforma ci-dessus.
         $exceptionProforma = stripos($bank->getRaisonSociale(), 'COMPTE SUR DEVISE') !== false;
-        echo '<option value="' . $bank->getId() . '"' . ($estPerso ? ' data-perso="1"' : '') . ($exceptionProforma ? ' data-proforma-exception="1"' : '') . '>' . htmlspecialchars($bank->getRaisonSociale() . ' ' . $bank->getRib()) . '</option>';
+        $deviseEtrangere = $exceptionProforma;
+        echo '<option value="' . $bank->getId() . '"' . ($estPerso ? ' data-perso="1"' : '') . ($exceptionProforma ? ' data-proforma-exception="1"' : '') . ($deviseEtrangere ? ' data-devise-etrangere="1"' : '') . '>' . htmlspecialchars($bank->getRaisonSociale() . ' ' . $bank->getRib()) . '</option>';
     }
 }

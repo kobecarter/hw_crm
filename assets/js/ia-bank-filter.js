@@ -112,6 +112,34 @@ function filtrerBanquesSurProforma() {
     $bankSelect.select2();
 }
 
+var DEVISES_ETRANGERES = ['€', '$', '£'];
+
+// "HW LABEL COMPTE SUR DEVISE - BMCE" (data-devise-etrangere="1" côté serveur) : un compte en
+// devise étrangère n'a pas de sens pour une facturation en devise locale (DH/AED) - retiré du
+// menu tant que la devise choisie n'est pas Euro/Dollar/Pound. Version "douce" : ne force jamais
+// le nettoyage d'une sélection déjà en place (chargement initial d'un devis/facture existant,
+// possiblement antérieur à cette règle) - seul un changement actif de devise (handler plus bas)
+// invalide explicitement une sélection devenue incohérente.
+function appliquerRegleDeviseBanque() {
+    var $bankSelect = $('.bank-select');
+    var $devise = $('.devise-select');
+    if (!$bankSelect.length || !$devise.length) {
+        return;
+    }
+    if (DEVISES_ETRANGERES.indexOf($devise.val()) !== -1) {
+        return;
+    }
+    var $aRetirer = $bankSelect.find('option[data-devise-etrangere="1"]:not(:selected)');
+    if (!$aRetirer.length) {
+        return;
+    }
+    $aRetirer.remove();
+    if ($bankSelect.data('select2')) {
+        $bankSelect.select2('destroy');
+    }
+    $bankSelect.select2();
+}
+
 $(function () {
     $(document).on('change', '.client-select', function () {
         refreshBankSelect();
@@ -126,9 +154,11 @@ $(function () {
     $(document).on('change', '.bank-select', function () {
         appliquerReglePersoBanque();
     });
-    // Après le rafraîchissement AJAX des options (changement de client ou d'agence) : ne garde que
-    // les comptes perso si "Proforma" est déjà coché à ce moment-là (no-op sinon).
+    // Après le rafraîchissement AJAX des options (changement de client ou d'agence) : d'abord la
+    // devise (retire le compte en devise étrangère si non pertinent), puis ne garde que les
+    // comptes perso si "Proforma" est déjà coché à ce moment-là (no-op sinon).
     $(document).on('bankSelectRefreshed', function () {
+        appliquerRegleDeviseBanque();
         appliquerReglePersoBanque();
         filtrerBanquesSurProforma();
     });
@@ -139,6 +169,30 @@ $(function () {
             refreshBankSelect();
         }
     });
+    // Changement actif de devise : contrairement au chargement initial, une sélection en cours
+    // devenue incohérente doit être explicitement nettoyée (l'utilisateur vient de la rendre
+    // invalide lui-même), pas juste laissée telle quelle.
+    $(document).on('change', '.devise-select', function () {
+        var $bankSelect = $('.bank-select');
+        if (!$bankSelect.length) {
+            return;
+        }
+        if (DEVISES_ETRANGERES.indexOf($(this).val()) !== -1) {
+            refreshBankSelect(); // ramène la liste complète (compte devise inclus) depuis le serveur
+            return;
+        }
+        var perteSelection = $bankSelect.find('option:selected').data('devise-etrangere') == 1;
+        $bankSelect.find('option[data-devise-etrangere="1"]').remove();
+        if (perteSelection) {
+            $bankSelect.val('');
+        }
+        if ($bankSelect.data('select2')) {
+            $bankSelect.select2('destroy');
+        }
+        $bankSelect.select2();
+        appliquerReglePersoBanque();
+    });
+    appliquerRegleDeviseBanque();
     appliquerReglePersoBanque();
     filtrerBanquesSurProforma();
 });
