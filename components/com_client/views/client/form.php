@@ -149,7 +149,7 @@
 			</div>
 		</div>
 
-		<div class="col-md-4">
+		<div class="col-md-4<?php echo !isset($client) ? ' d-none' : ''; ?>">
 			<div class="form-group">
 				<label>Login<span class="text-danger"> * </span></label>
 				<input type="text" class="form-control" name="login" value="<?php if(isset($client)) echo htmlspecialchars($client->getLogin()); ?>" readonly required>
