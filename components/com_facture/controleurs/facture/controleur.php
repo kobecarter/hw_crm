@@ -54,6 +54,9 @@ if (isset($task) && !empty($task)) {
 		case 'sendViaMailFacture':
 			sendViaMailFacture($_GET);
 			break;
+		case 'envoyerFactureEmailAvecCc':
+			envoyerFactureEmailAvecCc($_POST);
+			break;
 		case 'exportFacture':
 			exportFacture($_GET);
 			break;
@@ -852,6 +855,50 @@ function sendViaMailFacture($data)
 		$file_name = $facture->pdfFacture("download");
 
 		$facture->sendViaMailFacture($file_name);
+	}
+}
+
+// Bouton "Envoyer par email" du formulaire facture (popup proposant un CC) : même envoi que
+// sendViaMailFacture() ci-dessus (liens des listes), en JSON plutôt qu'en texte brut affiché en
+// target="_blank", et avec la possibilité de préciser une adresse en copie.
+function envoyerFactureEmailAvecCc($data)
+{
+	header('Content-Type: application/json');
+	$indices = array("id");
+	if (!fieldCheck($data, $indices)) {
+		echo json_encode(array('success' => 0, 'message' => 'Facture invalide'));
+		return;
+	}
+
+	$facture = facture::find($data['id'], $_SESSION['agence']);
+	if (!$facture->getId()) {
+		echo json_encode(array('success' => 0, 'message' => 'Facture introuvable'));
+		return;
+	}
+	if (!$facture->getClient() || !$facture->getClient()->getEmail()) {
+		echo json_encode(array('success' => 0, 'message' => "Le client n'a pas d'adresse email."));
+		return;
+	}
+
+	$cc = isset($data['cc']) ? trim($data['cc']) : '';
+	if ($cc !== '' && !filter_var($cc, FILTER_VALIDATE_EMAIL)) {
+		echo json_encode(array('success' => 0, 'message' => "L'adresse email en copie n'est pas valide."));
+		return;
+	}
+
+	require_once '../../../vendor/autoload.php';
+	require_once '../../../includes/traduction.php';
+
+	$file_name = $facture->pdfFacture("download");
+
+	ob_start();
+	$facture->sendViaMailFacture($file_name, $cc);
+	$resultat = trim(ob_get_clean());
+
+	if ($resultat === 'success') {
+		echo json_encode(array('success' => 1));
+	} else {
+		echo json_encode(array('success' => 0, 'message' => $resultat !== '' ? $resultat : "Erreur lors de l'envoi"));
 	}
 }
 

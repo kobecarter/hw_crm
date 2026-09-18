@@ -1401,7 +1401,7 @@ mpdf-->
         }
     }
 
-    function sendViaMailFacture($file_name = "")
+    function sendViaMailFacture($file_name = "", $cc = '')
     {
 
         require '../../../vendor/autoload.php';
@@ -1483,6 +1483,13 @@ mpdf-->
         $factureCreateur = $this->getUserAdded();
         if ($factureCreateur && $factureCreateur->getEmail() && $factureCreateur->getProfil() && $factureCreateur->getProfil()->getProfil() == 'Commercial') {
             $mail->addBCC($factureCreateur->getEmail());
+        }
+
+        // Adresse en copie proposée par l'utilisateur au moment de l'envoi (popup du formulaire
+        // facture) - optionnelle, jamais présente pour les envois déclenchés depuis les listes
+        // (liens existants, qui n'appellent pas ce paramètre).
+        if ($cc !== '') {
+            $mail->addCC($cc);
         }
 
         //Set the subject line

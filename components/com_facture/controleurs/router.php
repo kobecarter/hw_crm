@@ -118,6 +118,11 @@ if (isset($_GET['task']) && !empty($_GET['task'])) {
                 include_once("facture/controleur.php");
             }
             break;
+        case 'envoyerFactureEmailAvecCc':
+            if ($_SESSION['user']->hasDroit('edit', 'com_facture')) {
+                include_once("facture/controleur.php");
+            }
+            break;
         case 'exportFacture':
             if ($_SESSION['user']->hasDroit('view', 'com_facture')) {
                 include_once("facture/controleur.php");
