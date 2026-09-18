@@ -1695,19 +1695,40 @@ function slackEventWebhook()
 
     $textLower = mb_strtolower($text);
 
+    // Idempotence : Slack peut relivrer/dupliquer un événement (cf. HTTP_X_SLACK_RETRY_NUM
+    // ci-dessus, qui ne couvre que les relivraisons DANS la même requête déjà traitée), et un
+    // même message peut aussi être retapé plusieurs fois par l'utilisateur avant qu'un premier
+    // essai n'ait visiblement abouti. Sans ce garde-fou, chaque nouveau passage ici renvoyait le
+    // PDF par email au client une nouvelle fois - même principe que le garde-fou déjà présent
+    // dans cronVerifierValidationDevisSlackEndpoint() pour "valide", étendu à "refus"/"accept".
     if (strpos($textLower, 'refus') !== false) {
+        if ($devis->getStatu() == 5) {
+            slackPostMessage($channel, ":information_source: Devis N°" . $numero . " déjà marqué *Devis Refusé*.", $threadTs);
+            echo json_encode(array('ok' => true));
+            return;
+        }
         $devis->setStatu(5);
         $devis->setUserEdited($_SESSION['user']);
         $devis->setLastEdit(date('Y-m-d H:i:s'));
         $devis->edit();
         slackPostMessage($channel, ":x: Devis N°" . $numero . " marqué comme *Devis Refusé*.", $threadTs);
     } elseif (strpos($textLower, 'accept') !== false) {
+        if ($devis->getStatu() == 2) {
+            slackPostMessage($channel, ":information_source: Devis N°" . $numero . " déjà marqué *Accepté*.", $threadTs);
+            echo json_encode(array('ok' => true));
+            return;
+        }
         $devis->setStatu(2);
         $devis->setUserEdited($_SESSION['user']);
         $devis->setLastEdit(date('Y-m-d H:i:s'));
         $devis->edit();
         slackPostMessage($channel, ":white_check_mark: Devis N°" . $numero . " marqué comme *Accepté*.", $threadTs);
     } elseif (strpos($textLower, 'valide') !== false) {
+        if ($devis->getStatu() != 0) {
+            slackPostMessage($channel, ":information_source: Devis N°" . $numero . " déjà validé.", $threadTs);
+            echo json_encode(array('ok' => true));
+            return;
+        }
         $devis->setStatu(1);
         $devis->setUserEdited($_SESSION['user']);
         $devis->setLastEdit(date('Y-m-d H:i:s'));
