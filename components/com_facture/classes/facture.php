@@ -1428,6 +1428,9 @@ mpdf-->
         $mail->Password = $mailCreds['password'];
         $mail->SMTPSecure = 'tls';
         $mail->Port = $mailCreds['port'];
+        // Sans ceci, PHPMailer encode le Subject/Body en ISO-8859-1 par défaut alors que ce
+        // fichier (et donc "°", accents...) est en UTF-8 - d'où "N°" affiché "NÂ°" côté client mail.
+        $mail->CharSet = 'UTF-8';
 
         $texteCorps = $isEn
             ? 'Hello, please find attached the invoice related to the requested services.<br>Best regards.'
