@@ -152,7 +152,7 @@
 		<div class="col-md-4">
 			<div class="form-group">
 				<label>Login<span class="text-danger"> * </span></label>
-				<input type="text" class="form-control" name="login" value="<?php if(isset($client)) echo htmlspecialchars($client->getLogin()); ?>" required>
+				<input type="text" class="form-control" name="login" value="<?php if(isset($client)) echo htmlspecialchars($client->getLogin()); ?>" readonly required>
 			</div>
 		</div>
 
@@ -289,6 +289,38 @@
                 .show();
         }
         $('#site_web').on('blur', updateSiteLogoPreview);
+
+        // Login en lecture seule (voir <input readonly> ci-dessus) : généré côté serveur avec la
+        // même convention que les logins créés en masse (export clients 09/2026) - voir
+        // client::genererLogin(). Redemandé à chaque changement de raison sociale/agence/email
+        // plutôt que calculé une seule fois, pour rester synchro si l'un de ces champs change
+        // avant l'enregistrement (et régénérer un login différent en cas de collision détectée
+        // côté serveur).
+        var timerRegenererLoginClient = null;
+        function regenererLoginClient() {
+            var $login = $('input[name="login"]');
+            var raisonSocial = $('input[name="raison_social"]').val();
+            var idAgence = $('select[name="agence"]').val();
+            var email = $('input[name="email_client"]').val();
+            if (!idAgence || (!raisonSocial && !email)) {
+                return;
+            }
+            $.get('components/com_client/controleurs/router.php?task=genererLoginClient', {
+                raison_social: raisonSocial,
+                agence: idAgence,
+                email: email,
+                id: $('input[name="id"]').val() || ''
+            }, function (response) {
+                if (response && response.success) {
+                    $login.val(response.login);
+                }
+            }, 'json');
+        }
+        $('input[name="raison_social"], input[name="email_client"]').on('input', function () {
+            clearTimeout(timerRegenererLoginClient);
+            timerRegenererLoginClient = setTimeout(regenererLoginClient, 400);
+        });
+        $('select[name="agence"]').on('change', regenererLoginClient);
         $('#siteLogoPreview').on('error', function () {
             var $img = $(this);
             if (!$img.data('fallbackTried')) {
@@ -317,6 +349,9 @@
                 if (c.adresse) $('[name=adresse]').val(c.adresse);
                 if (c.ville) $('[name=ville]').val(c.ville);
                 if (c.pays) $('[name=pays]').val(c.pays);
+                // .val() ne déclenche pas 'input' : le login ne se régénérerait jamais tout seul
+                // après un pré-remplissage par extraction IA sans cet appel explicite.
+                regenererLoginClient();
 
                 if (response.extracted.services && response.extracted.services.length) {
                     sessionStorage.setItem('ia_services', JSON.stringify(response.extracted.services));

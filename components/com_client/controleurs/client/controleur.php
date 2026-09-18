@@ -12,6 +12,9 @@ if (isset($task) && !empty($task)) {
         case 'editClient':
             editClient($_POST);
             break;
+        case 'genererLoginClient':
+            genererLoginClient($_GET);
+            break;
         case 'deleteClient':
             deleteClient($_POST);
             break;
@@ -161,6 +164,25 @@ function editClient($data)
     } else {
         echo "0";
     }
+}
+
+// Champ "Login" en lecture seule côté formulaire (views/client/form.php) : appelé à chaque
+// changement de raison sociale / agence pour proposer le login qui serait généré, avec la même
+// convention que client::genererLogin() (voir cette méthode pour le détail des règles).
+function genererLoginClient($data)
+{
+    header('Content-Type: application/json');
+    $idAgence = isset($data['agence']) ? intval($data['agence']) : 0;
+    $raisonSocial = isset($data['raison_social']) ? $data['raison_social'] : '';
+    $email = isset($data['email']) ? $data['email'] : '';
+    $excludeId = isset($data['id']) && !empty($data['id']) ? intval($data['id']) : null;
+
+    if (!$idAgence || (trim($raisonSocial) === '' && trim($email) === '')) {
+        echo json_encode(array('success' => 0));
+        return;
+    }
+
+    echo json_encode(array('success' => 1, 'login' => client::genererLogin($raisonSocial, $idAgence, $email, $excludeId)));
 }
 
 function deleteClient($data)

@@ -1071,6 +1071,38 @@ class client
         return $db->last_id();
     }
 
+    // Même convention que les logins générés en masse (export clients 09/2026) : préfixe selon
+    // l'agence (hwd- pour Dubai, vc- pour Verse Concept, hw- pour toutes les autres, y compris le
+    // pool Maroc secondaire) + raison sociale en minuscules avec tous les espaces retirés (les
+    // autres caractères - accents, ponctuation, "&"... - restent tels quels) ; repli sur l'email
+    // si aucune raison sociale n'est renseignée. $excludeId : id du client en cours d'édition, pour
+    // ne pas se déclencher soi-même comme collision. Un "-2", "-3"... est ajouté tant que le login
+    // obtenu existe déjà (login unique en base).
+    public static function genererLogin($raisonSocial, $idAgence, $email = '', $excludeId = null)
+    {
+        $prefixe = $idAgence == 2 ? 'hwd' : ($idAgence == 3 ? 'vc' : 'hw');
+        $base = trim((string) $raisonSocial) !== '' ? $raisonSocial : $email;
+        $base = mb_strtolower(preg_replace('/\s+/u', '', (string) $base), 'UTF-8');
+        // Repli historique quand ni raison sociale ni email ne sont disponibles (import ancien -
+        // le formulaire actuel rend ce cas impossible, les deux champs y étant obligatoires).
+        if ($base === '' && $excludeId !== null) {
+            $base = 'client' . $excludeId;
+        }
+        $login = $prefixe . '-' . $base;
+
+        $loginCandidat = $login;
+        $n = 2;
+        while (true) {
+            $existant = static::findByLogin($loginCandidat);
+            if (!$existant || ($excludeId !== null && $existant->getId() == $excludeId)) {
+                break;
+            }
+            $loginCandidat = $login . '-' . $n;
+            $n++;
+        }
+        return $loginCandidat;
+    }
+
     public static function count($year = false,$agence = 1){
         global $db;
         $SQLcount = "SELECT count(A.id) as c FROM " . static::$table . " A inner join " . static::$tableAgence . " B on A.id_agence = B.id where B.id = $agence";

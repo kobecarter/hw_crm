@@ -28,6 +28,11 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
                 include_once ("client/controleur.php");
             }
             break;
+        case 'genererLoginClient' :
+            if ($_SESSION['user']->hasDroit('add', 'com_client') || $_SESSION['user']->hasDroit('edit', 'com_client')) {
+                include_once ("client/controleur.php");
+            }
+            break;
         case 'deleteClient' :
             if ($_SESSION['user']->hasDroit('delete', 'com_client')) {
                 include_once ("client/controleur.php");
