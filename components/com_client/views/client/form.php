@@ -158,7 +158,13 @@
 
 		<div class="col-md-4">
 			<div class="form-group">
-				<label>Mot de passe</label>
+				<label>Mot de passe
+					<?php if (isset($client) && $client->getPassword() != '') : ?>
+					<span class="badge bg-success-light">Défini</span>
+					<?php else : ?>
+					<span class="badge bg-warning-light">Non défini</span>
+					<?php endif; ?>
+				</label>
 				<input type="password" class="form-control" name="password" value="">
 			</div>
 		</div>
