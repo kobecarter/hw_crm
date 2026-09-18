@@ -1408,7 +1408,6 @@ mpdf-->
         require '../../../includes/traduction.php';
 
         global $db, $siteURL;
-        $config = new config($db);
         $mail = new PHPMailer();
         $client = $this->getClient();
         // Authentifié en SMTP (au lieu du relais local mail() par défaut) pour que ce mail soit
@@ -1416,6 +1415,12 @@ mpdf-->
         // déposer une copie dans son dossier "Envoyés" (cf. copierEmailEnvoyeVersDossierEnvoyes()).
         // Identité selon l'agence du CLIENT (Dubai vs Maroc, voir getMailCredentialsForAgence()).
         $mailCreds = getMailCredentialsForAgence($client->getAgence() ? $client->getAgence()->getId() : 0);
+        // Logo/email/tél affichés dans l'email = ceux de l'agence du client (et dans la langue de
+        // la FACTURE, pas celle de la session admin) - remplace $config (une seule ligne globale,
+        // toujours "Verse Concept" quelle que soit l'agence réelle du client, cf. crm_config id=0).
+        $agence = agence::find($client->getAgence() ? $client->getAgence()->getId() : 0, $this->getLangue());
+        $nomAgence = $agence->getRaisonSocial() != '' ? $agence->getRaisonSocial() : $agence->getNom();
+        $isEn = ($this->getLangue() == 'en');
         $mail->isSMTP();
         $mail->Host = $mailCreds['host'];
         $mail->SMTPAuth = true;
@@ -1423,6 +1428,12 @@ mpdf-->
         $mail->Password = $mailCreds['password'];
         $mail->SMTPSecure = 'tls';
         $mail->Port = $mailCreds['port'];
+
+        $texteCorps = $isEn
+            ? 'Hello, please find attached the invoice related to the requested services.<br>Best regards.'
+            : 'Bonjour, je vous prie de bien vouloir trouver ci-joint la facture relative aux services demandés.<br>Cordialement.';
+        $labelTel = $isEn ? 'Phone' : 'Tél';
+
         $mailBody = '<html>
     <body>
     <table border="0" width="100%">
@@ -1430,21 +1441,21 @@ mpdf-->
             <td bgcolor="#F6F6F6" align="center">
                 <table border="0" cellpadding="15" cellspacing="0" width="640">
                     <tr>
-                        <td align="center"><img src="' . $siteURL . 'images/config/' . $config->getLogo() . '" width="100"></td>
+                        <td align="center"><img src="' . $siteURL . 'images/agences/' . $agence->getlogo() . '" width="100"></td>
                     </tr>
 
                     <tr bgcolor="#FFFFFF">
                         <td align="center">
                         <h1 style="font-weight:normal; margin-bottom:15px;margin-top:20px">
-                        Facture N° ' . $this->getNumero() . '
+                        ' . ($isEn ? 'Invoice N° ' : 'Facture N° ') . $this->getNumero() . '
                         </h1>
                     </td>
-                    
+
                 </tr>
 
                 <tr bgcolor="#FFFFFF" style="font-size:20px;">
                     <td align="center">
-                    Bonjour, Je vous prie de bien vouloir trouver ci-joint <span style="color:#15c;">la facture </span>relative aux services demandés. Cordialement.
+                    ' . $texteCorps . '
                     </td>
                     </tr>
 
@@ -1452,15 +1463,15 @@ mpdf-->
                         <td align="center">
                             <p>
                                 <font size="2" color="#666666"><br />
-                                Hello World Contact
+                                ' . htmlspecialchars($nomAgence) . '
                                 <!--footer info--><br/>
-                                Email : ' . $config->getEmail() . '
+                                Email : ' . $agence->getEmail() . '
                                 <br>
-                                Tél : ' . $config->getTel() . ' / ' . $config->getTel2() . '
+                                ' . $labelTel . ' : ' . $agence->getTel() . ' / ' . $agence->getTel2() . '
                             </p>
                         </td>
                     </tr>
-                    
+
                 </table>
 
             </td>
@@ -1473,7 +1484,7 @@ mpdf-->
         //Set who the message is to be sent from
         $mail->setFrom($mailCreds['username']);
         //Set an alternative reply-to address
-        $mail->addReplyTo($config->getEmail(), $config->getNom());
+        $mail->addReplyTo($agence->getEmail(), $nomAgence);
         //Set who the message is to be sent to
         $mail->addAddress($client->getEmail(), $client->getNom() . ' ' . $client->getPrenom());
         $mail->addAddress($mailCreds['username']);
@@ -1493,7 +1504,7 @@ mpdf-->
         }
 
         //Set the subject line
-        $mail->Subject = 'Facture ' . $config->getNom();
+        $mail->Subject = ($isEn ? 'Invoice N°' : 'Facture N°') . $this->getNumero() . ' - ' . $nomAgence;
         //Read an HTML message body from an external file, convert referenced images to embedded,
         //convert HTML into a basic plain-text alternative body
         $mail->msgHTML($mailBody);
