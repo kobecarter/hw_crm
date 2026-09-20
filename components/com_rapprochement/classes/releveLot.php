@@ -242,7 +242,11 @@ class releveLot
     {
         global $db;
         $items = array();
-        $SQLselect = sprintf("SELECT * FROM " . static::$table . " WHERE id_agence = %s ORDER BY id DESC", GetSQLValueString($agence, "int"));
+        // Trié par période couverte (date_debut), pas par ordre d'import : un relevé de juillet
+        // importé après celui d'août ne doit pas passer devant. COALESCE(date_debut, date_add) au
+        // cas où un lot n'aurait pas de période détectée ; id en second critère pour départager
+        // deux lots de la même période.
+        $SQLselect = sprintf("SELECT * FROM " . static::$table . " WHERE id_agence = %s ORDER BY COALESCE(date_debut, date_add) DESC, id DESC", GetSQLValueString($agence, "int"));
         $result = $db->queryS($SQLselect);
         foreach ($result as $data) {
             array_push($items, static::build($data));
