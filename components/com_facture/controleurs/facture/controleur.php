@@ -1214,6 +1214,9 @@ function sendEmailsForeachFacture()
 				//Recipients
 				$mail->setFrom($agence->getEmail(), $agence->getNom());
 				$mail->addAddress($facture['email'], $facture['nom']);     //Add a recipient
+				if (!empty($facture['email2'])) {
+					$mail->addCC($facture['email2']);
+				}
 
 				//Content
 				$mail->isHTML(true);                                  //Set email format to HTML

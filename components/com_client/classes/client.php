@@ -29,6 +29,7 @@ class client
 	private $tel2;
 	private $tel3;
     private $email;
+	private $email2;
 	private $login;
 	private $password;
     private $cp;
@@ -189,6 +190,11 @@ class client
     public function getEmail()
     {
         return $this->email;
+    }
+
+    public function getEmail2()
+    {
+        return $this->email2;
     }
 
 	public function getLogin()
@@ -379,6 +385,11 @@ class client
         $this->email = $email;
     }
 
+    public function setEmail2($email2)
+    {
+        $this->email2 = $email2;
+    }
+
 	public function setLogin($login)
     {
         $this->login = $login;
@@ -442,7 +453,7 @@ class client
     public function add()
     {
         global $db;
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence,id_user_added, active, archived, source, site_web, titre, prenom, nom, raison_social, fonction, ice, rc, tel, tel2, tel3, email, login, password, cp, adresse, adresse2, ville, region, pays, photo, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence,id_user_added, active, archived, source, site_web, titre, prenom, nom, raison_social, fonction, ice, rc, tel, tel2, tel3, email, email2, login, password, cp, adresse, adresse2, ville, region, pays, photo, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->agence->getId(), "int"),
             GetSQLValueString($this->user_added->getId(), "int"),
             GetSQLValueString($this->active, "int"),
@@ -460,6 +471,7 @@ class client
 			GetSQLValueString($this->tel2, "text"),
 			GetSQLValueString($this->tel3, "text"),				 
             GetSQLValueString($this->email, "text"),
+			GetSQLValueString($this->email2, "text"),
 			GetSQLValueString($this->login, "text"),
 			GetSQLValueString(md5($this->password), "text"),
             GetSQLValueString($this->cp, "text"),
@@ -482,7 +494,7 @@ class client
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  id_agence = %s, id_user_edited = %s,  active = %s, archived = %s, source = %s, site_web = %s, titre = %s, prenom = %s, nom = %s, raison_social = %s, fonction = %s, ice = %s, rc = %s, tel = %s, tel2 = %s, tel3 = %s, email = %s, login = %s, password = %s, cp = %s, adresse = %s, adresse2 = %s, ville = %s, region = %s, pays =%s, photo =%s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  id_agence = %s, id_user_edited = %s,  active = %s, archived = %s, source = %s, site_web = %s, titre = %s, prenom = %s, nom = %s, raison_social = %s, fonction = %s, ice = %s, rc = %s, tel = %s, tel2 = %s, tel3 = %s, email = %s, email2 = %s, login = %s, password = %s, cp = %s, adresse = %s, adresse2 = %s, ville = %s, region = %s, pays =%s, photo =%s, last_edit = %s WHERE id = %s",
             GetSQLValueString($this->agence->getId(), "int"),
             GetSQLValueString($this->user_edited->getId(), "int"),
             GetSQLValueString($this->active, "int"),
@@ -500,6 +512,7 @@ class client
 			GetSQLValueString($this->tel2, "text"),
 			GetSQLValueString($this->tel3, "text"),				 
             GetSQLValueString($this->email, "text"),
+			GetSQLValueString($this->email2, "text"),
 			GetSQLValueString($this->login, "text"),
 			GetSQLValueString(md5($this->password), "text"),
             GetSQLValueString($this->cp, "text"),
@@ -794,7 +807,7 @@ class client
         $like = GetSQLValueString('%' . $terme . '%', 'text');
         $SQLselect = "SELECT id AS ID, " . static::$table . ".* FROM " . static::$table . " WHERE 1=1"
             . ($agence ? " AND id_agence = " . intval($agence) : "")
-            . " AND (nom LIKE $like OR prenom LIKE $like OR raison_social LIKE $like OR email LIKE $like OR tel LIKE $like OR tel2 LIKE $like OR tel3 LIKE $like OR ice LIKE $like OR rc LIKE $like)"
+            . " AND (nom LIKE $like OR prenom LIKE $like OR raison_social LIKE $like OR email LIKE $like OR email2 LIKE $like OR tel LIKE $like OR tel2 LIKE $like OR tel3 LIKE $like OR ice LIKE $like OR rc LIKE $like)"
             . " ORDER BY id DESC LIMIT 8";
         foreach ($db->queryS($SQLselect) as $data) {
             array_push($items, static::build($data));
@@ -1052,6 +1065,7 @@ class client
 		$client->setTel2($data['tel2']);
 		$client->setTel3($data['tel3']);
         $client->setEmail($data['email']);
+		$client->setEmail2(isset($data['email2']) ? $data['email2'] : null);
 		$client->setLogin(isset($data['login']) ? $data['login'] : null);
 		$client->setPassword($data['password']);
         $client->setCp($data['cp']);

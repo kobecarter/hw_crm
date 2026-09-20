@@ -1067,6 +1067,9 @@ function sendViaMailDevis($file_name = ""){
 
     $mail->addAddress($client->getEmail(), $client->getNom().' '.$client->getPrenom());
     $mail->addAddress($mailCreds['username']);
+    if ($client->getEmail2() != '') {
+        $mail->addCC($client->getEmail2());
+    }
 
 	//Set the subject line
 	$mail->Subject = 'Devis '.$agence->getNom();
@@ -1177,6 +1180,9 @@ function sendViaMailDevis($file_name = ""){
             if ($clientID) {
                 $SQLselect .= " AND A.id_client = " . intval($clientID);
             }
+            // Un Brouillon (statu=0) n'a jamais été envoyé au client : il ne doit
+            // jamais apparaître dans son espace, même si le devis existe déjà en base.
+            $SQLselect .= " AND A.statu != 0";
             if ($statu) {
                 $SQLselect .= " AND A.statu = " . intval($statu);
             }

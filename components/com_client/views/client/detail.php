@@ -246,7 +246,7 @@
 							</div>
 							<div class="col-md-6 col-lg-4 client-info-item">
 								<i class="fa fa-envelope"></i>
-								<div><span>E-mail</span><p><?php echo htmlspecialchars($client->getEmail()) ?: '—'; ?></p></div>
+								<div><span>E-mail</span><p><?php echo htmlspecialchars(trim($client->getEmail() . ' / ' . $client->getEmail2(), ' /')) ?: '—'; ?></p></div>
 							</div>
 							<div class="col-md-6 col-lg-4 client-info-item">
 								<i class="fa fa-map-marker-alt"></i>

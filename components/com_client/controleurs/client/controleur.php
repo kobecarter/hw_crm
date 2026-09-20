@@ -328,6 +328,7 @@ function buildClient($data, $id = null)
     $client->setTel2($data['tel2']);
     $client->setTel3($data['tel3']);
     $client->setEmail($data['email_client']);
+    $client->setEmail2(isset($data['email2']) ? trim($data['email2']) : null);
     $client->setLogin(trim($data['login']));
     $client->setCp($data['cp']);
     $client->setAdresse($data['adresse']);

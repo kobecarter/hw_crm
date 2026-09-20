@@ -149,6 +149,13 @@
 			</div>
 		</div>
 
+		<div class="col-md-4">
+			<div class="form-group">
+				<label>2ème email</label>
+				<input type="email" class="form-control" name="email2" value="<?php if(isset($client)) echo htmlspecialchars($client->getEmail2()); ?>">
+			</div>
+		</div>
+
 		<div class="col-md-4<?php echo !isset($client) ? ' d-none' : ''; ?>">
 			<div class="form-group">
 				<label>Login<span class="text-danger"> * </span></label>

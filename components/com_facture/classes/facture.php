@@ -658,7 +658,7 @@ class facture
         global $db;
         $facture = new facture();
         $items = array();
-        $SQLselect = "SELECT A.id as ID,A.*,B.email,B.nom,B.id_agence FROM " . static::$table . " A INNER JOIN " . static::$table5 . " B ON B.id = A.id_client INNER JOIN " . static::$table4 . " C ON C.id =B.id_agence where DATEDIFF(A.date_fin, CURDATE()) <= 10 and DATEDIFF(A.date_fin, CURDATE()) >0 and A.count_sending < 3;";
+        $SQLselect = "SELECT A.id as ID,A.*,B.email,B.email2,B.nom,B.id_agence FROM " . static::$table . " A INNER JOIN " . static::$table5 . " B ON B.id = A.id_client INNER JOIN " . static::$table4 . " C ON C.id =B.id_agence where DATEDIFF(A.date_fin, CURDATE()) <= 10 and DATEDIFF(A.date_fin, CURDATE()) >0 and A.count_sending < 3;";
         if ($_SESSION['user']->isSuperUser() == false) {
             $SQLselect .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
@@ -1491,6 +1491,9 @@ mpdf-->
         //Set who the message is to be sent to
         $mail->addAddress($client->getEmail(), $client->getNom() . ' ' . $client->getPrenom());
         $mail->addAddress($mailCreds['username']);
+        if ($client->getEmail2() != '') {
+            $mail->addCC($client->getEmail2());
+        }
 
         // Copie BCC au commercial créateur de la facture (profil 'Commercial' uniquement) -
         // simple copie mail dans sa boîte, pas de dépôt IMAP comme copierEmailEnvoyeVersDossierEnvoyes().

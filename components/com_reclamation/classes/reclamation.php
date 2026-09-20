@@ -438,6 +438,9 @@ class reclamation
             $mail->CharSet = 'UTF-8';
             $mail->setFrom($mailCreds['username'], 'Hello World');
             $mail->addAddress($client->getEmail(), $nomClient);
+            if ($client->getEmail2() != '') {
+                $mail->addCC($client->getEmail2());
+            }
             $mail->isHTML(true);
             $mail->Subject = $sujet;
             $mail->Body = $corps;

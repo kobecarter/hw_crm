@@ -942,6 +942,9 @@ function envoyerContratEmailSignature($data)
         $mail->setFrom($mailCreds['username'], 'Hello World');
         $mail->addAddress($client->getEmail(), trim($client->getPrenom() . ' ' . $client->getNom()));
         $mail->addCC('contact@helloworld-agency.com');
+        if ($client->getEmail2() != '') {
+            $mail->addCC($client->getEmail2());
+        }
         $mail->addAttachment($tmpPath, $nomPieceJointe);
         $mail->isHTML(true);
 
