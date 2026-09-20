@@ -1295,9 +1295,14 @@ function validerLigne($data, $files = array())
             $uploades = uploadFiles('justificatif_valider', '../../../images/charges/', array('jpg', 'jpeg', 'gif', 'png', 'pdf', 'JPG', 'JPEG', 'GIF', 'PNG', 'PDF'));
             if (!empty($uploades[0])) {
                 $chargeExistante->setPhoto($uploades[0]);
-                $chargeExistante->edit();
             }
         }
+        // La date de la charge (souvent une estimation saisie à la main) est remplacée par la
+        // date réelle de l'opération bancaire, désormais connue avec certitude - même logique que
+        // pour une charge créée directement depuis une ligne (setDateCharge($ligne->...) plus bas).
+        $chargeExistante->setDateCharge($ligne->getDateOperation());
+        $chargeExistante->setDatePayment($ligne->getDateOperation());
+        $chargeExistante->edit();
         // charge_action='liee' (jamais 'creee') : cette charge existait déjà avant ce clic, seul
         // le lien est défait par annulerMarquageCharge(), jamais la charge elle-même supprimée.
         $infos['charge_action'] = 'liee';
@@ -1328,6 +1333,11 @@ function validerLigne($data, $files = array())
                 echo json_encode($conflit);
                 return;
             }
+            // Date de la charge remplacée par la date réelle de l'opération bancaire - voir
+            // commentaire équivalent ci-dessus (debit_charge_existante).
+            $chargeExistante->setDateCharge($ligne->getDateOperation());
+            $chargeExistante->setDatePayment($ligne->getDateOperation());
+            $chargeExistante->edit();
             // charge_action='liee' : voir commentaire équivalent ci-dessus (debit_charge_existante).
             $infos['charge_action'] = 'liee';
             $infos['_statut_avant_charge'] = $ligne->getStatut();
