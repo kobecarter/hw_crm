@@ -422,7 +422,16 @@ function previewReleve($data, $files)
     $periodicite = $agenceObjet->getTvaPeriodicite() === 'trimestriel' ? 'trimestriel' : 'mensuel';
     $periodeLibelle = null;
     if ($dateMin !== null) {
-        $periode = tva::periodeReference($periodicite, new DateTime($dateMin), 0);
+        // Un relevé déborde souvent d'un jour sur le mois précédent (ex: 31/03 au 30/04, la
+        // banque coupant au dernier jour du mois précédent plutôt qu'au 1er) - se baser sur la
+        // toute première ligne étiquetait alors le relevé entier sur le mauvais mois/trimestre.
+        // Le milieu de l'intervalle [date_debut, date_fin] reflète la période réellement
+        // dominante ; le rapprochement TVA par ligne (rapprochementMoteur), lui, continue de se
+        // baser sur la date de chaque opération individuelle, jamais sur cette étiquette globale.
+        $milieu = new DateTime($dateMin);
+        $bornefin = new DateTime($dateMax !== null ? $dateMax : $dateMin);
+        $milieu->setTimestamp((int) (($milieu->getTimestamp() + $bornefin->getTimestamp()) / 2));
+        $periode = tva::periodeReference($periodicite, $milieu, 0);
         $periodeLibelle = tva::libellePeriode($periode['debut'], $periodicite);
     }
 

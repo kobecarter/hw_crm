@@ -1,0 +1,18 @@
+Correction des étiquettes de période (periode_libelle) mal calculées sur crm_releve_lot,
+suite au bug corrigé dans components/com_rapprochement/controleurs/rapprochement/controleur.php
+(periode_libelle basé sur la première date du relevé au lieu du milieu de l'intervalle
+date_debut/date_fin - un relevé chevauchant deux trimestres/mois était affecté au mauvais).
+
+=== Production (crm keha1057_crm_new) ===
+id=68 (agence 3, Verse Concept) : date_debut=2026-03-31, date_fin=2026-04-30
+  avant: T1 2026  ->  apres: T2 2026
+id=65 (agence 3, Verse Concept) : date_debut=2026-06-30, date_fin=2026-07-31
+  avant: T2 2026  ->  apres: T3 2026
+
+=== Local (crm) ===
+id=51 (agence 3, Verse Concept) : date_debut=2026-06-30, date_fin=2026-07-27
+  avant: T2 2026  ->  apres: T3 2026
+
+Seule la colonne periode_libelle a été modifiée (aucune ligne de relevé/charge affectée -
+le rapprochement TVA par ligne se base déjà sur la date de chaque opération individuelle,
+jamais sur cette étiquette globale).
