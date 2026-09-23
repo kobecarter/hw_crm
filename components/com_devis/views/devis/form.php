@@ -17,17 +17,13 @@
 	}
 </style>
 
-<?php if(isset($devis) && $devis->getFacture()->getId() != 0 && $devis->getStatu() == 4): ?>
-<div class="alert alert-warning"><i class="fa fa-info"></i> <strong>Attention !!</strong> vous ne pouvez pas modifier ce devis car il est déjà lié à une facture</div>
-<?php endif; ?>
-
 <?php
 $devisFactureLiee = isset($devis) ? facture::findByDevis($devis->getId(), $_SESSION['agence']) : false;
 $devisResteAPayer = ($devisFactureLiee && $devisFactureLiee->getId()) ? $devisFactureLiee->getReste() : (isset($devis) ? $devis->getTotal() : 0);
 ?>
 
 <form method="post" action="<?php echo $action; ?>" id="devisForm" enctype="multipart/form-data">
-    <fieldset <?php if(isset($devis) && $devis->getFacture()->getId() != 0 && $devis->getStatu() == 4): ?>disabled="disabled"<?php endif; ?>>
+    <fieldset>
 	<div class="row">
 		<div class="col-md-12 msgbox"></div>
 		<?php if (!isset($devis)): ?>
