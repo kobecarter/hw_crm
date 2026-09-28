@@ -354,7 +354,11 @@ class user {
 
     public static function isEmailValable($email){
         global $db;
-        $result = $db->query("SELECT * FROM ".__prefixe_db__."users WHERE email = '".$email."' AND actif = 1 AND id_profil = 1");
+        // $email etait interpole brut. La methode n'est appelee nulle part aujourd'hui,
+        // mais une valeur non echappee dans une requete reste une amorce : on passe par
+        // GetSQLValueString comme partout ailleurs dans ce composant.
+        $result = $db->query(sprintf("SELECT * FROM ".__prefixe_db__."users WHERE email = %s AND actif = 1 AND id_profil = 1",
+            GetSQLValueString($email, "text")));
         if ($db->num_rows($result) == 1){
             return true;
         }else{
