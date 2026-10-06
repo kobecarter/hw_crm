@@ -878,10 +878,14 @@ function creerJustificatifManuel($data, $files)
     // commission bancaire non agrégée...) - même filtre que côté vue (views/rapprochement/list.php,
     // colonne Actions) : un type avec une action dédiée (credit_ambigu, debit_charge_existante,
     // debit_reconnu, debit_tva) doit toujours passer par validerLigne(), jamais créer une charge à
-    // l'aveugle ici.
+    // l'aveugle ici. Exception : un crédit ambigu SANS aucun candidat facture (rien à valider dans
+    // validerLigne()) - son justificatif se saisit ici comme pour un débit sans justificatif.
     $infosLigne = $ligne->getDonneesMatchingArray();
+    $creditAmbiguSansCandidat = isset($infosLigne['type']) && $infosLigne['type'] === 'credit_ambigu'
+        && empty($infosLigne['candidats']);
     $estAValiderGenerique = $ligne->getStatut() === 'a_valider'
-        && (!isset($infosLigne['type']) || !in_array($infosLigne['type'], array('credit_ambigu', 'debit_charge_existante', 'debit_reconnu', 'debit_tva'), true));
+        && ($creditAmbiguSansCandidat
+            || !isset($infosLigne['type']) || !in_array($infosLigne['type'], array('credit_ambigu', 'debit_charge_existante', 'debit_reconnu', 'debit_tva'), true));
     if ($ligne->getStatut() !== 'sans_justificatif' && !$estAValiderGenerique) {
         echo json_encode(array('success' => 0, 'message' => 'Ligne introuvable ou déjà traitée'));
         return;

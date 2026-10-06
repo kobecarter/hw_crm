@@ -250,6 +250,11 @@
 															}
 															$idsMontantCorrespondant = array_map(function ($fMap) { return $fMap->getId(); }, $facturesMontantCorrespondant);
 															?>
+															<?php if (empty($infos['candidats'])) :?>
+															<!-- Aucun candidat facture : le justificatif (popup "Insérer le justificatif") est l'action
+															     principale de la ligne - c'est aussi ce que déclenche un clic sur le badge de statut. -->
+															<button type="button" class="btn btn-danger btn-sm rapprochement-justificatif-manuel" data-toggle="tooltip" title="Insérer le justificatif"><i class="fa fa-paperclip"></i></button>
+															<?php endif;?>
 															<!-- Simple porteur de valeur - la sélection se fait dans la fenêtre #affecterModal (même
 															     habillage que les autres fenêtres du module), jamais dans ce <select> caché. -->
 															<select class="rapprochement-facture-select d-none">
@@ -403,7 +408,8 @@
 														} elseif (isset($infos['type']) && $infos['type'] === 'debit_tva') {
 															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour confirmer la TVA">Paiement TVA détecté (' . htmlspecialchars($infos['periode_detectee']) . ') — à confirmer</span>';
 														} elseif (isset($infos['type']) && $infos['type'] === 'credit_ambigu') {
-															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="Cliquer pour choisir la facture">À valider (' . count($infos['candidats']) . ' facture(s) candidate(s))</span>';
+															$titreBadgeCredit = empty($infos['candidats']) ? 'Cliquer pour insérer le justificatif' : 'Cliquer pour choisir la facture';
+															echo '<span class="badge bg-warning-light rapprochement-statut-clickable" data-toggle="tooltip" title="' . $titreBadgeCredit . '">À valider (' . count($infos['candidats']) . ' facture(s) candidate(s))</span>';
 														} elseif (isset($infos['type']) && $infos['type'] === 'debit_commission' && isset($infos['motif']) && $infos['motif'] === 'tva_commission') {
 															echo '<span class="badge bg-warning-light">TVA commission — à agréger</span>';
 														} elseif (isset($infos['type']) && $infos['type'] === 'debit_charge_existante') {
@@ -1898,6 +1904,13 @@ $(function () {
 	// besoin de viser la petite icône dans la colonne Action.
 	$(document).on('click', '.rapprochement-statut-clickable', function () {
 		var $tr = $(this).closest('tr');
+		// Crédit ambigu sans candidat : le justificatif est l'action principale (même si le bouton
+		// "Choisir" de recherche par client reste disponible dans la colonne Actions).
+		var $boutonJustificatif = $tr.find('.rapprochement-justificatif-manuel').first();
+		if ($boutonJustificatif.length) {
+			$boutonJustificatif.trigger('click');
+			return;
+		}
 		var $boutonChoisir = $tr.find('.rapprochement-choisir').first();
 		var $select = $tr.find('.rapprochement-facture-select, .rapprochement-charge-select').first();
 		if ($boutonChoisir.length && $select.length && !$select.val()) {
