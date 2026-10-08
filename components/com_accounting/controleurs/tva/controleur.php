@@ -222,13 +222,14 @@ function exportTvaComptable($data)
             $l['taux_tva'],
             round($l['montant_ht'], 2),
             round($l['montant_tva'], 2),
+            $l['tva_retenue_source'] ? 'Oui' : 'Non',
         );
     }
-    $totaux = count($rows) > 0 ? array('', '', '', '', 'TOTAL', round($totalCollecteeTTC, 2), '', round($totalCollecteeHT, 2), round($totalCollecteeTVA, 2)) : null;
+    $totaux = count($rows) > 0 ? array('', '', '', '', 'TOTAL', round($totalCollecteeTTC, 2), '', round($totalCollecteeHT, 2), round($totalCollecteeTVA, 2), '') : null;
     tvaExportEcrireTableau(
         $sheetVentesTva,
         'Ventes prises en compte dans la TVA collectée — ' . $periodeTexte . ' (DH uniquement)',
-        array('N° Facture', 'Client', 'Date facture', 'Date encaissement', 'Mode paiement', 'Montant encaissé TTC', 'Taux TVA (%)', 'Montant HT', 'Montant TVA collectée'),
+        array('N° Facture', 'Client', 'Date facture', 'Date encaissement', 'Mode paiement', 'Montant encaissé TTC', 'Taux TVA (%)', 'Montant HT', 'Montant TVA collectée', 'TVA retenue à la source'),
         $rows,
         $totaux,
         array(5, 7, 8),
@@ -264,31 +265,38 @@ function exportTvaComptable($data)
         '4f46e5'
     );
 
-    // Onglet 4 : Toutes les ventes ajoutées (toutes devises, transparence complète)
+    // Onglet 4 : Toutes les ventes ajoutées (toutes devises, transparence complète) — même
+    // logique "encaissement" que l'onglet 2 (un règlement = une ligne, datée de son paiement ;
+    // une facture soldée par un seul règlement reste une seule ligne "facture globale") : voir
+    // tvaSimulateur::detailVentesAjoutees(). "Date paiement" reste vide pour une facture encore
+    // jamais réglée (affichée sur sa seule date de facture, pour ne pas disparaître de cet
+    // onglet qui doit tout tracer).
     $sheetVentesToutes = $spreadsheet->createSheet();
     $sheetVentesToutes->setTitle('Toutes les ventes');
     $rows = array();
-    foreach ($ventesToutes as $f) {
-        $type = $f['avoir'] == 1 ? 'Avoir' : ($f['proforma'] == 1 ? 'Proforma' : 'Facture');
-        $reste = $f['proforma'] == 1 ? '' : round((float) $f['total'] - (float) $f['montant_regle'], 2);
+    foreach ($ventesToutes as $l) {
+        $type = $l['avoir'] == 1 ? 'Avoir' : ($l['proforma'] == 1 ? 'Proforma' : 'Facture');
         $rows[] = array(
-            $f['numero'],
-            trim($f['raison_social']) !== '' ? $f['raison_social'] : trim($f['prenom'] . ' ' . $f['nom']),
-            $f['date_facture'] ? date('d/m/Y', strtotime($f['date_facture'])) : '',
-            $f['devise'],
+            $l['numero'],
+            $l['client'],
+            $l['date_facture'] ? date('d/m/Y', strtotime($l['date_facture'])) : '',
+            $l['date_paiement'] ? date('d/m/Y', strtotime($l['date_paiement'])) : '',
+            $l['devise'],
             $type,
-            round((float) $f['total'], 2),
-            round((float) $f['montant_regle'], 2),
-            $reste,
+            round($l['montant_total'], 2),
+            round($l['montant_ligne'], 2),
+            round($l['montant_regle'], 2),
+            $l['reste'] === null ? '' : $l['reste'],
+            $l['tva_retenue_source'] ? 'Oui' : 'Non',
         );
     }
     tvaExportEcrireTableau(
         $sheetVentesToutes,
-        'Toutes les ventes ajoutées — ' . $periodeTexte . ' (toutes devises)',
-        array('N° Facture', 'Client', 'Date facture', 'Devise', 'Type', 'Montant total', 'Montant réglé', 'Reste à payer'),
+        'Toutes les ventes ajoutées — ' . $periodeTexte . ' (toutes devises, par date d\'encaissement)',
+        array('N° Facture', 'Client', 'Date facture', 'Date paiement', 'Devise', 'Type', 'Montant total facture', 'Montant de ce règlement', 'Montant réglé (cumul)', 'Reste à payer', 'TVA retenue à la source'),
         $rows,
         null,
-        array(5, 6, 7),
+        array(6, 7, 8, 9),
         'f59e0b'
     );
 
