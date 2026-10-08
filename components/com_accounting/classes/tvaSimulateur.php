@@ -135,7 +135,7 @@ class tvaSimulateur
         $agenceObj = agence::find($agence, $_SESSION['langue']);
         $taux = $agenceObj->getTva() ? $agenceObj->getTva() : 0;
 
-        $SQLselect = "SELECT A.date_payment, A.montant, A.methode_payment,
+        $SQLselect = "SELECT A.id AS id_payment, A.date_payment, A.montant, A.methode_payment,
             B.id AS id_facture, B.numero, B.date_facture, B.devise, B.tva_retenue_source,
             C.raison_social, C.nom, C.prenom
             FROM " . static::$tablePayment . " A
@@ -163,6 +163,7 @@ class tvaSimulateur
             // TVA à en extraire (déjà versée par le client directement au fisc).
             $montantTVA = ($taux > 0 && !$retenueSource) ? $montantTTC - ($montantTTC / (1 + $taux / 100)) : 0;
             $lignes[] = array(
+                'id_payment' => $row['id_payment'],
                 'id_facture' => $row['id_facture'],
                 'client' => trim($row['raison_social']) !== '' ? $row['raison_social'] : trim($row['prenom'] . ' ' . $row['nom']),
                 'numero_facture' => $row['numero'],

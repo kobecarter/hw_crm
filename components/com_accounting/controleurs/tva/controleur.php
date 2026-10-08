@@ -343,31 +343,39 @@ function exportTvaComptable($data)
     $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
     $writer->save($excelTempPath);
 
-    // Comme demandé : le ZIP embarque aussi les pièces justificatives des lignes réellement
-    // comptées dans le tableau (pas celles des onglets "toutes les ventes/achats", qui listent
-    // volontairement plus large que le périmètre TVA) — les factures PDF (une seule par
-    // facture même si elle a plusieurs règlements dans l'onglet détail) et les photos/scans
-    // des charges déductibles qui en ont une.
-    $idsFactureUniques = array_values(array_unique(array_filter(array_column($ventesTva, 'id_facture'))));
-    $facturesObjets = array();
-    foreach ($idsFactureUniques as $idF) {
-        $f = facture::find($idF, $_SESSION['agence']);
-        if ($f && $f->getId()) {
-            $facturesObjets[] = $f;
-        }
-    }
-
+    // Le ZIP embarque aussi les pièces justificatives, calées sur ce que montrent VRAIMENT les
+    // onglets (pas d'écart entre le tableau et les fichiers joints) :
+    // - un PDF par LIGNE de l'onglet "Ventes - TVA collectée", donc par règlement (pas par
+    //   facture) - une facture réglée en plusieurs fois a autant de PDF que de règlements,
+    //   chacun reflétant le montant réellement encaissé sur cette ligne (payment::pdfPayment()),
+    //   jamais le total de la facture globale.
+    // - les photos/scans de TOUTES les charges de la période (onglet "Tous les achats-charges",
+    //   $achatsToutes), pas seulement celles déductibles de TVA ($achatsTva) : un bulletin de
+    //   paie par exemple a toujours tva_deductible=0 et disparaissait donc entièrement du ZIP
+    //   bien qu'il figure dans le tableau Excel.
     $zipTempPath = $dirTmp . '/' . uniqid('tva_zip_') . '.zip';
     $zip = new ZipArchive();
     $zip->open($zipTempPath, ZipArchive::CREATE);
     $zip->addFile($excelTempPath, $nomBase . '.xlsx');
 
     $tempPdfFiles = array();
-    if (!empty($facturesObjets)) {
-        $tempPdfFiles = facture::pdfFactures($facturesObjets, $zip);
+    foreach ($ventesTva as $l) {
+        if (empty($l['id_payment'])) {
+            continue;
+        }
+        $paymentObj = payment::find($l['id_payment']);
+        if (!$paymentObj || !$paymentObj->getId()) {
+            continue;
+        }
+        $nomFichierPdf = $paymentObj->pdfPayment('file');
+        $cheminPdf = '../../../uploads/' . $nomFichierPdf;
+        if (file_exists($cheminPdf)) {
+            $zip->addFile($cheminPdf, $nomFichierPdf);
+            $tempPdfFiles[] = $cheminPdf;
+        }
     }
 
-    foreach ($achatsTva as $l) {
+    foreach ($achatsToutes as $l) {
         if (empty($l['photo'])) {
             continue;
         }

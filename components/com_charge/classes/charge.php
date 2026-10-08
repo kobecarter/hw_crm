@@ -652,7 +652,7 @@ class charge
     public static function findAllByDate($from = false, $to = false, $agence = 1)
     {
         global $db;
-        $SQLselect = "SELECT A.id, A.titre, A.type, A.date_charge, A.date_payment, A.devise, A.total, A.paid, A.tva_taux, A.tva_deductible, A.remarque
+        $SQLselect = "SELECT A.id, A.titre, A.type, A.date_charge, A.date_payment, A.devise, A.total, A.paid, A.tva_taux, A.tva_deductible, A.remarque, A.photo
             FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id
             WHERE B.id = " . GetSQLValueString($agence, "int");
         if ($_SESSION['user']->isSuperUser() == false) {
