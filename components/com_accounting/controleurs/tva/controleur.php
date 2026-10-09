@@ -375,14 +375,51 @@ function exportTvaComptable($data)
         }
     }
 
+    // Détecte, parmi les justificatifs de charges, ceux qui ne sont en réalité qu'une copie du
+    // relevé bancaire du lot (faute de justificatif dédié déposé - voir
+    // resoudreJustificatifFichier() dans com_rapprochement/controleurs/rapprochement/controleur.php,
+    // qui copie le fichier du relevé dans images/charges/ sous "<nom du relevé><suffixe dédup>.<ext>"
+    // quand rien d'autre n'a été fourni) : ceux-là vont dans un dossier "Relevé" séparé du ZIP,
+    // pas mélangés aux vrais justificatifs d'achat.
+    $motifsReleves = array();
+    foreach (releveLot::findAllFichiersSource($_SESSION['agence']) as $fichierSource) {
+        $ext = pathinfo($fichierSource, PATHINFO_EXTENSION);
+        $nomBase = pathinfo($fichierSource, PATHINFO_FILENAME);
+        if ($nomBase === '' || $ext === '') {
+            continue;
+        }
+        $motifsReleves[] = '/^' . preg_quote($nomBase, '/') . '\d*\.' . preg_quote($ext, '/') . '$/i';
+    }
+
     foreach ($achatsToutes as $l) {
         if (empty($l['photo'])) {
             continue;
         }
-        $cheminPhoto = '../../../images/charges/' . $l['photo'];
-        if (file_exists($cheminPhoto)) {
-            $zip->addFile($cheminPhoto, 'Justificatifs achats/' . $l['id'] . ' - ' . $l['photo']);
+
+        $estCopieReleve = false;
+        foreach ($motifsReleves as $motif) {
+            if (preg_match($motif, $l['photo'])) {
+                $estCopieReleve = true;
+                break;
+            }
         }
+        $cheminPhoto = '../../../images/charges/' . $l['photo'];
+        if (!file_exists($cheminPhoto)) {
+            continue;
+        }
+
+        if ($estCopieReleve) {
+            $zip->addFile($cheminPhoto, 'Relevé/' . $l['photo']);
+            continue;
+        }
+
+        // Nommé par le titre de la charge (plus lisible pour le comptable qu'un id) - l'id reste
+        // ajouté en suffixe pour ne jamais faire s'écraser deux charges au même titre dans le ZIP
+        // (ex: deux "Fournitures de bureau" le même mois), et l'extension d'origine est conservée.
+        $extJustificatif = pathinfo($l['photo'], PATHINFO_EXTENSION);
+        $titreFichier = trim(str_replace(array('/', '\\', ':', '*', '?', '"', '<', '>', '|'), '-', $l['titre']));
+        $nomJustificatif = ($titreFichier !== '' ? $titreFichier : $l['photo']) . ' - ' . $l['id'] . ($extJustificatif !== '' ? '.' . $extJustificatif : '');
+        $zip->addFile($cheminPhoto, 'Justificatifs achats/' . $nomJustificatif);
     }
 
     $zip->close();

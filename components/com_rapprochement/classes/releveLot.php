@@ -191,6 +191,21 @@ class releveLot
         return $items;
     }
 
+    // Liste des noms de fichiers sources (relevés déposés) d'une agence - sert à repérer, côté
+    // export comptable, les charges dont le "justificatif" n'est en fait qu'une copie du relevé
+    // bancaire du lot (voir resoudreJustificatifFichier() dans com_rapprochement/controleurs,
+    // qui copie ce fichier dans images/charges/ sous le même nom de base quand aucun justificatif
+    // dédié n'a été déposé).
+    public static function findAllFichiersSource($idAgence)
+    {
+        global $db;
+        $SQLselect = sprintf(
+            "SELECT fichier_source FROM " . static::$table . " WHERE id_agence = %s AND fichier_source IS NOT NULL AND fichier_source != ''",
+            GetSQLValueString($idAgence, "int")
+        );
+        return array_column($db->queryS($SQLselect), 'fichier_source');
+    }
+
     // Même recoupement que findAllByTva() ci-dessus, mais agrégé pour TOUTES les déclarations TVA
     // d'une agence en une seule requête groupée (JOIN direct sur les dates) - alimente l'icône
     // "relevé(s) lié(s)" affichée sur chaque ligne de la liste TVA sans un aller-retour par ligne.
