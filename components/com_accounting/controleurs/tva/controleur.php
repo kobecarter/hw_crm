@@ -120,7 +120,7 @@ function exportTvaComptable($data)
     $ventesTva = tvaSimulateur::detailVentesTvaCollectee($from, $to, $_SESSION['agence']);
     $achatsTva = tvaSimulateur::detailAchatsTvaDeductible($from, $to, $_SESSION['agence']);
     $ventesToutes = tvaSimulateur::detailVentesAjoutees($from, $to, $_SESSION['agence']);
-    $achatsToutes = charge::findAllByDate($from, $to, $_SESSION['agence']);
+    $achatsToutes = charge::findAllByDate($from, $to, $_SESSION['agence'], true);
 
     $totalCollecteeTTC = array_sum(array_column($ventesTva, 'montant_ttc'));
     $totalCollecteeHT = array_sum(array_column($ventesTva, 'montant_ht'));

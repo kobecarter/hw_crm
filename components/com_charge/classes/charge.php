@@ -647,26 +647,64 @@ class charge
 
     // Toutes les charges de la période, indépendamment de leur déductibilité TVA (contrairement
     // à detailTvaDeductible() ci-dessus) — pour l'export comptable "Tous les achats ajoutés",
-    // vue d'ensemble/traçabilité complète pour le comptable. Filtre sur date_charge, comme
-    // facture::findAll() filtre sur date_facture côté ventes.
-    public static function findAllByDate($from = false, $to = false, $agence = 1)
+    // vue d'ensemble/traçabilité complète pour le comptable. Filtre sur date_charge par défaut
+    // (comme facture::findAll() filtre sur date_facture côté ventes) : c'est ce que
+    // rapprochementMoteur::matcherDebit() attend (une fenêtre de ±5 jours autour de la date de
+    // l'opération bancaire, jamais la date de paiement de la charge elle-même).
+    // $parDatePaiement=true bascule sur date_payment - utilisé par l'export comptable pour
+    // rester cohérent avec detailTvaDeductible() (TVA déductible, elle, toujours basée sur
+    // l'encaissement) : une charge payée dans la période apparaît sur SA date de paiement, même
+    // si elle a été saisie/datée dans une autre période. Une charge pas encore payée (pas de
+    // date_payment) n'a aucune date d'encaissement à suivre : elle reste affichée sur sa date de
+    // charge, sinon elle disparaîtrait purement et simplement de cet onglet censé tout tracer.
+    public static function findAllByDate($from = false, $to = false, $agence = 1, $parDatePaiement = false)
     {
         global $db;
-        $SQLselect = "SELECT A.id, A.titre, A.type, A.date_charge, A.date_payment, A.devise, A.total, A.paid, A.tva_taux, A.tva_deductible, A.remarque, A.photo
-            FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id
-            WHERE B.id = " . GetSQLValueString($agence, "int");
-        if ($_SESSION['user']->isSuperUser() == false) {
-            $SQLselect .= " AND A.id_user = " . intval($_SESSION['user']->getId());
+        $champs = "A.id, A.titre, A.type, A.date_charge, A.date_payment, A.devise, A.total, A.paid, A.tva_taux, A.tva_deductible, A.remarque, A.photo";
+        $filtreUser = $_SESSION['user']->isSuperUser() == false ? " AND A.id_user = " . intval($_SESSION['user']->getId()) : "";
+
+        if (!$parDatePaiement) {
+            $SQLselect = "SELECT $champs FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id
+                WHERE B.id = " . GetSQLValueString($agence, "int") . $filtreUser;
+            if ($from) {
+                $SQLselect .= " AND A.date_charge >= " . GetSQLValueString($from, "date");
+            }
+            if ($to) {
+                $SQLselect .= " AND A.date_charge <= " . GetSQLValueString($to, "date");
+            }
+            $SQLselect .= " ORDER BY A.date_charge ASC";
+
+            return $db->queryS($SQLselect);
         }
+
+        $SQLpayees = "SELECT $champs FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id
+            WHERE B.id = " . GetSQLValueString($agence, "int") . $filtreUser . "
+            AND A.date_payment IS NOT NULL";
         if ($from) {
-            $SQLselect .= " AND A.date_charge >= " . GetSQLValueString($from, "date");
+            $SQLpayees .= " AND A.date_payment >= " . GetSQLValueString($from, "date");
         }
         if ($to) {
-            $SQLselect .= " AND A.date_charge <= " . GetSQLValueString($to, "date");
+            $SQLpayees .= " AND A.date_payment <= " . GetSQLValueString($to, "date");
         }
-        $SQLselect .= " ORDER BY A.date_charge ASC";
 
-        return $db->queryS($SQLselect);
+        $SQLnonPayees = "SELECT $champs FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id
+            WHERE B.id = " . GetSQLValueString($agence, "int") . $filtreUser . "
+            AND A.date_payment IS NULL";
+        if ($from) {
+            $SQLnonPayees .= " AND A.date_charge >= " . GetSQLValueString($from, "date");
+        }
+        if ($to) {
+            $SQLnonPayees .= " AND A.date_charge <= " . GetSQLValueString($to, "date");
+        }
+
+        $lignes = array_merge($db->queryS($SQLpayees), $db->queryS($SQLnonPayees));
+        usort($lignes, function ($ligneA, $ligneB) {
+            $dateA = $ligneA['date_payment'] ?: $ligneA['date_charge'];
+            $dateB = $ligneB['date_payment'] ?: $ligneB['date_charge'];
+            return strcmp($dateA, $dateB);
+        });
+
+        return $lignes;
     }
 
     // Top N charges (regroupées par titre - une même charge récurrente, ex. "Hébergement
