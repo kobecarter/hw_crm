@@ -380,7 +380,11 @@ function exportTvaComptable($data)
     // resoudreJustificatifFichier() dans com_rapprochement/controleurs/rapprochement/controleur.php,
     // qui copie le fichier du relevé dans images/charges/ sous "<nom du relevé><suffixe dédup>.<ext>"
     // quand rien d'autre n'a été fourni) : ceux-là vont dans un dossier "Relevé" séparé du ZIP,
-    // pas mélangés aux vrais justificatifs d'achat.
+    // pas mélangés aux vrais justificatifs d'achat. Plusieurs charges d'un même lot (ex:
+    // "Commissions bancaires" + un bulletin de paie rapproché au même relevé) déclenchent chacune
+    // leur PROPRE copie sur le disque (fichiers distincts, même contenu) - $motifsReleves associe
+    // donc chaque motif au fichier SOURCE d'origine (images/releves/), pour que le ZIP n'embarque
+    // ce relevé qu'UNE SEULE fois, peu importe combien de charges le référencent.
     $motifsReleves = array();
     foreach (releveLot::findAllFichiersSource($_SESSION['agence']) as $fichierSource) {
         $ext = pathinfo($fichierSource, PATHINFO_EXTENSION);
@@ -388,28 +392,29 @@ function exportTvaComptable($data)
         if ($nomBase === '' || $ext === '') {
             continue;
         }
-        $motifsReleves[] = '/^' . preg_quote($nomBase, '/') . '\d*\.' . preg_quote($ext, '/') . '$/i';
+        $motifsReleves['/^' . preg_quote($nomBase, '/') . '\d*\.' . preg_quote($ext, '/') . '$/i'] = $fichierSource;
     }
+    $relevesAAjouter = array();
 
     foreach ($achatsToutes as $l) {
         if (empty($l['photo'])) {
             continue;
         }
 
-        $estCopieReleve = false;
-        foreach ($motifsReleves as $motif) {
+        $fichierSourceReleve = null;
+        foreach ($motifsReleves as $motif => $fichierSource) {
             if (preg_match($motif, $l['photo'])) {
-                $estCopieReleve = true;
+                $fichierSourceReleve = $fichierSource;
                 break;
             }
         }
-        $cheminPhoto = '../../../images/charges/' . $l['photo'];
-        if (!file_exists($cheminPhoto)) {
+        if ($fichierSourceReleve !== null) {
+            $relevesAAjouter[$fichierSourceReleve] = true;
             continue;
         }
 
-        if ($estCopieReleve) {
-            $zip->addFile($cheminPhoto, 'Relevé/' . $l['photo']);
+        $cheminPhoto = '../../../images/charges/' . $l['photo'];
+        if (!file_exists($cheminPhoto)) {
             continue;
         }
 
@@ -420,6 +425,13 @@ function exportTvaComptable($data)
         $titreFichier = trim(str_replace(array('/', '\\', ':', '*', '?', '"', '<', '>', '|'), '-', $l['titre']));
         $nomJustificatif = ($titreFichier !== '' ? $titreFichier : $l['photo']) . ' - ' . $l['id'] . ($extJustificatif !== '' ? '.' . $extJustificatif : '');
         $zip->addFile($cheminPhoto, 'Justificatifs achats/' . $nomJustificatif);
+    }
+
+    foreach (array_keys($relevesAAjouter) as $fichierSource) {
+        $cheminReleve = '../../../images/releves/' . $fichierSource;
+        if (file_exists($cheminReleve)) {
+            $zip->addFile($cheminReleve, 'Relevé/' . $fichierSource);
+        }
     }
 
     $zip->close();
