@@ -32,6 +32,12 @@ if (isset($task) && !empty($task)) {
         case 'annulerCompteCourant':
             annulerCompteCourant($_POST);
             break;
+        case 'annulerVirementFonds':
+            annulerVirementFonds($_POST);
+            break;
+        case 'annulerLocation':
+            annulerLocation($_POST);
+            break;
         case 'annulerIgnorerLigne':
             annulerIgnorerLigne($_POST);
             break;
@@ -1156,6 +1162,123 @@ function creerJustificatifManuel($data, $files)
         return;
     }
 
+    // "Location et charge locative" : une ligne de cette classe peut être soit une dépense (débit
+    // - loyer payé, charges locatives...), soit une entrée d'argent (crédit - remboursement de
+    // dépôt de garantie, sous-location...). Seule la dépense doit aboutir à une charge (nouvelle
+    // ou existante) ; un crédit est juste marqué, jamais transformé en charge (le sens du
+    // mouvement décide ici, pas le mode seul - revérifié côté serveur, pas seulement côté vue).
+    if ($mode === 'location') {
+        if (!$ligne->getDebit()) {
+            // Crédit : comme "Virement de fonds" ci-dessus, aucune charge - juste marquer la ligne.
+            $nomFichierJustificatif = resoudreJustificatifFichier($files, 'justificatif', $ligne);
+
+            $ligne->setIdCharge(null);
+            $ligne->setStatut('location');
+            $ligne->setDonneesMatchingArray(array(
+                'type' => 'location',
+                'titre' => $titre,
+                'remarque' => $remarque,
+                'justificatif' => $nomFichierJustificatif,
+            ));
+            $ligne->setLastEdit(date('Y-m-d H:i:s'));
+            $ligne->edit();
+
+            echo json_encode(array('success' => 1, 'action' => 'location'));
+            return;
+        }
+
+        // Débit : lier à une charge déjà existante plutôt que d'en créer une en doublon, si
+        // demandé (même sécurité anti-réaffectation que pour un bulletin de paie existant - voir
+        // verifierReaffectationCharge() plus haut dans cette fonction).
+        if (isset($data['id_charge_existante']) && !empty($data['id_charge_existante'])) {
+            // findAny() (pas find()) : comme pour un bulletin de paie, la charge choisie peut
+            // légitimement appartenir à une autre agence que celle de $ligne (comptes bancaires
+            // mutualisés, cf. $groupeMaroc).
+            $chargeExistante = charge::findAny(intval($data['id_charge_existante']));
+            if (!$chargeExistante || !$chargeExistante->getId()) {
+                echo json_encode(array('success' => 0, 'message' => 'Charge introuvable'));
+                return;
+            }
+            $conflit = verifierReaffectationCharge($chargeExistante->getId(), $ligne, !empty($data['force_reaffectation']));
+            if ($conflit !== null) {
+                echo json_encode($conflit);
+                return;
+            }
+            if ($remarque !== null) {
+                $chargeExistante->setRemarque($remarque);
+                $chargeExistante->edit();
+            }
+
+            $ligne->setIdCharge($chargeExistante->getId());
+            $ligne->setStatut('matched_charge');
+            $ligne->setLastEdit(date('Y-m-d H:i:s'));
+            $ligne->edit();
+
+            echo json_encode(array('success' => 1, 'action' => 'charge_liee', 'id_charge' => $chargeExistante->getId()));
+            return;
+        }
+
+        // Pas de charge choisie : en créer une nouvelle (même formulaire qu'une charge simple),
+        // type "fixe" (charge récurrente, comme un bulletin de paie) et description dédiée pour la
+        // retrouver facilement dans Gestion des charges.
+        $nomFichierCharge = resoudreJustificatifFichier($files, 'justificatif', $ligne);
+
+        $charge = new charge();
+        $charge->setAgence($ligne->getAgence());
+        $charge->setUser($_SESSION['user']);
+        $charge->setPaidBy($_SESSION['user']);
+        $charge->setType('fixe');
+        $charge->setTitre($titre);
+        $charge->setDescription('Charge créée depuis BANK STATEMENT — Location et charge locative.');
+        $charge->setRemarque($remarque);
+        $charge->setTotal($montant);
+        $charge->setDevise('DH');
+        $charge->setTvaTaux(null);
+        $charge->setTvaDeductible(0);
+        $charge->setPaid(1);
+        $charge->setFacture(0);
+        $charge->setRefunded(0);
+        $charge->setDateCharge($ligne->getDateOperation());
+        $charge->setDatePayment($ligne->getDateOperation());
+        $charge->setModePayment('virement');
+        if ($nomFichierCharge) {
+            $charge->setPhoto($nomFichierCharge);
+        }
+        $charge->setDateAdd(date('Y-m-d H:i:s'));
+        $charge->setLastEdit(date('Y-m-d H:i:s'));
+        $charge->add();
+        $idCharge = charge::getLastId();
+
+        $ligne->setIdCharge($idCharge);
+        $ligne->setStatut('matched_charge');
+        $ligne->setLastEdit(date('Y-m-d H:i:s'));
+        $ligne->edit();
+
+        echo json_encode(array('success' => 1, 'action' => 'charge_creee', 'id_charge' => $idCharge));
+        return;
+    }
+
+    if ($mode === 'virement_fonds') {
+        // Comme "Compte courant" ci-dessus : un virement de fonds n'est volontairement PAS une
+        // charge de l'entreprise (mouvement d'argent, pas une dépense) - on se contente de
+        // marquer la ligne du relevé elle-même, sans toucher à la table charge.
+        $nomFichierJustificatif = resoudreJustificatifFichier($files, 'justificatif', $ligne);
+
+        $ligne->setIdCharge(null);
+        $ligne->setStatut('virement_fonds');
+        $ligne->setDonneesMatchingArray(array(
+            'type' => 'virement_fonds',
+            'titre' => $titre,
+            'remarque' => $remarque,
+            'justificatif' => $nomFichierJustificatif,
+        ));
+        $ligne->setLastEdit(date('Y-m-d H:i:s'));
+        $ligne->edit();
+
+        echo json_encode(array('success' => 1, 'action' => 'virement_fonds'));
+        return;
+    }
+
     // Mode par défaut : charge générique.
     $nomFichierCharge = resoudreJustificatifFichier($files, 'justificatif', $ligne);
 
@@ -1569,6 +1692,66 @@ function annulerCompteCourant($data)
     $ligne = releveLigne::find(intval($data['id']));
     if (!$ligne->getId() || $ligne->getStatut() !== 'compte_courant') {
         echo json_encode(array('success' => 0, 'message' => "Cette ligne n'est pas marquée comme compte courant"));
+        return;
+    }
+
+    $ligne->setIdCharge(null);
+    $ligne->setStatut('sans_justificatif');
+    $ligne->setDonneesMatchingArray(array());
+    $ligne->setLastEdit(date('Y-m-d H:i:s'));
+    $ligne->edit();
+
+    echo json_encode(array('success' => 1));
+}
+
+// Annule le marquage "Virement de fonds" d'une ligne - même principe que annulerCompteCourant()
+// ci-dessus : aucune charge n'a été créée par ce mode, rien à supprimer ailleurs.
+function annulerVirementFonds($data)
+{
+    header('Content-Type: application/json');
+    if (!$_SESSION['user']->hasDroit('edit', 'com_rapprochement')) {
+        echo json_encode(array('success' => 0, 'message' => 'Accès refusé'));
+        return;
+    }
+    if (!isset($data['id']) || empty($data['id'])) {
+        echo json_encode(array('success' => 0, 'message' => 'Ligne manquante'));
+        return;
+    }
+
+    $ligne = releveLigne::find(intval($data['id']));
+    if (!$ligne->getId() || $ligne->getStatut() !== 'virement_fonds') {
+        echo json_encode(array('success' => 0, 'message' => "Cette ligne n'est pas marquée comme virement de fonds"));
+        return;
+    }
+
+    $ligne->setIdCharge(null);
+    $ligne->setStatut('sans_justificatif');
+    $ligne->setDonneesMatchingArray(array());
+    $ligne->setLastEdit(date('Y-m-d H:i:s'));
+    $ligne->edit();
+
+    echo json_encode(array('success' => 1));
+}
+
+// Annule le marquage "Location et charge locative" d'un CRÉDIT - même principe que
+// annulerVirementFonds()/annulerCompteCourant() ci-dessus : aucune charge n'a été créée par ce
+// cas précis (un débit "location" passe, lui, par matched_charge et se défait via
+// annulerMarquageCharge()/annulerRapprochementFacture() comme n'importe quelle autre charge).
+function annulerLocation($data)
+{
+    header('Content-Type: application/json');
+    if (!$_SESSION['user']->hasDroit('edit', 'com_rapprochement')) {
+        echo json_encode(array('success' => 0, 'message' => 'Accès refusé'));
+        return;
+    }
+    if (!isset($data['id']) || empty($data['id'])) {
+        echo json_encode(array('success' => 0, 'message' => 'Ligne manquante'));
+        return;
+    }
+
+    $ligne = releveLigne::find(intval($data['id']));
+    if (!$ligne->getId() || $ligne->getStatut() !== 'location') {
+        echo json_encode(array('success' => 0, 'message' => "Cette ligne n'est pas marquée comme location et charge locative"));
         return;
     }
 

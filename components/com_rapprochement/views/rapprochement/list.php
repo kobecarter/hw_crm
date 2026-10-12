@@ -15,7 +15,7 @@
 		</div>
 
 		<?php
-		$compteursGlobal = array('matched_facture' => 0, 'matched_charge' => 0, 'matched_tva' => 0, 'compte_courant' => 0, 'a_valider' => 0, 'sans_justificatif' => 0, 'ignore' => 0);
+		$compteursGlobal = array('matched_facture' => 0, 'matched_charge' => 0, 'matched_tva' => 0, 'compte_courant' => 0, 'virement_fonds' => 0, 'location' => 0, 'a_valider' => 0, 'sans_justificatif' => 0, 'ignore' => 0);
 		$nbLotsAJour = 0;
 		foreach ($lotsData as $ld) {
 			foreach ($ld['compteurs'] as $statut => $nb) {
@@ -25,7 +25,7 @@
 				$nbLotsAJour++;
 			}
 		}
-		$nbRapprocheesGlobal = $compteursGlobal['matched_facture'] + $compteursGlobal['matched_charge'] + $compteursGlobal['matched_tva'] + $compteursGlobal['compte_courant'];
+		$nbRapprocheesGlobal = $compteursGlobal['matched_facture'] + $compteursGlobal['matched_charge'] + $compteursGlobal['matched_tva'] + $compteursGlobal['compte_courant'] + $compteursGlobal['virement_fonds'] + $compteursGlobal['location'];
 		?>
 
 		<div class="row mb-4">
@@ -161,7 +161,7 @@
 					$lot = $ld['lot'];
 					$compteurs = $ld['compteurs'];
 					$lignesLot = $ld['lignes'];
-					$nbRapprocheesLot = $compteurs['matched_facture'] + $compteurs['matched_charge'] + $compteurs['matched_tva'] + (isset($compteurs['compte_courant']) ? $compteurs['compte_courant'] : 0);
+					$nbRapprocheesLot = $compteurs['matched_facture'] + $compteurs['matched_charge'] + $compteurs['matched_tva'] + (isset($compteurs['compte_courant']) ? $compteurs['compte_courant'] : 0) + (isset($compteurs['virement_fonds']) ? $compteurs['virement_fonds'] : 0) + (isset($compteurs['location']) ? $compteurs['location'] : 0);
 					$bankLot = $lot->getBank();
 					$nomCompteLot = $bankLot ? ($bankLot->getLabel() !== null && $bankLot->getLabel() !== '' ? $bankLot->getLabel() : ($bankLot->getRaisonSociale() !== null && $bankLot->getRaisonSociale() !== '' ? $bankLot->getRaisonSociale() : $bankLot->getBanque())) : '—';
 					// Replié même s'il vient d'être importé si l'utilisateur a répondu "Non" à la
@@ -360,6 +360,15 @@
 													<!-- Aucune charge n'a été créée par ce marquage (voir annulerCompteCourant() côté
 													     contrôleur) - annuler ne fait que remettre la ligne à "sans justificatif". -->
 													<button type="button" class="btn btn-white btn-sm rapprochement-annuler-compte-courant" data-toggle="tooltip" title="Annuler ce marquage"><i class="fa fa-undo text-danger"></i></button>
+												<?php elseif ($l->getStatut() === 'virement_fonds') :?>
+													<!-- Aucune charge n'a été créée par ce marquage (voir annulerVirementFonds() côté
+													     contrôleur) - annuler ne fait que remettre la ligne à "sans justificatif". -->
+													<button type="button" class="btn btn-white btn-sm rapprochement-annuler-virement-fonds" data-toggle="tooltip" title="Annuler ce marquage"><i class="fa fa-undo text-danger"></i></button>
+												<?php elseif ($l->getStatut() === 'location') :?>
+													<!-- Un crédit "Location et charge locative" (voir annulerLocation() côté contrôleur) -
+													     aucune charge n'a été créée pour CE statut (un débit "location" passe par
+													     matched_charge, géré par le cas juste au-dessus). -->
+													<button type="button" class="btn btn-white btn-sm rapprochement-annuler-location" data-toggle="tooltip" title="Annuler ce marquage"><i class="fa fa-undo text-danger"></i></button>
 												<?php elseif ($l->getStatut() === 'ignore') :?>
 													<!-- Rien n'a été créé par ignorerLigne() - annuler ne fait que remettre la ligne au
 													     statut qu'elle avait juste avant d'être ignorée (voir annulerIgnorerLigne() côté
@@ -389,6 +398,15 @@
 														break;
 													case 'compte_courant':
 														echo '<span class="badge bg-success-light"><i class="fa fa-wallet mr-1"></i>Compte courant' . (isset($infos['nom_compte_perso']) ? ' — ' . htmlspecialchars($infos['nom_compte_perso']) : '') . '</span>';
+														break;
+													case 'virement_fonds':
+														echo '<span class="badge bg-success-light"><i class="fa fa-exchange-alt mr-1"></i>Virement de fonds' . (isset($infos['titre']) && $infos['titre'] !== '' ? ' — ' . htmlspecialchars($infos['titre']) : '') . '</span>';
+														break;
+													case 'location':
+														// Un crédit "Location et charge locative" sans charge (voir annulerLocation()) - un
+														// débit de cette même classe passe par "matched_charge" (badge "Charge créée"
+														// ci-dessus), jamais par ce statut.
+														echo '<span class="badge bg-success-light"><i class="fa fa-building mr-1"></i>Location et charge locative' . (isset($infos['titre']) && $infos['titre'] !== '' ? ' — ' . htmlspecialchars($infos['titre']) : '') . '</span>';
 														break;
 													case 'sans_justificatif':
 														// Historiquement toujours un débit - concerneCompteCourant() (ci-dessus) peut
@@ -501,6 +519,14 @@
 						<input type="radio" name="justificatifMode" value="compte_courant">
 						<span><i class="fa fa-wallet mr-1"></i>Compte courant</span>
 					</label>
+					<label class="justificatif-mode-item">
+						<input type="radio" name="justificatifMode" value="location">
+						<span><i class="fa fa-building mr-1"></i>Location et charge locative</span>
+					</label>
+					<label class="justificatif-mode-item">
+						<input type="radio" name="justificatifMode" value="virement_fonds">
+						<span><i class="fa fa-exchange-alt mr-1"></i>Virement de fonds</span>
+					</label>
 				</div>
 
 				<div id="justificatifSuggestionEmploye" class="alert alert-info d-none" style="font-size:0.82rem;"></div>
@@ -561,6 +587,39 @@
 					<div class="form-group">
 						<label>Titre de la charge (optionnel)</label>
 						<input type="text" class="form-control" id="justificatifTitreFournisseur">
+					</div>
+				</div>
+
+				<div id="justificatifZoneLocation" class="d-none">
+					<!-- Entrée d'argent (crédit) sur cette classe : jamais une charge, juste marquer la ligne
+					     (comme "Virement de fonds") - voir justificatifAfficherMode() qui bascule entre les
+					     deux sous-zones ci-dessous selon le sens du mouvement de LA LIGNE COURANTE. -->
+					<div id="justificatifLocationZoneCredit" class="alert alert-info d-none" style="font-size:0.82rem;">
+						<i class="fa fa-info-circle mr-1"></i>Il s'agit d'une entrée d'argent : aucune charge ne sera créée ni liée, la ligne sera simplement marquée "Location et charge locative".
+					</div>
+					<div id="justificatifLocationZoneDebit">
+						<div class="form-group">
+							<label>Charge</label>
+							<select class="form-control" id="justificatifLocationChargeExistante">
+								<option value="">— Créer une nouvelle charge —</option>
+								<optgroup label="Charges disponibles">
+									<?php foreach ($chargesDisponibles as $c) :?>
+									<option value="<?= $c->getId() ?>"><?= htmlspecialchars($c->getTitre()) ?> — <?= $c->getDateCharge() ? date('d/m/Y', strtotime($c->getDateCharge())) : '' ?> (<?= number_format($c->getTotal(), 2, ',', ' ') ?> <?= htmlspecialchars($c->getDevise()) ?>)</option>
+									<?php endforeach;?>
+								</optgroup>
+								<?php if (!empty($chargesDejaAffectees)) :?>
+								<optgroup label="⚠ Charges déjà affectées (réaffectation possible)">
+									<?php foreach ($chargesDejaAffectees as $c) :?>
+									<option value="<?= $c->getId() ?>">⚠ <?= htmlspecialchars($c->getTitre()) ?> — <?= $c->getDateCharge() ? date('d/m/Y', strtotime($c->getDateCharge())) : '' ?> (<?= number_format($c->getTotal(), 2, ',', ' ') ?> <?= htmlspecialchars($c->getDevise()) ?>)</option>
+									<?php endforeach;?>
+								</optgroup>
+								<?php endif;?>
+							</select>
+						</div>
+						<div id="justificatifLocationNouvelleZone" class="form-group">
+							<label>Titre de la charge</label>
+							<input type="text" class="form-control" id="justificatifLocationTitre">
+						</div>
 					</div>
 				</div>
 
@@ -1652,6 +1711,48 @@ $(function () {
 		);
 	});
 
+	// "Annuler ce marquage" (ligne "Virement de fonds") : même principe que
+	// .rapprochement-annuler-compte-courant ci-dessus - aucune charge créée, rien d'autre à
+	// nettoyer que la ligne elle-même.
+	$(document).on('click', '.rapprochement-annuler-virement-fonds', function () {
+		var $tr = $(this).closest('tr');
+		var id = $tr.data('id');
+		var libelle = $tr.data('libelle');
+		demanderAnnulationRapprochement(
+			'La ligne <strong>' + escHtml(libelle) + '</strong> redeviendra "sans justificatif".',
+			function () {
+				$.post('components/com_rapprochement/controleurs/router.php?task=annulerVirementFonds', { id: id }, function (response) {
+					if (response.success) {
+						window.location.reload();
+					} else {
+						afficherAlerteRapprochement(response.message || "Erreur lors de l'annulation");
+					}
+				});
+			}
+		);
+	});
+
+	// "Annuler ce marquage" (ligne "Location et charge locative", crédit) : même principe que
+	// .rapprochement-annuler-virement-fonds ci-dessus - aucune charge créée pour ce statut, rien
+	// d'autre à nettoyer que la ligne elle-même.
+	$(document).on('click', '.rapprochement-annuler-location', function () {
+		var $tr = $(this).closest('tr');
+		var id = $tr.data('id');
+		var libelle = $tr.data('libelle');
+		demanderAnnulationRapprochement(
+			'La ligne <strong>' + escHtml(libelle) + '</strong> redeviendra "sans justificatif".',
+			function () {
+				$.post('components/com_rapprochement/controleurs/router.php?task=annulerLocation', { id: id }, function (response) {
+					if (response.success) {
+						window.location.reload();
+					} else {
+						afficherAlerteRapprochement(response.message || "Erreur lors de l'annulation");
+					}
+				});
+			}
+		);
+	});
+
 	// "Modifier la charge affectée" : ouvre le formulaire com_charge en popup sur place plutôt que
 	// de rediriger vers le module Charges - fetch le fragment (form.php seul, sans le chrome de
 	// page) puis ré-initialise les widgets (Select2, datetimepicker, tooltips) qui ne s'appliquent
@@ -1980,16 +2081,56 @@ $(function () {
 
 	// ---- Justificatif manuel : charge simple / bulletin de paie / fournisseur -------------
 	var justificatifLigneCourante = null;
+	// Sens du mouvement de la ligne courante (débit/dépense vs crédit/entrée d'argent) - décide,
+	// pour la classe "Location et charge locative", si on propose créer/lier une charge (dépense)
+	// ou si on marque juste la ligne sans rien ajouter (entrée d'argent). Calculé à l'ouverture du
+	// popup (voir .rapprochement-justificatif-manuel ci-dessous), pas par mode.
+	var justificatifLigneEstCredit = false;
 
 	function justificatifAfficherMode(mode) {
-		$('#justificatifZoneCharge').toggleClass('d-none', mode !== 'charge');
+		// "virement_fonds" partage la même zone que "charge" (un simple titre) - seul le type de
+		// charge créée côté serveur diffère entre ces deux modes. "location" a sa propre zone
+		// (voir justificatifAfficherSousZoneLocation()) car elle doit en plus proposer de lier une
+		// charge déjà existante, ou de ne rien ajouter du tout si la ligne est un crédit.
+		$('#justificatifZoneCharge').toggleClass('d-none', mode !== 'charge' && mode !== 'virement_fonds');
 		$('#justificatifZonePayslip').toggleClass('d-none', mode !== 'payslip');
 		$('#justificatifZoneFournisseur').toggleClass('d-none', mode !== 'fournisseur');
+		$('#justificatifZoneLocation').toggleClass('d-none', mode !== 'location');
 		$('#justificatifZoneCompteCourant').toggleClass('d-none', mode !== 'compte_courant');
+		if (mode === 'location') {
+			justificatifAfficherSousZoneLocation();
+		}
 		$('.justificatif-mode-item').each(function () {
 			$(this).toggleClass('active', $(this).find('input').val() === mode);
 		});
 	}
+
+	// Classe "Location et charge locative" : bascule entre "rien à ajouter" (crédit) et
+	// "créer/lier une charge" (débit) - et, dans ce second cas, entre créer une nouvelle charge ou
+	// lier une charge déjà existante (même mécanique que les bulletins de paie, voir
+	// justificatifBasculerVersNouveauBulletin()).
+	function justificatifAfficherSousZoneLocation() {
+		$('#justificatifLocationZoneCredit').toggleClass('d-none', !justificatifLigneEstCredit);
+		$('#justificatifLocationZoneDebit').toggleClass('d-none', justificatifLigneEstCredit);
+		if (justificatifLigneEstCredit) {
+			$('#justificatifMontant').closest('.form-group').addClass('d-none');
+			$('#justificatifFichier').closest('.form-group').addClass('d-none');
+			$('#justificatifConfirmerBtn').html('<i class="fa fa-check mr-1"></i> Marquer la ligne');
+		} else {
+			justificatifBasculerVersNouvelleChargeLocation($('#justificatifLocationChargeExistante').val() === '');
+		}
+	}
+
+	function justificatifBasculerVersNouvelleChargeLocation(estNouvelle) {
+		$('#justificatifLocationNouvelleZone').toggleClass('d-none', !estNouvelle);
+		$('#justificatifMontant').closest('.form-group').toggleClass('d-none', !estNouvelle);
+		$('#justificatifFichier').closest('.form-group').toggleClass('d-none', !estNouvelle);
+		$('#justificatifConfirmerBtn').html(estNouvelle ? '<i class="fa fa-check mr-1"></i> Créer la charge' : '<i class="fa fa-check mr-1"></i> Lier cette charge');
+	}
+
+	$(document).on('change', '#justificatifLocationChargeExistante', function () {
+		justificatifBasculerVersNouvelleChargeLocation($(this).val() === '');
+	});
 
 	$(document).on('change', 'input[name=justificatifMode]', function () {
 		justificatifAfficherMode($(this).val());
@@ -2052,8 +2193,12 @@ $(function () {
 		var credit = $tr.data('credit');
 		var dateOperation = $tr.find('td').first().text();
 
+		justificatifLigneEstCredit = !parseFloat(debit);
+
 		$('#justificatifTitre').val(libelle);
 		$('#justificatifTitreFournisseur').val('');
+		$('#justificatifLocationTitre').val(libelle);
+		$('#justificatifLocationChargeExistante').val('');
 		$('#justificatifMontant').val(debit || credit);
 		$('#justificatifFichier').val('');
 		$('#justificatifResourcehumaine').val('');
@@ -2133,6 +2278,17 @@ $(function () {
 			formData.append('titre', $('#justificatifTitreFournisseur').val());
 		} else if (mode === 'compte_courant') {
 			formData.append('id_bank_perso', $('#justificatifCompteCourant').val());
+		} else if (mode === 'location') {
+			// Crédit (entrée d'argent) : rien de plus à envoyer, le serveur marque la ligne sans
+			// créer ni lier de charge (voir justificatifLigneEstCredit).
+			if (!justificatifLigneEstCredit) {
+				var idChargeExistanteLocation = $('#justificatifLocationChargeExistante').val();
+				if (idChargeExistanteLocation) {
+					formData.append('id_charge_existante', idChargeExistanteLocation);
+				} else {
+					formData.append('titre', $('#justificatifLocationTitre').val());
+				}
+			}
 		} else {
 			formData.append('titre', $('#justificatifTitre').val());
 		}
