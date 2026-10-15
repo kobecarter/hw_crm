@@ -169,23 +169,34 @@ function filterFournisseur($data)
 
 		$fournisseurs = fournisseur::filterFournisseur($year,$_SESSION['agence']);
 		$messageVideGrille = 'Aucun fournisseur pour cette année.';
+		// Même totaux que list.php (voir charge::totauxParFournisseur()) - _card.php (via
+		// _grid.php) les attend dans le scope de l'appelant.
+		$totauxFournisseurs = charge::totauxParFournisseur();
 		include __DIR__ . '/../../views/fournisseur/_grid.php';
 	}
 }
 
+// Export comptable fournisseurs : pour chaque fournisseur de l'année choisie, les charges
+// (achats) qui lui sont associées via fournisseurs_ids (cf. charge::findAllByFournisseur() -
+// seule relation réelle entre une charge et un fournisseur dans cette base, cf. le formulaire
+// "Gestion des charges" > "Fournisseur(s)"). Appelait auparavant facture::count()/
+// facture::facturePerYearFournisseur() avec l'id du FOURNISSEUR passé comme si c'était un id de
+// CLIENT (même paramètre, deux id-spaces sans rapport) et une méthode facturePerYearFournisseur()
+// qui n'existe nulle part dans la base de code - l'export plantait systématiquement avec une
+// erreur fatale dès qu'il était utilisé.
 function exportFournisseur($data){
-	
+
 		$year = isset($data['year']) ? intval($data['year']) : false;
 		$fournisseurs = fournisseur::filterFournisseur($year,$_SESSION['agence']);
 		$rows = array();
-	
+
 		// header
 		$header = array(
 			'Année' => 'Année',
 			'Fournisseur' => 'Fournisseur',
-			'Prestation' => 'Prestation',
-			'Facture Payée' => 'Facture Payée',
-			'Facture Impayée' => 'Facture Impayée',
+			'Achats / Prestations' => 'Achats / Prestations',
+			'Charge Payée' => 'Charge Payée',
+			'Charge Impayée' => 'Charge Impayée',
 			'Remarque' => 'Remarque',
 		);
 		array_push($rows,$header);
@@ -194,25 +205,24 @@ function exportFournisseur($data){
 
 		foreach($fournisseurs as $fournisseur){
 			$nomFournisseur = $fournisseur->getRaisonSocial() != '' ? $fournisseur->getRaisonSocial() : $fournisseur->getNom() . ' ' . $fournisseur->getPrenom();
-			$nbrFacture = facture::count(1, $year, $fournisseur->getId());
-			$nbrFactureImp = facture::count(0, $year, $fournisseur->getId()) + facture::count(2, $year, $fournisseur->getId());
-			
-			$factures = facture::facturePerYearFournisseur(false, $year, $fournisseur->getId());
-			
-			$prestations = '';
-			foreach($factures as $facture){
-				$items = $facture->getItems();
+			$chargesFournisseur = charge::findAllByFournisseur($fournisseur->getId(), $year, $_SESSION['agence']);
 
-				foreach($items as $item){
-					//echo utf8_decode($item->getTitre()).'****';
-					$prestations .= ($item->getTitre()).' *_*_*_* ';
+			$nbrCharge = 0;
+			$nbrChargeImp = 0;
+			$prestations = '';
+			foreach($chargesFournisseur as $chargeFournisseur){
+				if ($chargeFournisseur->isPaid()) {
+					$nbrCharge++;
+				} else {
+					$nbrChargeImp++;
 				}
+				$prestations .= $chargeFournisseur->getTitre().' *_*_*_* ';
 			}
 			$row['Année'] = $year;
 			$row['Fournisseur'] = $nomFournisseur;
-			$row['Prestation'] = $prestations;
-			$row['Facture Payée'] = $nbrFacture;
-			$row['Facture Impayée'] = $nbrFactureImp;
+			$row['Achats / Prestations'] = $prestations;
+			$row['Charge Payée'] = $nbrCharge;
+			$row['Charge Impayée'] = $nbrChargeImp;
 			$row['Remarque'] = "";
 			array_push($rows,$row);
 		}

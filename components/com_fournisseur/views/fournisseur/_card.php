@@ -15,6 +15,10 @@ $categorieId = $fournisseur->getCategorie();
 $categoriesLabelsCard = getCategorieFournisseur();
 $categorieLabel = isset($categoriesLabelsCard[$categorieId]) ? $categoriesLabelsCard[$categorieId] : null;
 $categorieIcone = getCategorieFournisseurIcone($categorieId);
+// Chiffre d'affaires total réalisé avec ce fournisseur (charges payées liées via fournisseurs_ids,
+// cf. charge::totauxParFournisseur()) - absent de la grille si jamais calculé en amont, d'où le
+// isset() plutôt qu'un accès direct.
+$totalChiffreAffaire = isset($totauxFournisseurs[$fournisseur->getId()]) ? $totauxFournisseurs[$fournisseur->getId()] : 0;
 $docLink = $fournisseur->getDoc() != '' ? 'images/fournisseurs/' . $fournisseur->getDoc() : '';
 $actif = $fournisseur->isActive();
 $recherche = mb_strtolower(trim($nomAffiche . ' ' . $sousNom . ' ' . $fournisseur->getEmail() . ' ' . $fournisseur->getTel()), 'UTF-8');
@@ -51,6 +55,9 @@ $recherche = mb_strtolower(trim($nomAffiche . ' ' . $sousNom . ' ' . $fournisseu
 				<?php endif;?>
 				<?php if ($fournisseur->isValide()) :?>
 				<span class="fournisseur-card-badge-valide" data-toggle="tooltip" title="Fournisseur validé"><i class="fa fa-check-circle"></i></span>
+				<?php endif;?>
+				<?php if ($totalChiffreAffaire > 0) :?>
+				<span class="fournisseur-card-badge-ca" data-toggle="tooltip" title="Chiffre d'affaires total réalisé avec ce fournisseur"><i class="fa fa-coins"></i> <?= number_format($totalChiffreAffaire, 2, ',', ' ') ?> DH</span>
 				<?php endif;?>
 			</div>
 

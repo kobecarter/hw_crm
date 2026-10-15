@@ -98,6 +98,58 @@ class charge
         return $items;
     }
 
+    // Chiffre d'affaires total par fournisseur (somme, en DH-équivalent, des charges PAYÉES qui
+    // lui sont associées via fournisseurs_ids - mêmes filtre/conversion que getCharge()/
+    // topCharges() ci-dessous, pour rester cohérent avec les autres totaux de l'app) - alimente la
+    // carte fournisseur (com_fournisseur). Une seule requête groupée pour toute la page plutôt
+    // qu'une par carte : fournisseurs_ids est un JSON (pas de table pivot, cf. getFournisseursIds()
+    // ci-dessus), décodé ici en PHP faute de pouvoir filtrer ça proprement en SQL.
+    // Charges liées à un fournisseur (via fournisseurs_ids) pour une année donnée - utilisé par
+    // l'export comptable fournisseurs (com_fournisseur, exportFournisseur()). Le filtre JSON ne
+    // peut pas se faire proprement en SQL (cf. totauxParFournisseur() ci-dessus) : l'agence/année
+    // sont filtrées en SQL, l'id exact du fournisseur en PHP.
+    public static function findAllByFournisseur($idFournisseur, $year = false, $agence = 1)
+    {
+        global $db;
+        $items = array();
+        $SQLselect = "SELECT A.id as ID, A.*, B.* FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id
+            WHERE B.id = " . GetSQLValueString($agence, "int") . "
+            AND A.fournisseurs_ids IS NOT NULL AND A.fournisseurs_ids != '' AND A.fournisseurs_ids != 'null'";
+        if ($year) {
+            $SQLselect .= " AND YEAR(A.date_charge) = " . intval($year);
+        }
+        $SQLselect .= " ORDER BY A.date_charge DESC";
+
+        foreach ($db->queryS($SQLselect) as $data) {
+            $ids = array_map('intval', (array) json_decode($data['fournisseurs_ids'], true));
+            if (!in_array((int) $idFournisseur, $ids, true)) {
+                continue;
+            }
+            $items[] = static::build($data);
+        }
+        return $items;
+    }
+
+    public static function totauxParFournisseur()
+    {
+        global $db;
+        $totaux = array();
+        $SQLselect = "SELECT fournisseurs_ids, total, devise FROM " . static::$table . "
+            WHERE paid = 1 AND fournisseurs_ids IS NOT NULL AND fournisseurs_ids != '' AND fournisseurs_ids != 'null'";
+        foreach ($db->queryS($SQLselect) as $row) {
+            $ids = json_decode($row['fournisseurs_ids'], true);
+            if (!is_array($ids)) {
+                continue;
+            }
+            $montantDH = (float) $row['total'] * tauxConversionDH($row['devise']);
+            foreach ($ids as $idFournisseur) {
+                $idFournisseur = (int) $idFournisseur;
+                $totaux[$idFournisseur] = (isset($totaux[$idFournisseur]) ? $totaux[$idFournisseur] : 0) + $montantDH;
+            }
+        }
+        return $totaux;
+    }
+
     public function getTitre()
     {
         return $this->titre;

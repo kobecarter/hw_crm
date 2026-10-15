@@ -30,6 +30,9 @@
 		// $fournisseurs est calculé une seule fois ici et réutilisé par la grille de cartes et les
 		// KPI/puces de catégorie, sans requête SQL supplémentaire.
 		$fournisseurs = fournisseur::findAll();
+		// Chiffre d'affaires total par fournisseur (voir charge::totauxParFournisseur()) - une
+		// seule requête groupée pour toute la grille, lue par chaque carte (_card.php).
+		$totauxFournisseurs = charge::totauxParFournisseur();
 
 		$nbTotal = count($fournisseurs);
 		$nbActifs = 0;
