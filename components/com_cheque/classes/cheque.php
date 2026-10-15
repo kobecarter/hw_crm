@@ -7,14 +7,19 @@ class cheque
 
     private $id;
     private $agence;
+    private $type;
+    private $tiers_type;
+    private $client;
+    private $fournisseur;
     private $check_number;
     private $file;
     private $date;
-	private $beneficiary;
+    private $date_encaissement;
+    private $beneficiary;
     private $amount;
     private $currency;
     private $status;
-	private $reason;
+    private $reason;
     private $comment;
     private $date_add;
     private $last_edit;
@@ -33,7 +38,46 @@ class cheque
     {
         return $this->agence;
     }
-    
+
+    // 'entrant' (chèque reçu) ou 'sortant' (chèque émis).
+    public function getType()
+    {
+        return $this->type;
+    }
+
+    // 'client' ou 'fournisseur' - décide laquelle de getClient()/getFournisseur() est
+    // renseignée ; l'autre reste un objet vide (id=0), jamais null, même convention que le
+    // reste de l'app (ex: facture::getClient()).
+    public function getTiersType()
+    {
+        return $this->tiers_type;
+    }
+
+    public function getClient()
+    {
+        return $this->client;
+    }
+
+    public function getFournisseur()
+    {
+        return $this->fournisseur;
+    }
+
+    // Nom du tiers (client ou fournisseur selon getTiersType()) pour l'affichage - centralisé ici
+    // pour ne jamais avoir à répéter cette logique raison_social/nom+prénom côté vue.
+    public function getNomTiers()
+    {
+        if ($this->tiers_type === 'fournisseur' && $this->fournisseur && $this->fournisseur->getId()) {
+            $f = $this->fournisseur;
+            return trim((string) $f->getRaisonSocial()) !== '' ? $f->getRaisonSocial() : trim($f->getPrenom() . ' ' . $f->getNom());
+        }
+        if ($this->tiers_type === 'client' && $this->client && $this->client->getId()) {
+            $c = $this->client;
+            return trim((string) $c->getRaisonSocial()) !== '' ? $c->getRaisonSocial() : trim($c->getPrenom() . ' ' . $c->getNom());
+        }
+        return trim((string) $this->beneficiary);
+    }
+
     public function getCheckNumber()
     {
         return $this->check_number;
@@ -43,10 +87,18 @@ class cheque
     {
         return $this->file;
     }
-	
-	public function getDate()
+
+    // Date d'émission du chèque.
+    public function getDate()
     {
         return $this->date;
+    }
+
+    // Date d'encaissement prévue/effective - c'est sur cette date que se basent les rappels
+    // (voir getAlertesUrgentes() dans includes/functions/functions.php).
+    public function getDateEncaissement()
+    {
+        return $this->date_encaissement;
     }
 
     public function getBeneficiary()
@@ -63,8 +115,8 @@ class cheque
     {
         return $this->currency;
     }
-	
-	public function getStatus()
+
+    public function getStatus()
     {
         return $this->status;
     }
@@ -73,8 +125,8 @@ class cheque
     {
         return $this->reason;
     }
-	
-	public function getComment()
+
+    public function getComment()
     {
         return $this->comment;
     }
@@ -89,6 +141,27 @@ class cheque
         return $this->last_edit;
     }
 
+    // Jours restants avant la date d'encaissement (négatif = déjà dépassée) - même convention que
+    // rappel::getDaysLeft()/facture::getDaysLeft(), pour alimenter le même type d'alerte "Expire
+    // dans X jour(s)" / "En retard de X jour(s)".
+    public function getDaysLeft()
+    {
+        if (!$this->date_encaissement) {
+            return null;
+        }
+        $from = new DateTime();
+        $to = new DateTime($this->date_encaissement);
+        $interval = $from->diff($to);
+        return (int) $interval->format('%r%a');
+    }
+
+    // Un chèque encaissé/rejeté/annulé n'a plus besoin de rappel - seul "Pas encore" reste
+    // activement suivi (voir getAlertesUrgentes()).
+    public function estEnAttente()
+    {
+        return $this->status === 'Pas encore';
+    }
+
     public function setId($id)
     {
         $this->id = $id;
@@ -98,7 +171,27 @@ class cheque
     {
         $this->agence = $agence;
     }
-    
+
+    public function setType($type)
+    {
+        $this->type = $type;
+    }
+
+    public function setTiersType($tiers_type)
+    {
+        $this->tiers_type = $tiers_type;
+    }
+
+    public function setClient($client)
+    {
+        $this->client = $client;
+    }
+
+    public function setFournisseur($fournisseur)
+    {
+        $this->fournisseur = $fournisseur;
+    }
+
     public function setCheckNumber($check_number)
     {
         $this->check_number = $check_number;
@@ -108,10 +201,15 @@ class cheque
     {
         $this->file = $file;
     }
-	
-	public function setDate($date)
+
+    public function setDate($date)
     {
         $this->date = $date;
+    }
+
+    public function setDateEncaissement($date_encaissement)
+    {
+        $this->date_encaissement = $date_encaissement;
     }
 
     public function setBeneficiary($beneficiary)
@@ -128,8 +226,8 @@ class cheque
     {
         $this->currency = $currency;
     }
-	
-	public function setStatus($status)
+
+    public function setStatus($status)
     {
         $this->status = $status;
     }
@@ -138,8 +236,8 @@ class cheque
     {
         $this->reason = $reason;
     }
-	
-	public function setComment($comment)
+
+    public function setComment($comment)
     {
         $this->comment = $comment;
     }
@@ -157,22 +255,33 @@ class cheque
     public function add()
     {
         global $db;
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence,check_number,file,date, beneficiary, amount, status, reason, comment, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        // "currency" manquait de la liste de colonnes ci-dessous (toujours la bonne liste de
+        // VALUES en revanche) : chaque valeur à partir de currency se retrouvait décalée d'une
+        // colonne (currency -> status, status -> reason, reason -> comment, comment -> date_add),
+        // et last_edit n'était jamais écrit du tout. Corrigé ici - voir le chèque #1 existant,
+        // dont status/reason/comment restent décalés depuis sa création (laissé tel quel, pas
+        // corrigé silencieusement : une donnée réelle, pas une donnée de test).
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence, type, tiers_type, id_client, id_fournisseur, check_number, file, date, date_encaissement, beneficiary, amount, currency, status, reason, comment, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->agence->getId(), "int"),
+            GetSQLValueString($this->type, "text"),
+            GetSQLValueString($this->tiers_type, "text"),
+            GetSQLValueString($this->tiers_type === 'client' && $this->client ? $this->client->getId() : null, "int"),
+            GetSQLValueString($this->tiers_type === 'fournisseur' && $this->fournisseur ? $this->fournisseur->getId() : null, "int"),
             GetSQLValueString($this->check_number, "text"),
-			GetSQLValueString($this->file, "text"),				 
+            GetSQLValueString($this->file, "text"),
             GetSQLValueString($this->date, "date"),
+            GetSQLValueString($this->date_encaissement, "date"),
             GetSQLValueString($this->beneficiary, "text"),
-			GetSQLValueString($this->amount, "double"),	
-            GetSQLValueString($this->currency, "text"),				 
-			GetSQLValueString($this->status, "text"),
-			GetSQLValueString($this->reason, "text"),
-			GetSQLValueString($this->comment, "text"),					 
+            GetSQLValueString($this->amount, "double"),
+            GetSQLValueString($this->currency, "text"),
+            GetSQLValueString($this->status, "text"),
+            GetSQLValueString($this->reason, "text"),
+            GetSQLValueString($this->comment, "text"),
             GetSQLValueString($this->date_add, "date"),
             GetSQLValueString($this->last_edit, "date")
         );
         if (!$db->query($SQLinsert)) {
-			return 1;
+            return 1;
         } else {
             return 2;
         }
@@ -181,22 +290,27 @@ class cheque
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET id_agence = %s, check_number = %s, file = %s, date = %s, beneficiary = %s, amount = %s, currency = %s, status = %s, reason = %s, comment = %s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET id_agence = %s, type = %s, tiers_type = %s, id_client = %s, id_fournisseur = %s, check_number = %s, file = %s, date = %s, date_encaissement = %s, beneficiary = %s, amount = %s, currency = %s, status = %s, reason = %s, comment = %s, last_edit = %s WHERE id = %s",
             GetSQLValueString($this->agence->getId(), "int"),
+            GetSQLValueString($this->type, "text"),
+            GetSQLValueString($this->tiers_type, "text"),
+            GetSQLValueString($this->tiers_type === 'client' && $this->client ? $this->client->getId() : null, "int"),
+            GetSQLValueString($this->tiers_type === 'fournisseur' && $this->fournisseur ? $this->fournisseur->getId() : null, "int"),
             GetSQLValueString($this->check_number, "text"),
-			GetSQLValueString($this->file, "text"),				 
+            GetSQLValueString($this->file, "text"),
             GetSQLValueString($this->date, "date"),
+            GetSQLValueString($this->date_encaissement, "date"),
             GetSQLValueString($this->beneficiary, "text"),
-			GetSQLValueString($this->amount, "double"),	
-            GetSQLValueString($this->currency, "text"),				 
-			GetSQLValueString($this->status, "text"),
-			GetSQLValueString($this->reason, "text"),
-			GetSQLValueString($this->comment, "text"),	
+            GetSQLValueString($this->amount, "double"),
+            GetSQLValueString($this->currency, "text"),
+            GetSQLValueString($this->status, "text"),
+            GetSQLValueString($this->reason, "text"),
+            GetSQLValueString($this->comment, "text"),
             GetSQLValueString($this->last_edit, "date"),
             GetSQLValueString($this->id, "int")
         );
         if (!$db->query($SQLupdate)) {
-			return 1;
+            return 1;
         } else {
             return 0;
         }
@@ -208,14 +322,14 @@ class cheque
         $SQLdelete = sprintf("DELETE FROM " . static::$table . " WHERE id = %s",
             GetSQLValueString($this->getId(), "int")
         );
-        if(!$db->query($SQLdelete)){
+        if (!$db->query($SQLdelete)) {
             return 1;
         } else {
             return 0;
         }
     }
 
-    public static function find($id,$agence=1)
+    public static function find($id, $agence = 1)
     {
         global $db;
         $cheque = new cheque();
@@ -231,16 +345,18 @@ class cheque
         return $cheque;
     }
 
-    public static function findAll($ordre = false,$agence=1)
+    public static function findAll($ordre = false, $agence = 1, $type = false)
     {
         global $db;
         $items = array();
         $SQLselect = sprintf("SELECT A.id as ID, A.*, B.* FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id where B.id = %s",
             GetSQLValueString($agence, "int")
         );
-		
-        if($ordre){
-            $SQLselect .= " ORDER BY A.date_add DESC";
+        if ($type) {
+            $SQLselect .= " AND A.type = " . GetSQLValueString($type, "text");
+        }
+        if ($ordre) {
+            $SQLselect .= " ORDER BY A.date_encaissement IS NULL, A.date_encaissement ASC";
         }
         $result = $db->queryS($SQLselect);
         foreach ($result as $data) {
@@ -250,31 +366,38 @@ class cheque
         return $items;
     }
 
-    public static function build($data){
+    public static function build($data)
+    {
         $cheque = new cheque();
         $cheque->setId($data['ID']);
-        $cheque->setAgence(agence::find($data['id_agence'],$_SESSION['langue']));
+        $cheque->setAgence(agence::find($data['id_agence'], $_SESSION['langue']));
+        $cheque->setType($data['type']);
+        $cheque->setTiersType($data['tiers_type']);
+        $cheque->setClient(!empty($data['id_client']) ? client::find($data['id_client'], $_SESSION['agence']) : new client());
+        $cheque->setFournisseur(!empty($data['id_fournisseur']) ? fournisseur::find($data['id_fournisseur'], $_SESSION['agence']) : new fournisseur());
         $cheque->setCheckNumber($data['check_number']);
         $cheque->setFile($data['file']);
-		$cheque->setDate($data['date']);
+        $cheque->setDate($data['date']);
+        $cheque->setDateEncaissement($data['date_encaissement']);
         $cheque->setBeneficiary($data['beneficiary']);
         $cheque->setAmount($data['amount']);
         $cheque->setCurrency($data['currency']);
         $cheque->setStatus($data['status']);
-		$cheque->setReason($data['reason']);
+        $cheque->setReason($data['reason']);
         $cheque->setComment($data['comment']);
         $cheque->setDateAdd($data['date_add']);
         $cheque->setLastEdit($data['last_edit']);
         return $cheque;
     }
 
-
-    public static function getLastId(){
+    public static function getLastId()
+    {
         global $db;
         return $db->last_id();
     }
 
-    public static function count($agence = 1){
+    public static function count($agence = 1)
+    {
         global $db;
         $SQLcount = "SELECT count(A.id) as c FROM " . static::$table . " A inner join " . static::$tableAgence . " B on A.id_agence = B.id WHERE B.id = $agence";
         $result = $db->query($SQLcount);

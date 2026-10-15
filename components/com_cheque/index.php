@@ -10,6 +10,8 @@ switch ($task)
             $submitValue = "Ajouter un cheque";
 			$cheques = cheque::findAll(true,$_SESSION['agence']);
 			$users = user::findAll();
+			$clients = client::findAll(true, false, $_SESSION['agence']);
+			$fournisseurs = fournisseur::findAll(true);
             include_once("components/com_cheque/views/cheque/add.php");
         }
         break;
@@ -23,6 +25,8 @@ switch ($task)
                 $submitName = "edit";
                 $submitValue = "Modifier le cheque";
 				$cheques = cheque::findAll(true,$_SESSION['agence']);
+				$clients = client::findAll(true, false, $_SESSION['agence']);
+				$fournisseurs = fournisseur::findAll(true);
                 include_once("components/com_cheque/views/cheque/edit.php");
             }
         }

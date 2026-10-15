@@ -444,9 +444,9 @@ function uploadFiles($nomChampTxt, $uploadTo, $extensions = NULL)
 
 			$name = $_FILES[$nomChampTxt]["name"][$i];
 
-			$ext = substr($name, strrpos($name, ".") + 1); 
+			$ext = substr($name, strrpos($name, ".") + 1);
 
-				if (in_array($ext, $extensions) || $extensions == NULL){
+				if ($extensions == NULL || in_array(strtolower($ext), array_map('strtolower', $extensions))){
 
 				$nom_fichier=basename($name,".".$ext);
 				
@@ -1145,6 +1145,32 @@ function getAlertesUrgentes($agence)
         }
         if (!empty($items)) {
             $groupes['fournisseurs'] = array('label' => 'Fournisseurs en attente', 'icon' => 'fa-truck', 'items' => $items);
+        }
+    }
+
+    if ($user->hasDroit('view', 'com_cheque')) {
+        $items = array();
+        foreach (cheque::findAll(true, $agence) as $cheque) {
+            // Seul "Pas encore" reste activement suivi - un chèque encaissé/impayé n'a plus
+            // besoin de rappel (voir cheque::estEnAttente()).
+            if (!$cheque->estEnAttente()) {
+                continue;
+            }
+            $joursRestants = $cheque->getDaysLeft();
+            if ($joursRestants === null || $joursRestants >= 30) {
+                continue;
+            }
+            $sens = $cheque->getType() === 'entrant' ? 'Entrant' : 'Sortant';
+            $items[] = array(
+                'titre' => $sens . ' N°' . $cheque->getCheckNumber() . ' — ' . $cheque->getNomTiers(),
+                'sous_titre' => $joursRestants < 0 ? 'En retard de ' . abs($joursRestants) . ' jour(s)' : 'Encaissement dans ' . $joursRestants . ' jour(s)',
+                'url' => 'index.php?option=com_cheque&task=edit&id=' . $cheque->getId(),
+                'urgence' => $joursRestants <= 7 ? 'danger' : 'warning',
+                'date_add' => $cheque->getDateAdd()
+            );
+        }
+        if (!empty($items)) {
+            $groupes['cheques'] = array('label' => 'Chèques à encaisser', 'icon' => 'fa-money-check', 'items' => $items);
         }
     }
 
