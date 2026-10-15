@@ -1251,24 +1251,49 @@ function getAlertesUrgentes($agence)
 
     if ($user->hasDroit('view', 'com_resourcehumaine')) {
         $items = array();
-        foreach (resourcehumaine::findAll() as $employe) {
-            if (!$employe->getAgency() || $employe->getAgency()->getId() != $agence) {
+        // findAllEnAttenteByAgence() (une requête jointe) plutôt que la double boucle
+        // resourcehumaine::findAll() x request::findAllByResourcehumaine() d'avant - en plus,
+        // "danger" (pas "warning") pour que la cloche clignote tant qu'une demande traîne,
+        // comme demandé.
+        foreach (request::findAllEnAttenteByAgence($agence) as $demande) {
+            $employe = $demande->getResourcehumaine();
+            if (!$employe || !$employe->getId()) {
                 continue;
             }
-            foreach (request::findAllByResourcehumaine($employe->getId()) as $demande) {
-                if ($demande->getStatus() == 0) {
-                    $items[] = array(
-                        'titre' => $employe->getFirstName() . ' ' . $employe->getLastName() . ' — ' . $demande->getTitle(),
-                        'sous_titre' => 'Demande en attente depuis le ' . date('d/m/Y', strtotime($demande->getDateAdd())),
-                        'url' => 'index.php?option=com_resourcehumaine&task=request&id=' . $employe->getId(),
-                        'urgence' => 'warning',
-                        'date_add' => $demande->getDateAdd()
-                    );
-                }
-            }
+            $items[] = array(
+                'titre' => $employe->getFullName() . ' — ' . $demande->getTitle(),
+                'sous_titre' => 'Demande en attente depuis le ' . date('d/m/Y', strtotime($demande->getDateAdd())),
+                'url' => 'index.php?option=com_resourcehumaine&task=request&id=' . $employe->getId(),
+                'urgence' => 'danger',
+                'date_add' => $demande->getDateAdd()
+            );
         }
         if (!empty($items)) {
             $groupes['demandes_rh'] = array('label' => 'Demandes employés en attente', 'icon' => 'fa-user-clock', 'items' => $items);
+        }
+    }
+
+    // Réclamations clients non résolues - "danger" pour clignoter la cloche, une réclamation
+    // ouverte restant une demande client non traitée par définition (pas de seuil d'ancienneté
+    // comme pour d'autres groupes, le simple fait qu'elle existe suffit).
+    if ($user->hasDroit('view', 'com_reclamation')) {
+        $items = array();
+        foreach (reclamation::findAll(false, false, $agence) as $r) {
+            if ($r->isProcess()) {
+                continue;
+            }
+            $clientReclamation = $r->getClient();
+            $nomClientReclamation = $clientReclamation ? (trim((string) $clientReclamation->getRaisonSocial()) !== '' ? $clientReclamation->getRaisonSocial() : trim($clientReclamation->getPrenom() . ' ' . $clientReclamation->getNom())) : '';
+            $items[] = array(
+                'titre' => ($nomClientReclamation !== '' ? $nomClientReclamation . ' — ' : '') . $r->getSujet(),
+                'sous_titre' => 'Réclamation non traitée (' . $r->getDepartment() . ')',
+                'url' => 'index.php?option=com_reclamation&task=edit&id=' . $r->getId(),
+                'urgence' => 'danger',
+                'date_add' => $r->getDateAdd()
+            );
+        }
+        if (!empty($items)) {
+            $groupes['reclamations'] = array('label' => 'Réclamations non traitées', 'icon' => 'fa-exclamation-circle', 'items' => $items);
         }
     }
 

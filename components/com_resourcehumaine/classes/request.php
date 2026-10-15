@@ -195,6 +195,24 @@ class request
         return $request;
     }
 
+    // Toutes les demandes en attente (status=0) de l'agence, tous employés confondus - aucune
+    // vue globale n'existait jusqu'ici (seule findAllByResourcehumaine() ci-dessous, par employé,
+    // existait) : alimente le centre d'alertes du bandeau haut (voir getAlertesUrgentes()).
+    public static function findAllEnAttenteByAgence($agence)
+    {
+        global $db;
+        $items = array();
+        $SQLselect = sprintf(
+            "SELECT A.* FROM " . static::$table . " A INNER JOIN " . __prefixe_db__ . "resourcehumaine B ON B.id = A.id_resourcehumaine WHERE B.id_agency = %s AND A.status = 0 ORDER BY A.date_add ASC",
+            GetSQLValueString($agence, "int")
+        );
+        $result = $db->queryS($SQLselect);
+        foreach ($result as $data) {
+            array_push($items, static::build($data));
+        }
+        return $items;
+    }
+
     public static function findAllByResourcehumaine($id_resourcehumaine)
     {
         global $db;
