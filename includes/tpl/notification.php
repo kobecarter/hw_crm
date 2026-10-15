@@ -84,8 +84,8 @@ if ($afficherAlertes) {
 			<a href="javascript:void(0)">Voir tout les notifications</a>
 		</div>
 	</div>
-	<a href="javascript:void(0)" class="dropdown-toggle nav-link" data-toggle="dropdown" data-display="static">
-		<i class="fa fa-comments"></i> <?php if (sizeof($notifications) > 0) : ?> <span class="badge badge-pill"><?php echo $cpt; ?></span> <?php endif; ?>
+	<a href="javascript:void(0)" class="dropdown-toggle nav-link<?= sizeof($notifications) > 0 ? ' notif-urgent-toggle' : '' ?>" data-toggle="dropdown" data-display="static">
+		<i class="fa fa-comments<?= sizeof($notifications) > 0 ? ' notif-urgent-blink' : '' ?>"></i> <?php if (sizeof($notifications) > 0) : ?> <span class="badge badge-pill"><?php echo $cpt; ?></span> <?php endif; ?>
 	</a>
 	<?php if ($afficherAlertes) : ?>
 	<a href="javascript:void(0)" class="nav-link" data-toggle="modal" data-target="#alertCenterModal" data-original-title="Rappels(Urgent)" title="Rappels(Urgent)">

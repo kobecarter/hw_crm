@@ -511,6 +511,24 @@ label {
 	background: #ef4444;
 }
 
+/* Icône "Notifications" (bulle de chat, le .dropdown-toggle exclu ci-dessus) : même teinte rouge
+   + même clignotement que Rappels(Urgent) juste au-dessus, dès qu'une notification (demande créée/
+   modifiée/supprimée - cf. includes/tpl/notification.php) n'a pas encore été lue. Classe posée
+   sur le lien lui-même (.notif-urgent-toggle), pas sur le <li> partagé avec le bell : les deux
+   icônes doivent pouvoir s'allumer indépendamment l'une de l'autre.
+   Sélecteur ".glass-icon-group > a.nav-link.notif-urgent-toggle > i" (pas juste
+   ".notif-urgent-toggle > i") : doit battre en spécificité ".glass-icon-group > a.nav-link > i"
+   (background transparent !important, plus bas dans ce fichier) - sinon cette dernière gagne à
+   égalité de spécificité du simple fait d'être déclarée après. */
+.glass-icon-group > a.nav-link.notif-urgent-toggle > i {
+	background: rgba(239, 68, 68, 0.14) !important;
+	color: #b91c1c !important;
+}
+.glass-icon-group > a.nav-link.notif-urgent-toggle .badge.badge-pill {
+	background: #ef4444;
+	border: 2px solid #fff;
+}
+
 /* ---- Sidebar "Meniscus" : panneau clair, accent lumineux glissant --------------------------
    Inspiré d'un dock mobile (bulle lumineuse qui se déplace jusqu'à l'onglet actif) mais adapté
    à une sidebar verticale dense (~15 modules, plusieurs avec sous-menu) : au lieu de la bulle
@@ -1020,7 +1038,8 @@ label {
 	0%, 100% { opacity: 1; transform: scale(1); }
 	50% { opacity: 0.4; transform: scale(1.15); }
 }
-.bell-urgent-blink {
+.bell-urgent-blink,
+.notif-urgent-blink {
 	display: inline-block;
 	animation: bellUrgentBlink 1.1s ease-in-out infinite;
 }
