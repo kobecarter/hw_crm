@@ -1024,9 +1024,11 @@ label {
 	display: inline-block;
 	animation: bellUrgentBlink 1.1s ease-in-out infinite;
 }
-@media (prefers-reduced-motion: reduce) {
-	.bell-urgent-blink { animation: none; }
-}
+/* Pas de garde-fou "prefers-reduced-motion" ici, volontairement : c'est l'unique indicateur
+   qu'une demande (réclamation, congé...) reste non traitée - un utilisateur avec "Réduire les
+   animations" activé au niveau système ne doit pas la manquer silencieusement (contrairement à
+   .alert-center-item-puce ci-dessous, un détail dans une liste déjà ouverte, qui respecte lui ce
+   réglage). */
 
 /* ---- Centre d'alertes ("Rappels(Urgent)") : panneau clair, cohérent avec le reste de l'app -
    les alertes "danger" (en retard / sans justificatif...) ressortent en rouge (fond teinté +
