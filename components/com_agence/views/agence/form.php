@@ -194,6 +194,50 @@
 
 		<div class="col-md-12">
 			<hr>
+			<label><strong>Accès CNSS / DGI</strong></label>
+			<p class="text-muted" style="font-size:0.85rem;margin-top:-5px;">Identifiants des portails de déclaration - cliquer sur l'œil affiche le mot de passe déjà enregistré ; le modifier ici le remplace.</p>
+		</div>
+
+		<div class="col-md-3">
+			<div class="form-group">
+				<label>Identifiant CNSS</label>
+				<input type="text" class="form-control" name="cnss_login" autocomplete="off" value="<?php if(isset($agenceToEdit)) echo htmlspecialchars((string) $agenceToEdit->getCnssLogin()); ?>">
+			</div>
+		</div>
+
+		<div class="col-md-3">
+			<div class="form-group">
+				<label>Mot de passe CNSS</label>
+				<div class="input-group agence-password-toggle">
+					<input type="password" class="form-control" name="cnss_password" autocomplete="new-password" value="<?php if(isset($agenceToEdit)) echo htmlspecialchars((string) $agenceToEdit->getCnssPassword()); ?>">
+					<div class="input-group-append">
+						<button type="button" class="btn btn-white toggle-password" data-toggle="tooltip" title="Afficher/masquer"><i class="fa fa-eye"></i></button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="col-md-3">
+			<div class="form-group">
+				<label>Identifiant DGI</label>
+				<input type="text" class="form-control" name="dgi_login" autocomplete="off" value="<?php if(isset($agenceToEdit)) echo htmlspecialchars((string) $agenceToEdit->getDgiLogin()); ?>">
+			</div>
+		</div>
+
+		<div class="col-md-3">
+			<div class="form-group">
+				<label>Mot de passe DGI</label>
+				<div class="input-group agence-password-toggle">
+					<input type="password" class="form-control" name="dgi_password" autocomplete="new-password" value="<?php if(isset($agenceToEdit)) echo htmlspecialchars((string) $agenceToEdit->getDgiPassword()); ?>">
+					<div class="input-group-append">
+						<button type="button" class="btn btn-white toggle-password" data-toggle="tooltip" title="Afficher/masquer"><i class="fa fa-eye"></i></button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="col-md-12">
+			<hr>
 			<div class="form-group">
 				<label><strong>Régime TVA par année</strong></label>
 				<div class="regime-tva-box" style="background:#E9E9E9;padding:15px 15px 5px 15px;border-radius:5px;margin-bottom:10px;">
@@ -294,6 +338,16 @@
 
 <script>
     $(function () {
+
+        // Affiche/masque un champ mot de passe CNSS/DGI - jamais affiché par défaut (on ne veut
+        // pas qu'un identifiant/mot de passe reste visible à l'écran sans action explicite).
+        $(document).on('click', '.agence-password-toggle .toggle-password', function () {
+            var $input = $(this).closest('.agence-password-toggle').find('input');
+            var $icon = $(this).find('i');
+            var estMasque = $input.attr('type') === 'password';
+            $input.attr('type', estMasque ? 'text' : 'password');
+            $icon.toggleClass('fa-eye', !estMasque).toggleClass('fa-eye-slash', estMasque);
+        });
 
         // envoi du formulaire en ajax
         $('form#agenceForm').ajaxForm({

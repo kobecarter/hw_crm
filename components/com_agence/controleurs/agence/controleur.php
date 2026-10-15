@@ -209,6 +209,21 @@ function buildAgence($data, $id = null)
     $agence->setTp($data['tp']);
     $agence->setRc($data['rc']);
     $agence->setIce($data['ice']);
+    $agence->setCnssLogin(isset($data['cnss_login']) ? trim($data['cnss_login']) : null);
+    $agence->setDgiLogin(isset($data['dgi_login']) ? trim($data['dgi_login']) : null);
+    // Champ mot de passe laissé vide = ne pas écraser celui déjà enregistré (évite de perdre
+    // l'accès CNSS/DGI juste parce qu'on a modifié un autre champ du formulaire sans retaper
+    // le mot de passe) - seul un champ réellement rempli le remplace.
+    if ($id && (!isset($data['cnss_password']) || trim($data['cnss_password']) === '')) {
+        $agence->setCnssPassword(agence::find($id, $_SESSION['langue'])->getCnssPassword());
+    } else {
+        $agence->setCnssPassword(isset($data['cnss_password']) ? trim($data['cnss_password']) : null);
+    }
+    if ($id && (!isset($data['dgi_password']) || trim($data['dgi_password']) === '')) {
+        $agence->setDgiPassword(agence::find($id, $_SESSION['langue'])->getDgiPassword());
+    } else {
+        $agence->setDgiPassword(isset($data['dgi_password']) ? trim($data['dgi_password']) : null);
+    }
     $agence->setConditions($data['conditions']);
     $agence->setInformation($data['information']);
     $agence->setDateAdd(date("Y-m-d H:i:s"));

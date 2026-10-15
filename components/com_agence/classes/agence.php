@@ -32,6 +32,10 @@ class agence
     private $tp;
     private $rc;
     private $ice;
+    private $cnss_login;
+    private $cnss_password;
+    private $dgi_login;
+    private $dgi_password;
     private $conditions;
     private $information;
     private $date_add;
@@ -176,6 +180,29 @@ class agence
     public function getIce()
     {
         return $this->ice;
+    }
+
+    // Accès aux portails CNSS/DGI (déclarations sociales/fiscales) - un seul jeu d'identifiants
+    // par agence, pas par langue (contrairement à details_agence) : stockés directement sur la
+    // table agence principale.
+    public function getCnssLogin()
+    {
+        return $this->cnss_login;
+    }
+
+    public function getCnssPassword()
+    {
+        return $this->cnss_password;
+    }
+
+    public function getDgiLogin()
+    {
+        return $this->dgi_login;
+    }
+
+    public function getDgiPassword()
+    {
+        return $this->dgi_password;
     }
 
     public function getConditions()
@@ -335,6 +362,26 @@ class agence
         $this->ice = $ice;
     }
 
+    public function setCnssLogin($cnss_login)
+    {
+        $this->cnss_login = $cnss_login;
+    }
+
+    public function setCnssPassword($cnss_password)
+    {
+        $this->cnss_password = $cnss_password;
+    }
+
+    public function setDgiLogin($dgi_login)
+    {
+        $this->dgi_login = $dgi_login;
+    }
+
+    public function setDgiPassword($dgi_password)
+    {
+        $this->dgi_password = $dgi_password;
+    }
+
     public function setConditions($conditions)
     {
         $this->conditions = $conditions;
@@ -364,14 +411,16 @@ class agence
     {
         global $db;
 
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (logo, signature, email, raison_social, manager, cin, tel, tel2, fax, numero_increment_facture, numero_increment_devis, tva, tva_seuil_alerte, tva_periodicite, website, color, `if`, tp, rc, ice, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (logo, signature, email, raison_social, manager, cin, tel, tel2, fax, numero_increment_facture, numero_increment_devis, tva, tva_seuil_alerte, tva_periodicite, website, color, `if`, tp, rc, ice, cnss_login, cnss_password, dgi_login, dgi_password, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
 			GetSQLValueString($this->logo, "text"),
 			GetSQLValueString($this->signature, "text"),
             GetSQLValueString($this->email, "text"),
             GetSQLValueString($this->raison_social, "text"),
             GetSQLValueString($this->manager, "text"),
             GetSQLValueString($this->cin, "text"),
-            GetSQLValueString($this->email, "text"),
+            // Doublon de $this->email corrigé ici (copié-collé de la ligne juste au-dessus) : avec
+            // 1 valeur de trop pour 26 colonnes, sprintf() décalait silencieusement tel/tel2/fax/...
+            // d'une position chacun et abandonnait last_edit en fin de liste (jamais inséré).
             GetSQLValueString($this->tel, "text"),
             GetSQLValueString($this->tel2, "text"),
             GetSQLValueString($this->fax, "text"),
@@ -386,6 +435,10 @@ class agence
             GetSQLValueString($this->tp, "text"),
             GetSQLValueString($this->rc, "text"),
             GetSQLValueString($this->ice, "text"),
+            GetSQLValueString($this->cnss_login, "text"),
+            GetSQLValueString($this->cnss_password, "text"),
+            GetSQLValueString($this->dgi_login, "text"),
+            GetSQLValueString($this->dgi_password, "text"),
             GetSQLValueString($this->date_add, "date"),
             GetSQLValueString($this->last_edit, "date")
         );
@@ -416,7 +469,7 @@ class agence
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  logo = %s, signature = %s, email = %s, raison_social = %s, manager = %s, cin = %s,  tel = %s, tel2 = %s, fax = %s, numero_increment_facture = %s, numero_increment_devis = %s, tva = %s, tva_seuil_alerte = %s, tva_periodicite = %s, website = %s, color = %s, `if` = %s, tp = %s, rc = %s, ice = %s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  logo = %s, signature = %s, email = %s, raison_social = %s, manager = %s, cin = %s,  tel = %s, tel2 = %s, fax = %s, numero_increment_facture = %s, numero_increment_devis = %s, tva = %s, tva_seuil_alerte = %s, tva_periodicite = %s, website = %s, color = %s, `if` = %s, tp = %s, rc = %s, ice = %s, cnss_login = %s, cnss_password = %s, dgi_login = %s, dgi_password = %s, last_edit = %s WHERE id = %s",
 			GetSQLValueString($this->logo, "text"),
 			GetSQLValueString($this->signature, "text"),
             GetSQLValueString($this->email, "text"),
@@ -437,6 +490,10 @@ class agence
             GetSQLValueString($this->tp, "text"),
             GetSQLValueString($this->rc, "text"),
             GetSQLValueString($this->ice, "text"),
+            GetSQLValueString($this->cnss_login, "text"),
+            GetSQLValueString($this->cnss_password, "text"),
+            GetSQLValueString($this->dgi_login, "text"),
+            GetSQLValueString($this->dgi_password, "text"),
             GetSQLValueString($this->last_edit, "date"), 
             GetSQLValueString($this->id, "int")
         );
@@ -626,6 +683,10 @@ class agence
         $agence->setTp($data['tp']);
         $agence->setRc($data['rc']);
         $agence->setIce($data['ice']);
+        $agence->setCnssLogin(isset($data['cnss_login']) ? $data['cnss_login'] : null);
+        $agence->setCnssPassword(isset($data['cnss_password']) ? $data['cnss_password'] : null);
+        $agence->setDgiLogin(isset($data['dgi_login']) ? $data['dgi_login'] : null);
+        $agence->setDgiPassword(isset($data['dgi_password']) ? $data['dgi_password'] : null);
         $agence->setConditions($data['conditions']);
         $agence->setInformation($data['information']);
         $agence->setDateAdd($data['date_add']);
