@@ -15,6 +15,7 @@ class client
     private $ia_recap_date;
     private $user_added;
     private $user_edited;
+    private $user_assigned;
     private $active;
     private $archived;
     private $notifications_enabled;
@@ -46,6 +47,7 @@ class client
     public function __construct()
     {
         $this->id = 0;
+        $this->user_assigned = new user();
     }
 
     public function getId()
@@ -86,6 +88,15 @@ class client
     public function getUserEdited()
     {
         return $this->user_edited;
+    }
+
+    // Utilisateur (commercial) auquel ce client est affecté - distinct de user_added (qui l'a
+    // créé) : un client peut être créé par un admin puis affecté à un commercial, ou réaffecté
+    // d'un commercial à un autre sans toucher à qui l'a créé à l'origine. Jamais null (un user()
+    // vierge, id=0, si pas encore affecté), même convention que getUserAdded()/getUserEdited().
+    public function getUserAssigned()
+    {
+        return $this->user_assigned;
     }
 
     public function isActive()
@@ -320,6 +331,11 @@ class client
         $this->user_edited = $user_edited;
     }
 
+    public function setUserAssigned($user_assigned)
+    {
+        $this->user_assigned = $user_assigned;
+    }
+
     public function setActive($active)
     {
         $this->active = $active;
@@ -453,9 +469,10 @@ class client
     public function add()
     {
         global $db;
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence,id_user_added, active, archived, source, site_web, titre, prenom, nom, raison_social, fonction, ice, rc, tel, tel2, tel3, email, email2, login, password, cp, adresse, adresse2, ville, region, pays, photo, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence,id_user_added, id_user_assigned, active, archived, source, site_web, titre, prenom, nom, raison_social, fonction, ice, rc, tel, tel2, tel3, email, email2, login, password, cp, adresse, adresse2, ville, region, pays, photo, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->agence->getId(), "int"),
             GetSQLValueString($this->user_added->getId(), "int"),
+            GetSQLValueString($this->user_assigned && $this->user_assigned->getId() ? $this->user_assigned->getId() : null, "int"),
             GetSQLValueString($this->active, "int"),
             GetSQLValueString($this->archived, "int"),
             GetSQLValueString($this->source, "text"),
@@ -494,9 +511,10 @@ class client
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  id_agence = %s, id_user_edited = %s,  active = %s, archived = %s, source = %s, site_web = %s, titre = %s, prenom = %s, nom = %s, raison_social = %s, fonction = %s, ice = %s, rc = %s, tel = %s, tel2 = %s, tel3 = %s, email = %s, email2 = %s, login = %s, password = %s, cp = %s, adresse = %s, adresse2 = %s, ville = %s, region = %s, pays =%s, photo =%s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET  id_agence = %s, id_user_edited = %s, id_user_assigned = %s,  active = %s, archived = %s, source = %s, site_web = %s, titre = %s, prenom = %s, nom = %s, raison_social = %s, fonction = %s, ice = %s, rc = %s, tel = %s, tel2 = %s, tel3 = %s, email = %s, email2 = %s, login = %s, password = %s, cp = %s, adresse = %s, adresse2 = %s, ville = %s, region = %s, pays =%s, photo =%s, last_edit = %s WHERE id = %s",
             GetSQLValueString($this->agence->getId(), "int"),
             GetSQLValueString($this->user_edited->getId(), "int"),
+            GetSQLValueString($this->user_assigned && $this->user_assigned->getId() ? $this->user_assigned->getId() : null, "int"),
             GetSQLValueString($this->active, "int"),
             GetSQLValueString($this->archived, "int"),
             GetSQLValueString($this->source, "text"),
@@ -1047,6 +1065,7 @@ class client
         $client->setAgence(agence::find($data['id_agence'], $_SESSION['langue'] ?? 'fr'));
         $client->setUserAdded(user::find($data['id_user_added']));
         $client->setUserEdited(user::find($data['id_user_edited']));
+        $client->setUserAssigned(isset($data['id_user_assigned']) ? user::find($data['id_user_assigned']) : new user());
         $client->setActive($data['active']);
         $client->setArchived(isset($data['archived']) ? $data['archived'] : 0);
         $client->setNotificationsEnabled(isset($data['notifications_enabled']) ? $data['notifications_enabled'] : 1);

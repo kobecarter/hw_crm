@@ -1082,6 +1082,22 @@ function bootstrapSystemSession($userId, $agenceId, $langue = 'fr')
     $_SESSION['langue'] = $langue;
 }
 
+// "Administrateur" (profil) ou "Super admin" (su=1) - deux notions distinctes dans cette base
+// (ex: direction@... est profil Administrateur mais su=0 ; d'autres sont su=1 avec un profil
+// différent en théorie) : utilisé partout où une action doit rester réservée à l'un OU l'autre
+// (ex: affecter un client à un utilisateur, com_client).
+function utilisateurEstAdminOuSuperAdmin($user)
+{
+    if (!$user) {
+        return false;
+    }
+    if ($user->isSuperUser()) {
+        return true;
+    }
+    $profil = $user->getProfil();
+    return $profil && $profil->getProfil() === 'Administrateur';
+}
+
 // Agrège les alertes urgentes de plusieurs modules (rappels clients, factures à échéance,
 // fournisseurs en attente de validation, lignes BANK STATEMENT encore à traiter) en une seule
 // structure groupée, cliquable vers la bonne page - alimente le centre "Rappels(Urgent)" du

@@ -257,6 +257,10 @@
 								<div><span>Ville / Région</span><p><?php echo htmlspecialchars(trim($client->getVille() . ' / ' . $client->getRegion(), ' /')) ?: '—'; ?></p></div>
 							</div>
 							<div class="col-md-6 col-lg-4 client-info-item">
+								<i class="fa fa-user-tag"></i>
+								<div><span>Affecté à</span><p><?php echo $client->getUserAssigned()->getId() ? htmlspecialchars($client->getUserAssigned()->getPrenom() . ' ' . $client->getUserAssigned()->getNom()) : '—'; ?></p></div>
+							</div>
+							<div class="col-md-6 col-lg-4 client-info-item">
 								<i class="fa fa-globe"></i>
 								<div><span>Pays</span><p><?php echo htmlspecialchars($client->getPays()) ?: '—'; ?></p></div>
 							</div>

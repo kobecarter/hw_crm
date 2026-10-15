@@ -9,6 +9,9 @@ switch ($task)
             $action = "components/com_client/controleurs/router.php?task=addClient";
             $submitName = "add";
             $submitValue = "Ajouter client";
+            if (utilisateurEstAdminOuSuperAdmin($_SESSION['user'])) {
+                $utilisateursPourAffectation = user::findAll(true);
+            }
             include_once("components/com_client/views/client/add.php");
         }
         break;
@@ -23,6 +26,9 @@ switch ($task)
                     $submitName = "edit";
                     $submitValue = "Modifier client";
                     $factures = $client->getFacture();
+                    if (utilisateurEstAdminOuSuperAdmin($_SESSION['user'])) {
+                        $utilisateursPourAffectation = user::findAll(true);
+                    }
                     include_once("components/com_client/views/client/edit.php");
                 }else{
                     $clients = client::findAll(false,false,$_SESSION['agence']);

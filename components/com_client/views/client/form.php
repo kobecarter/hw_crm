@@ -44,6 +44,20 @@
 			</div>
 		</div>
 
+		<?php if (isset($utilisateursPourAffectation) && utilisateurEstAdminOuSuperAdmin($_SESSION['user'])) :?>
+		<div class="col-md-4">
+			<div class="form-group">
+				<label>Affecté à <small class="text-muted">(Administrateur/Super admin)</small></label>
+				<select class="chosen-select" name="id_user_assigned">
+					<option value="">Non affecté</option>
+					<?php foreach ($utilisateursPourAffectation as $u) :?>
+					<option value="<?= $u->getId() ?>" <?= isset($client) && $client->getUserAssigned()->getId() == $u->getId() ? 'selected' : '' ?>><?= htmlspecialchars($u->getPrenom() . ' ' . $u->getNom()) ?></option>
+					<?php endforeach;?>
+				</select>
+			</div>
+		</div>
+		<?php endif;?>
+
 		<div class="col-md-4">
 			<div class="form-group">
 				<label>Source</label>

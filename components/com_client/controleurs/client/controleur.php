@@ -343,6 +343,18 @@ function buildClient($data, $id = null)
         $client->setPassword($data['password']);
     }
 
+    // Affectation à un utilisateur (commercial) : réservé Administrateur/Super admin - vérifié ici
+    // côté serveur, pas seulement en cachant le champ côté formulaire (sinon un POST direct
+    // suffirait à contourner). Un client déjà existant (édition) garde son affectation actuelle
+    // (déjà chargée par client::find() ci-dessus) si le champ est absent/vide ou si l'utilisateur
+    // n'a pas le droit d'y toucher.
+    if (utilisateurEstAdminOuSuperAdmin($_SESSION['user']) && isset($data['id_user_assigned']) && $data['id_user_assigned'] !== '') {
+        $client->setUserAssigned(user::find(intval($data['id_user_assigned'])));
+    } elseif (utilisateurEstAdminOuSuperAdmin($_SESSION['user']) && isset($data['id_user_assigned']) && $data['id_user_assigned'] === '') {
+        // Champ explicitement remis à "Non affecté".
+        $client->setUserAssigned(new user());
+    }
+
     return $client;
 }
 
