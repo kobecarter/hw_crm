@@ -44,10 +44,10 @@
 			</div>
 		</div>
 
-		<?php if (isset($utilisateursPourAffectation) && utilisateurEstAdminOuSuperAdmin($_SESSION['user'])) :?>
+		<?php if (isset($utilisateursPourAffectation) && $_SESSION['user']->isSuperUser()) :?>
 		<div class="col-md-4">
 			<div class="form-group">
-				<label>Affecté à <small class="text-muted">(Administrateur/Super admin)</small></label>
+				<label>Affecté à <small class="text-muted">(Super admin)</small></label>
 				<select class="chosen-select" name="id_user_added">
 					<option value="">Non affecté</option>
 					<?php foreach ($utilisateursPourAffectation as $u) :?>

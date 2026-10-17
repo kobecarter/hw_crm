@@ -9,7 +9,7 @@ switch ($task)
             $action = "components/com_client/controleurs/router.php?task=addClient";
             $submitName = "add";
             $submitValue = "Ajouter client";
-            if (utilisateurEstAdminOuSuperAdmin($_SESSION['user'])) {
+            if ($_SESSION['user']->isSuperUser()) {
                 $utilisateursPourAffectation = user::findAll(true);
             }
             include_once("components/com_client/views/client/add.php");
@@ -26,7 +26,7 @@ switch ($task)
                     $submitName = "edit";
                     $submitValue = "Modifier client";
                     $factures = $client->getFacture();
-                    if (utilisateurEstAdminOuSuperAdmin($_SESSION['user'])) {
+                    if ($_SESSION['user']->isSuperUser()) {
                         $utilisateursPourAffectation = completerListeUtilisateursAvecIdsManquants(user::findAll(true), array($client->getUserAdded()->getId()));
                     }
                     include_once("components/com_client/views/client/edit.php");
@@ -81,7 +81,7 @@ switch ($task)
                 $clients = client::findAll(false,false,$_SESSION['agence']);
             }
             $sansActiviteMap = client::activityMap($_SESSION['agence']);
-            if (utilisateurEstAdminOuSuperAdmin($_SESSION['user'])) {
+            if ($_SESSION['user']->isSuperUser()) {
                 $utilisateursPourAffectation = completerListeUtilisateursAvecIdsManquants(user::findAll(true), array_map(function ($c) {
                     return $c->getUserAdded()->getId();
                 }, $clients));

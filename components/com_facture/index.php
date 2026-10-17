@@ -135,7 +135,7 @@ switch ($task) {
             $payments = payment::findAll(false,false,$_SESSION['agence']);
             $agence = agence::find($_SESSION['agence'],$_SESSION['langue']);
             $client = isset($_GET['id']) ? client::find(intval($_GET['id'])) : false;
-            if (utilisateurEstAdminOuSuperAdmin($_SESSION['user'])) {
+            if ($_SESSION['user']->isSuperUser()) {
                 $utilisateursPourAffectation = completerListeUtilisateursAvecIdsManquants(user::findAll(true), array_map(function ($c) {
                     return $c->getUserAdded()->getId();
                 }, $clients));

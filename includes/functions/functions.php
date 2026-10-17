@@ -1082,22 +1082,6 @@ function bootstrapSystemSession($userId, $agenceId, $langue = 'fr')
     $_SESSION['langue'] = $langue;
 }
 
-// "Administrateur" (profil) ou "Super admin" (su=1) - deux notions distinctes dans cette base
-// (ex: direction@... est profil Administrateur mais su=0 ; d'autres sont su=1 avec un profil
-// différent en théorie) : utilisé partout où une action doit rester réservée à l'un OU l'autre
-// (ex: affecter un client à un utilisateur, com_client).
-function utilisateurEstAdminOuSuperAdmin($user)
-{
-    if (!$user) {
-        return false;
-    }
-    if ($user->isSuperUser()) {
-        return true;
-    }
-    $profil = $user->getProfil();
-    return $profil && $profil->getProfil() === 'Administrateur';
-}
-
 // Les dropdowns "Affecté à"/"Ajouté par" ne listent que les utilisateurs actifs
 // (user::findAll(true)) : sans ce complément, un client déjà rattaché à un utilisateur depuis
 // désactivé n'aurait aucune <option> correspondant à sa valeur enregistrée, et le <select>

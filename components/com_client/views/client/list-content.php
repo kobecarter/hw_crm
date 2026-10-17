@@ -133,7 +133,7 @@
 						<td><?php echo $client->getEmail(); ?></td>
 						<td><?php echo $client->getRaisonSocial(); ?></td>
 						<td>
-							<?php if (isset($utilisateursPourAffectation) && utilisateurEstAdminOuSuperAdmin($_SESSION['user'])) :?>
+							<?php if (isset($utilisateursPourAffectation) && $_SESSION['user']->isSuperUser()) :?>
 							<select class="form-control form-control-sm chosen-select reassign-user-added" data-id="<?= $client->getId(); ?>" style="min-width: 160px;">
 								<?php foreach ($utilisateursPourAffectation as $u) :?>
 								<option value="<?= $u->getId() ?>" <?= $client->getUserAdded()->getId() == $u->getId() ? 'selected' : '' ?>><?= htmlspecialchars($u->getPrenom() . ' ' . $u->getNom()) ?></option>

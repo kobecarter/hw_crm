@@ -161,12 +161,12 @@ function editClient($data)
         }
         $client = buildClient($data, $data['id']);
         if ($client->edit() == 1) {
-            // "Affecté à" (Administrateur/Super admin) correspond à id_user_added : edit() ne
+            // "Affecté à" (Super admin) correspond à id_user_added : edit() ne
             // touche jamais cette colonne (une modification normale du client ne doit pas changer
             // qui l'a historiquement ajouté), donc toute réaffectation passe par l'appel dédié
             // client::reassignUserAdded(), qui répercute aussi sur les devis/factures existants
             // (voir sa définition dans classes/client.php).
-            if (utilisateurEstAdminOuSuperAdmin($_SESSION['user']) && isset($data['id_user_added']) && $data['id_user_added'] !== '') {
+            if ($_SESSION['user']->isSuperUser() && isset($data['id_user_added']) && $data['id_user_added'] !== '') {
                 $nouvelUtilisateur = intval($data['id_user_added']);
                 if ($nouvelUtilisateur != $client->getUserAdded()->getId()) {
                     client::reassignUserAdded($client->getId(), $nouvelUtilisateur, $_SESSION['agence']);
@@ -293,13 +293,13 @@ function retablirClient($data)
 // Réaffecte le client (id_user_added) à un autre utilisateur depuis la liste clients, en
 // répercutant sur ses devis/factures existants (voir client::reassignUserAdded()). Même action que
 // le champ "Affecté à" du formulaire (voir editClient() ci-dessus), juste depuis la liste au lieu
-// du formulaire. Réservé Administrateur/Super admin : ce champ borne la visibilité d'un
+// du formulaire. Réservé Super admin : ce champ borne la visibilité d'un
 // non-superuser sur TOUT (client, devis, facture, contrat, paiement).
 function reassignUserAdded($data)
 {
     $indices = array("id", "id_user_added");
     if (fieldCheck($data, $indices)) {
-        if (!utilisateurEstAdminOuSuperAdmin($_SESSION['user'])) {
+        if (!$_SESSION['user']->isSuperUser()) {
             echo "3";
             return;
         }
@@ -339,12 +339,12 @@ function buildClient($data, $id = null)
         $client->setUserEdited($_SESSION['user']);
         $client->setAgence(agence::find($data['agence'], $_SESSION['langue']));
     } else {
-        // "Affecté à" (Administrateur/Super admin) : à la création, ce champ permet de choisir
+        // "Affecté à" (Super admin) : à la création, ce champ permet de choisir
         // directement qui est le propriétaire (id_user_added) du nouveau client, au lieu de
         // toujours prendre l'utilisateur connecté par défaut - utile quand un admin crée un
         // client pour le compte d'un commercial.
         $utilisateurAjout = $_SESSION['user'];
-        if (utilisateurEstAdminOuSuperAdmin($_SESSION['user']) && isset($data['id_user_added']) && $data['id_user_added'] !== '') {
+        if ($_SESSION['user']->isSuperUser() && isset($data['id_user_added']) && $data['id_user_added'] !== '') {
             $utilisateurChoisi = user::find(intval($data['id_user_added']));
             if ($utilisateurChoisi->getId() != 0) {
                 $utilisateurAjout = $utilisateurChoisi;
