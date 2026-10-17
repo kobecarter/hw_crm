@@ -320,7 +320,79 @@ class payment
         }
         return 0;
     }
-    
+
+    // CA réalisé (encaissé) par utilisateur sur une année, toutes devises converties en
+    // DH-équivalent - même idiome que charge::topCharges()/item_facture::topServices() (boucle sur
+    // les devises, GROUP BY, conversion via tauxConversionDH()). Contrairement à total() ci-dessus,
+    // ne filtre PAS par l'utilisateur en session : cette méthode sert justement à comparer TOUS les
+    // utilisateurs entre eux (carte "CA par utilisateur" du tableau de bord, réservée superadmin) et
+    // se base sur la date du règlement (A.date_payment), pas la date de la facture, pour rester
+    // cohérent avec la logique "CA réalisé" déjà retenue pour l'export TVA.
+    public static function totalParUser($year = false, $agence = 1)
+    {
+        global $db;
+        $devises = array('DH', '€', '£', '$', 'AED');
+        $totaux = array();
+        foreach ($devises as $devise) {
+            $taux = tauxConversionDH($devise);
+            $SQLselect = "SELECT B.id_user_added as id_user, SUM(A.montant) as total
+                FROM " . static::$table . " A JOIN " . static::$table2 . " B ON A.id_facture = B.id
+                INNER JOIN " . static::$tableClient . " C ON B.id_client = C.id
+                INNER JOIN " . static::$tableAgence . " D ON C.id_agence = D.id
+                WHERE D.id = " . GetSQLValueString($agence, "int") . "
+                AND (B.archived IS NULL OR B.archived = 0)
+                AND B.devise = " . GetSQLValueString($devise, "text") . "
+                AND B.id_user_added IS NOT NULL";
+            if ($year) {
+                $SQLselect .= " AND YEAR(A.date_payment) = " . intval($year);
+            }
+            $SQLselect .= " GROUP BY B.id_user_added";
+            $result = $db->queryS($SQLselect);
+            foreach ($result as $row) {
+                $idUser = intval($row['id_user']);
+                if (!isset($totaux[$idUser])) {
+                    $totaux[$idUser] = 0;
+                }
+                $totaux[$idUser] += floatval($row['total']) * $taux;
+            }
+        }
+        return $totaux;
+    }
+
+    // Même chose que totalParUser() mais détaillé mois par mois (1 à 12), pour le diagramme
+    // d'évolution de la carte "CA par utilisateur" - $year est obligatoire ici (contrairement à
+    // totalParUser()) puisqu'un diagramme mensuel sans année n'aurait pas de sens (agrégerait
+    // plusieurs années sur les mêmes 12 mois).
+    public static function totalParUserParMois($year, $agence = 1)
+    {
+        global $db;
+        $devises = array('DH', '€', '£', '$', 'AED');
+        $totaux = array();
+        foreach ($devises as $devise) {
+            $taux = tauxConversionDH($devise);
+            $SQLselect = "SELECT B.id_user_added as id_user, MONTH(A.date_payment) as mois, SUM(A.montant) as total
+                FROM " . static::$table . " A JOIN " . static::$table2 . " B ON A.id_facture = B.id
+                INNER JOIN " . static::$tableClient . " C ON B.id_client = C.id
+                INNER JOIN " . static::$tableAgence . " D ON C.id_agence = D.id
+                WHERE D.id = " . GetSQLValueString($agence, "int") . "
+                AND (B.archived IS NULL OR B.archived = 0)
+                AND B.devise = " . GetSQLValueString($devise, "text") . "
+                AND B.id_user_added IS NOT NULL
+                AND YEAR(A.date_payment) = " . intval($year) . "
+                GROUP BY B.id_user_added, MONTH(A.date_payment)";
+            $result = $db->queryS($SQLselect);
+            foreach ($result as $row) {
+                $idUser = intval($row['id_user']);
+                $mois = intval($row['mois']);
+                if (!isset($totaux[$idUser])) {
+                    $totaux[$idUser] = array_fill(1, 12, 0);
+                }
+                $totaux[$idUser][$mois] += floatval($row['total']) * $taux;
+            }
+        }
+        return $totaux;
+    }
+
     public static function getReglementbyDate($from = false, $to = false, $devise = 'DH',$agence = 1)
     {
         global $db;

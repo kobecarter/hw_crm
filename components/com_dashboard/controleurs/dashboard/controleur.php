@@ -17,7 +17,65 @@
             case 'getCAperCompany':
                 getCAperCompany($_POST);
                 break;
+            case 'getCAparUtilisateur':
+                getCAparUtilisateur($_POST);
+                break;
         }
+    }
+
+    // CA réalisé par utilisateur (carte + diagramme d'évolution du tableau de bord) : ne garde que
+    // les utilisateurs avec un CA > 0 sur l'année (demande explicite), trie du plus gros au plus
+    // petit CA, et fournit aussi le détail mensuel (pour le diagramme) dans le même appel - les
+    // deux partagent le même sélecteur d'année côté vue. Un Administrateur/Super admin
+    // (utilisateurEstAdminOuSuperAdmin()) voit tous les utilisateurs ; les autres ne voient que
+    // leur propre CA (restriction appliquée ici, pas seulement cachée côté vue, puisque
+    // router.php n'autorise cette tâche qu'avec le droit générique "view com_facture").
+    function getCAparUtilisateur($data)
+    {
+        $year = isset($data['year']) && !empty($data['year']) ? intval($data['year']) : date('Y');
+        $totauxAnnee = payment::totalParUser($year, $_SESSION['agence']);
+        $totauxMois = payment::totalParUserParMois($year, $_SESSION['agence']);
+
+        if (!utilisateurEstAdminOuSuperAdmin($_SESSION['user'])) {
+            $idUserSession = $_SESSION['user']->getId();
+            $totauxAnnee = isset($totauxAnnee[$idUserSession]) ? array($idUserSession => $totauxAnnee[$idUserSession]) : array();
+            $totauxMois = isset($totauxMois[$idUserSession]) ? array($idUserSession => $totauxMois[$idUserSession]) : array();
+        }
+
+        $lignes = array();
+        foreach ($totauxAnnee as $idUser => $total) {
+            if ($total > 0) {
+                $u = user::find($idUser);
+                if ($u->getId() != 0) {
+                    $lignes[] = array('id' => $idUser, 'nom' => trim($u->getPrenom() . ' ' . $u->getNom()), 'total' => $total);
+                }
+            }
+        }
+        usort($lignes, function ($a, $b) {
+            return $b['total'] <=> $a['total'];
+        });
+
+        $series = array();
+        foreach ($lignes as $ligne) {
+            $moisUtilisateur = isset($totauxMois[$ligne['id']]) ? $totauxMois[$ligne['id']] : array_fill(1, 12, 0);
+            $donneesMois = array();
+            for ($mois = 1; $mois <= 12; $mois++) {
+                // number_format (chaîne), pas round() (float) : serialize_precision de ce serveur
+                // (100, pas le défaut -1) force json_encode() à imprimer les floats en précision
+                // complète ("10000.79999999...") même après arrondi - un nombre déjà sous forme de
+                // chaîne à 2 décimales échappe à ce problème, et ApexCharts accepte les deux.
+                $donneesMois[] = number_format($moisUtilisateur[$mois], 2, '.', '');
+            }
+            $series[] = array('nom' => $ligne['nom'], 'data' => $donneesMois);
+        }
+
+        foreach ($lignes as &$ligne) {
+            unset($ligne['id']);
+            $ligne['total'] = number_format($ligne['total'], 2, ',', ' ');
+        }
+
+        header('Content-Type: application/json');
+        echo json_encode(array('lignes' => $lignes, 'series' => $series));
     }
 
     function getCAperCompany($data)

@@ -325,6 +325,86 @@
 					</div>
 				</div>
 			<?php endif; ?>
+			<?php
+			$estAdminOuSuperAdminCA = utilisateurEstAdminOuSuperAdmin($_SESSION['user']);
+			$caParUtilisateur = payment::totalParUser(date('Y'), $_SESSION['agence']);
+			$caParUtilisateurMois = payment::totalParUserParMois(date('Y'), $_SESSION['agence']);
+			if (!$estAdminOuSuperAdminCA) {
+				$idUserSessionCA = $_SESSION['user']->getId();
+				$caParUtilisateur = isset($caParUtilisateur[$idUserSessionCA]) ? array($idUserSessionCA => $caParUtilisateur[$idUserSessionCA]) : array();
+				$caParUtilisateurMois = isset($caParUtilisateurMois[$idUserSessionCA]) ? array($idUserSessionCA => $caParUtilisateurMois[$idUserSessionCA]) : array();
+			}
+			$lignesCaParUtilisateur = array();
+			foreach ($caParUtilisateur as $idUserCa => $totalCa) {
+				if ($totalCa > 0) {
+					$userCa = user::find($idUserCa);
+					if ($userCa->getId() != 0) {
+						$lignesCaParUtilisateur[] = array('id' => $idUserCa, 'nom' => trim($userCa->getPrenom() . ' ' . $userCa->getNom()), 'total' => $totalCa);
+					}
+				}
+			}
+			usort($lignesCaParUtilisateur, function ($a, $b) {
+				return $b['total'] <=> $a['total'];
+			});
+			$seriesCaParUtilisateur = array();
+			foreach ($lignesCaParUtilisateur as $ligneCa) {
+				$moisUtilisateurCa = isset($caParUtilisateurMois[$ligneCa['id']]) ? $caParUtilisateurMois[$ligneCa['id']] : array_fill(1, 12, 0);
+				$donneesMoisCa = array();
+				for ($moisCa = 1; $moisCa <= 12; $moisCa++) {
+					$donneesMoisCa[] = number_format($moisUtilisateurCa[$moisCa], 2, '.', '');
+				}
+				$seriesCaParUtilisateur[] = array('nom' => $ligneCa['nom'], 'data' => $donneesMoisCa);
+			}
+			?>
+			<?php if ($estAdminOuSuperAdminCA || !empty($lignesCaParUtilisateur)) : ?>
+			<div class="row">
+				<div class="col-12 d-flex">
+					<div class="card flex-fill">
+						<div class="card-header">
+							<div class="d-flex justify-content-between align-items-center">
+								<h5 class="card-title" data-toggle="tooltip" title="<?php echo $estAdminOuSuperAdminCA ? "Chiffre d\'affaires réalisé (encaissé) par utilisateur sur l\'année sélectionnée, basé sur les règlements liés aux factures ajoutées par cet utilisateur. Seuls les utilisateurs avec un CA supérieur à 0 sont affichés." : "Votre chiffre d\'affaires réalisé (encaissé) sur l\'année sélectionnée, basé sur les règlements liés aux factures que vous avez ajoutées."; ?>"><?php echo $estAdminOuSuperAdminCA ? 'CA par utilisateur' : 'Mon CA'; ?></h5>
+								<div class="dropdown" data-toggle="dropdown">
+									<a href="javascript:void(0);" class="btn btn-white btn-sm dropdown-toggle current-year-ca-user" role="button" data-toggle="dropdown">Année <?php echo date('Y'); ?></a>
+									<div class="dropdown-menu dropdown-menu-right switch-year-ca-user">
+										<a href="javascript:void(0);" class="dropdown-item" data-year="<?php echo date('Y'); ?>">Année <?php echo date('Y'); ?></a>
+										<a href="javascript:void(0);" class="dropdown-item" data-year="<?php echo date('Y') - 1; ?>">Année <?php echo date('Y') - 1; ?></a>
+										<a href="javascript:void(0);" class="dropdown-item" data-year="<?php echo date('Y') - 2; ?>">Année <?php echo date('Y') - 2; ?></a>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="card-body">
+							<div id="ca_evolution_chart" class="money-sensitive"></div>
+							<script>
+								var caParUtilisateurSeries = <?php echo json_encode($seriesCaParUtilisateur); ?>;
+							</script>
+							<div class="table-responsive mt-4">
+								<table class="table table-hover">
+									<thead class="thead-light">
+										<tr>
+											<th>Utilisateur</th>
+											<th>CA réalisé</th>
+										</tr>
+									</thead>
+									<tbody id="ca-par-utilisateur-body">
+										<?php if (empty($lignesCaParUtilisateur)) : ?>
+										<tr><td colspan="2" class="text-center text-muted">Aucun chiffre d'affaires pour cette année.</td></tr>
+										<?php else : ?>
+										<?php foreach ($lignesCaParUtilisateur as $ligneCa) : ?>
+										<tr>
+											<td><?php echo htmlspecialchars($ligneCa['nom']); ?></td>
+											<td class="money-sensitive"><?php echo number_format($ligneCa['total'], 2, ',', ' '); ?> Dh</td>
+										</tr>
+										<?php endforeach; ?>
+										<?php endif; ?>
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<?php endif; ?>
 			<div class="row">
 				<div class="col-md-6 col-sm-6">
 					<div class="card">
@@ -594,6 +674,56 @@
 					$(".modal-title").html(title);
 					$("#dialog-custom").modal('show');
 				}
+			})
+
+			// Carte "CA par utilisateur" (table + diagramme d'évolution mensuelle) : même principe
+			// de sélecteur d'année que les autres cartes de cette page, mais appel AJAX dédié
+			// (getCAparUtilisateur) au lieu de generateChartLines()/getChiffreYear (chart-data.js)
+			// - classe de dropdown distincte (.switch-year-ca-user) pour ne pas déclencher les
+			// handlers .switch-year existants. Une seule réponse {lignes, series} alimente les
+			// deux (table + ApexCharts), puisqu'ils partagent le même sélecteur.
+			var caEvolutionChartInstance = null;
+			function renderCAEvolutionChart(series) {
+				if (!document.getElementById('ca_evolution_chart')) {
+					return;
+				}
+				if (caEvolutionChartInstance) {
+					caEvolutionChartInstance.destroy();
+				}
+				var config = {
+					series: (series || []).map(function(s) { return { name: s.nom, data: s.data }; }),
+					chart: { type: 'area', fontFamily: 'inherit', height: 350, toolbar: { show: false } },
+					dataLabels: { enabled: false },
+					stroke: { curve: 'smooth', width: 2.5 },
+					fill: { type: 'gradient', gradient: { opacityFrom: 0.35, opacityTo: 0.02 } },
+					legend: { position: 'top' },
+					xaxis: { categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] },
+					yaxis: { labels: { formatter: function(v) { return Math.round(v).toLocaleString('fr-FR'); } } },
+					tooltip: { y: { formatter: function(val) { return Number(val).toLocaleString('fr-FR'); } } }
+				};
+				caEvolutionChartInstance = new ApexCharts(document.getElementById('ca_evolution_chart'), config);
+				caEvolutionChartInstance.render();
+			}
+			if (typeof caParUtilisateurSeries !== 'undefined') {
+				renderCAEvolutionChart(caParUtilisateurSeries);
+			}
+
+			$(document).on("click", ".switch-year-ca-user a", function() {
+				var year = $(this).attr("data-year");
+				$(".current-year-ca-user").text("Année " + year);
+				$.post("components/com_dashboard/controleurs/router.php?task=getCAparUtilisateur", { year: year }, function(reponse) {
+					var lignes = reponse.lignes || [];
+					var html = '';
+					if (!lignes.length) {
+						html = '<tr><td colspan="2" class="text-center text-muted">Aucun chiffre d\'affaires pour cette année.</td></tr>';
+					} else {
+						lignes.forEach(function(ligne) {
+							html += '<tr><td>' + $('<div>').text(ligne.nom).html() + '</td><td class="money-sensitive">' + ligne.total + ' Dh</td></tr>';
+						});
+					}
+					$("#ca-par-utilisateur-body").html(html);
+					renderCAEvolutionChart(reponse.series);
+				});
 			})
 
 		});

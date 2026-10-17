@@ -1082,6 +1082,24 @@ function bootstrapSystemSession($userId, $agenceId, $langue = 'fr')
     $_SESSION['langue'] = $langue;
 }
 
+// "Administrateur" (profil) ou "Super admin" (su=1) - deux notions distinctes dans cette base
+// (ex: un profil Administrateur peut avoir su=0). Utilisé pour la carte "CA par utilisateur" du
+// tableau de bord (voir seeCAparUtilisateur() ci-dessous) : contrairement à la réaffectation du
+// propriétaire d'un client (com_client, qui reste réservée à su=1 uniquement), consulter le CA de
+// tous les utilisateurs est une lecture, pas une action - le profil Administrateur y a accès lui
+// aussi, pas seulement les super admin.
+function utilisateurEstAdminOuSuperAdmin($user)
+{
+    if (!$user) {
+        return false;
+    }
+    if ($user->isSuperUser()) {
+        return true;
+    }
+    $profil = $user->getProfil();
+    return $profil && $profil->getProfil() === 'Administrateur';
+}
+
 // Les dropdowns "Affecté à"/"Ajouté par" ne listent que les utilisateurs actifs
 // (user::findAll(true)) : sans ce complément, un client déjà rattaché à un utilisateur depuis
 // désactivé n'aurait aucune <option> correspondant à sa valeur enregistrée, et le <select>

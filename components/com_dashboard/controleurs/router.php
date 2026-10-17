@@ -38,6 +38,14 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
             if ($_SESSION['user']->hasDroit('view', 'com_facture')) {
                 include_once ("dashboard/controleur.php");
             }
-            break;    
+            break;
+        case 'getCAparUtilisateur' :
+            // Accessible à tout utilisateur ayant le droit de consulter les factures - le
+            // contrôleur restreint lui-même les données renvoyées (CA de TOUS les utilisateurs
+            // pour un Administrateur/Super admin, CA de l'utilisateur connecté uniquement sinon).
+            if ($_SESSION['user']->hasDroit('view', 'com_facture')) {
+                include_once ("dashboard/controleur.php");
+            }
+            break;
     }
 }
