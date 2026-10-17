@@ -134,8 +134,12 @@ switch ($task) {
             $clients = client::findAll(false,false,$_SESSION['agence']);
             $payments = payment::findAll(false,false,$_SESSION['agence']);
             $agence = agence::find($_SESSION['agence'],$_SESSION['langue']);
-            $client = isset($_GET['id']) ? client::find(intval($_GET['id'])) : false;             
-            
+            $client = isset($_GET['id']) ? client::find(intval($_GET['id'])) : false;
+            if (utilisateurEstAdminOuSuperAdmin($_SESSION['user'])) {
+                $utilisateursPourAffectation = completerListeUtilisateursAvecIdsManquants(user::findAll(true), array_map(function ($c) {
+                    return $c->getUserAdded()->getId();
+                }, $clients));
+            }
             include_once("components/com_facture/views/facture/facturation.php");
         }
         break;

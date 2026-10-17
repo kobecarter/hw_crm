@@ -27,7 +27,7 @@ switch ($task)
                     $submitValue = "Modifier client";
                     $factures = $client->getFacture();
                     if (utilisateurEstAdminOuSuperAdmin($_SESSION['user'])) {
-                        $utilisateursPourAffectation = user::findAll(true);
+                        $utilisateursPourAffectation = completerListeUtilisateursAvecIdsManquants(user::findAll(true), array($client->getUserAdded()->getId()));
                     }
                     include_once("components/com_client/views/client/edit.php");
                 }else{
@@ -81,6 +81,11 @@ switch ($task)
                 $clients = client::findAll(false,false,$_SESSION['agence']);
             }
             $sansActiviteMap = client::activityMap($_SESSION['agence']);
+            if (utilisateurEstAdminOuSuperAdmin($_SESSION['user'])) {
+                $utilisateursPourAffectation = completerListeUtilisateursAvecIdsManquants(user::findAll(true), array_map(function ($c) {
+                    return $c->getUserAdded()->getId();
+                }, $clients));
+            }
             include_once("components/com_client/views/client/list.php");
         }
         break;

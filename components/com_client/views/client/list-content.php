@@ -101,6 +101,7 @@
 						<th>Téléphone</th>
 						<th>Email</th>
 						<th>Raison sociale</th>
+						<th>Ajouté par</th>
 						<th>Statut</th>
 						<th class="text-right">Actions</th>
 					</tr>
@@ -131,6 +132,17 @@
 						<td><?php echo $client->getTel(); ?></td>
 						<td><?php echo $client->getEmail(); ?></td>
 						<td><?php echo $client->getRaisonSocial(); ?></td>
+						<td>
+							<?php if (isset($utilisateursPourAffectation) && utilisateurEstAdminOuSuperAdmin($_SESSION['user'])) :?>
+							<select class="form-control form-control-sm chosen-select reassign-user-added" data-id="<?= $client->getId(); ?>" style="min-width: 160px;">
+								<?php foreach ($utilisateursPourAffectation as $u) :?>
+								<option value="<?= $u->getId() ?>" <?= $client->getUserAdded()->getId() == $u->getId() ? 'selected' : '' ?>><?= htmlspecialchars($u->getPrenom() . ' ' . $u->getNom()) ?></option>
+								<?php endforeach;?>
+							</select>
+							<?php else :?>
+								<?php echo htmlspecialchars($client->getUserAdded()->getPrenom() . ' ' . $client->getUserAdded()->getNom()); ?>
+							<?php endif;?>
+						</td>
 						<td><span class="badge <?php echo $badgeClass; ?>"><?php echo $title; ?></span></td>
 						<td class="text-right">
 							<?php if ($_SESSION['user']->hasDroit('edit', 'com_client')) :?>
@@ -313,6 +325,24 @@ $(function () {
 				}
 			} else {
 				$('.msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> ' + error_msg + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+			}
+		});
+	});
+
+	// Réaffectation du client (id_user_added) depuis la liste : répercute aussi sur ses devis et
+	// factures déjà existants côté serveur (client::reassignUserAdded()), pour que le nouvel
+	// utilisateur retrouve immédiatement l'historique du client, pas seulement les futurs ajouts.
+	$(document).on("change", ".reassign-user-added", function () {
+		var $select = $(this);
+		var id = $select.data("id");
+		var idUserAdded = $select.val();
+		$.post("components/com_client/controleurs/router.php?task=reassignUserAdded", { id: id, id_user_added: idUserAdded }, function (theResponse) {
+			var code = parseInt(theResponse);
+			if (code === 1) {
+				$('.msgbox').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><strong>Success!</strong> Client réaffecté avec succès (accès devis/factures mis à jour)<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
+			} else {
+				var msg = code === 3 ? "Action non autorisée" : "Erreur lors de la réaffectation";
+				$('.msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Error!</strong> ' + msg + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">×</span></button></div>');
 			}
 		});
 	});

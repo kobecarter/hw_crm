@@ -58,6 +58,11 @@ if(isset($_GET['task']) && !empty($_GET['task'])) {
                 include_once ("client/controleur.php");
             }
             break;
+        case 'reassignUserAdded' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_client')) {
+                include_once ("client/controleur.php");
+            }
+            break;
 		case 'filterClient' :
             if ($_SESSION['user']->hasDroit('view', 'com_client')) {
                 include_once ("client/controleur.php");

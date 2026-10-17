@@ -258,7 +258,7 @@
 							</div>
 							<div class="col-md-6 col-lg-4 client-info-item">
 								<i class="fa fa-user-tag"></i>
-								<div><span>Affecté à</span><p><?php echo $client->getUserAssigned()->getId() ? htmlspecialchars($client->getUserAssigned()->getPrenom() . ' ' . $client->getUserAssigned()->getNom()) : '—'; ?></p></div>
+								<div><span>Affecté à</span><p><?php echo $client->getUserAdded()->getId() ? htmlspecialchars($client->getUserAdded()->getPrenom() . ' ' . $client->getUserAdded()->getNom()) : '—'; ?></p></div>
 							</div>
 							<div class="col-md-6 col-lg-4 client-info-item">
 								<i class="fa fa-globe"></i>

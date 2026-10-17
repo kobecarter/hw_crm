@@ -1098,6 +1098,26 @@ function utilisateurEstAdminOuSuperAdmin($user)
     return $profil && $profil->getProfil() === 'Administrateur';
 }
 
+// Les dropdowns "Affecté à"/"Ajouté par" ne listent que les utilisateurs actifs
+// (user::findAll(true)) : sans ce complément, un client déjà rattaché à un utilisateur depuis
+// désactivé n'aurait aucune <option> correspondant à sa valeur enregistrée, et le <select>
+// retomberait silencieusement sur son premier choix ("Non affecté"/premier actif) au lieu de
+// refléter la vraie affectation - donnant l'impression que le dropdown "n'affiche pas"
+// l'utilisateur réel.
+function completerListeUtilisateursAvecIdsManquants($utilisateurs, $idsRequis)
+{
+    $idsPresents = array_map(function ($u) {
+        return $u->getId();
+    }, $utilisateurs);
+    foreach (array_unique(array_filter($idsRequis)) as $id) {
+        if (!in_array($id, $idsPresents)) {
+            $utilisateurs[] = user::find($id);
+            $idsPresents[] = $id;
+        }
+    }
+    return $utilisateurs;
+}
+
 // Agrège les alertes urgentes de plusieurs modules (rappels clients, factures à échéance,
 // fournisseurs en attente de validation, lignes BANK STATEMENT encore à traiter) en une seule
 // structure groupée, cliquable vers la bonne page - alimente le centre "Rappels(Urgent)" du

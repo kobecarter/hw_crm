@@ -30,6 +30,9 @@ if (isset($task) && !empty($task)) {
         case "retablirClient":
             retablirClient($_POST);
             break;
+        case "reassignUserAdded":
+            reassignUserAdded($_POST);
+            break;
         case "filterClient":
             filterClient($_POST);
             break;
@@ -156,7 +159,19 @@ function editClient($data)
             echo "2|Ce login est déjà utilisé";
             return;
         }
-        if (buildClient($data, $data['id'])->edit() == 1) {
+        $client = buildClient($data, $data['id']);
+        if ($client->edit() == 1) {
+            // "Affecté à" (Administrateur/Super admin) correspond à id_user_added : edit() ne
+            // touche jamais cette colonne (une modification normale du client ne doit pas changer
+            // qui l'a historiquement ajouté), donc toute réaffectation passe par l'appel dédié
+            // client::reassignUserAdded(), qui répercute aussi sur les devis/factures existants
+            // (voir sa définition dans classes/client.php).
+            if (utilisateurEstAdminOuSuperAdmin($_SESSION['user']) && isset($data['id_user_added']) && $data['id_user_added'] !== '') {
+                $nouvelUtilisateur = intval($data['id_user_added']);
+                if ($nouvelUtilisateur != $client->getUserAdded()->getId()) {
+                    client::reassignUserAdded($client->getId(), $nouvelUtilisateur, $_SESSION['agence']);
+                }
+            }
             echo "1";
         } else {
             echo "2";
@@ -275,6 +290,39 @@ function retablirClient($data)
     }
 }
 
+// Réaffecte le client (id_user_added) à un autre utilisateur depuis la liste clients, en
+// répercutant sur ses devis/factures existants (voir client::reassignUserAdded()). Même action que
+// le champ "Affecté à" du formulaire (voir editClient() ci-dessus), juste depuis la liste au lieu
+// du formulaire. Réservé Administrateur/Super admin : ce champ borne la visibilité d'un
+// non-superuser sur TOUT (client, devis, facture, contrat, paiement).
+function reassignUserAdded($data)
+{
+    $indices = array("id", "id_user_added");
+    if (fieldCheck($data, $indices)) {
+        if (!utilisateurEstAdminOuSuperAdmin($_SESSION['user'])) {
+            echo "3";
+            return;
+        }
+        $client = client::find($data['id'], $_SESSION['agence']);
+        if ($client->getId() == 0) {
+            echo "2";
+            return;
+        }
+        $nouvelUtilisateur = user::find(intval($data['id_user_added']));
+        if ($nouvelUtilisateur->getId() == 0) {
+            echo "2";
+            return;
+        }
+        if (client::reassignUserAdded($client->getId(), $nouvelUtilisateur->getId(), $_SESSION['agence']) == 1) {
+            echo "1";
+        } else {
+            echo "2";
+        }
+    } else {
+        echo "0";
+    }
+}
+
 function buildClient($data, $id = null)
 {
     $client = new client();
@@ -291,7 +339,18 @@ function buildClient($data, $id = null)
         $client->setUserEdited($_SESSION['user']);
         $client->setAgence(agence::find($data['agence'], $_SESSION['langue']));
     } else {
-        $client->setUserAdded($_SESSION['user']);
+        // "Affecté à" (Administrateur/Super admin) : à la création, ce champ permet de choisir
+        // directement qui est le propriétaire (id_user_added) du nouveau client, au lieu de
+        // toujours prendre l'utilisateur connecté par défaut - utile quand un admin crée un
+        // client pour le compte d'un commercial.
+        $utilisateurAjout = $_SESSION['user'];
+        if (utilisateurEstAdminOuSuperAdmin($_SESSION['user']) && isset($data['id_user_added']) && $data['id_user_added'] !== '') {
+            $utilisateurChoisi = user::find(intval($data['id_user_added']));
+            if ($utilisateurChoisi->getId() != 0) {
+                $utilisateurAjout = $utilisateurChoisi;
+            }
+        }
+        $client->setUserAdded($utilisateurAjout);
         $agenceId = isset($data['agence']) && !empty($data['agence']) ? $data['agence'] : $_SESSION['agence'];
         $client->setAgence(agence::find($agenceId, $_SESSION['langue']));
     }
@@ -341,18 +400,6 @@ function buildClient($data, $id = null)
 
     if (isset($data['password']) && !empty($data['password'])) {
         $client->setPassword($data['password']);
-    }
-
-    // Affectation à un utilisateur (commercial) : réservé Administrateur/Super admin - vérifié ici
-    // côté serveur, pas seulement en cachant le champ côté formulaire (sinon un POST direct
-    // suffirait à contourner). Un client déjà existant (édition) garde son affectation actuelle
-    // (déjà chargée par client::find() ci-dessus) si le champ est absent/vide ou si l'utilisateur
-    // n'a pas le droit d'y toucher.
-    if (utilisateurEstAdminOuSuperAdmin($_SESSION['user']) && isset($data['id_user_assigned']) && $data['id_user_assigned'] !== '') {
-        $client->setUserAssigned(user::find(intval($data['id_user_assigned'])));
-    } elseif (utilisateurEstAdminOuSuperAdmin($_SESSION['user']) && isset($data['id_user_assigned']) && $data['id_user_assigned'] === '') {
-        // Champ explicitement remis à "Non affecté".
-        $client->setUserAssigned(new user());
     }
 
     return $client;

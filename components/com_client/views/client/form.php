@@ -48,10 +48,11 @@
 		<div class="col-md-4">
 			<div class="form-group">
 				<label>Affecté à <small class="text-muted">(Administrateur/Super admin)</small></label>
-				<select class="chosen-select" name="id_user_assigned">
+				<select class="chosen-select" name="id_user_added">
 					<option value="">Non affecté</option>
 					<?php foreach ($utilisateursPourAffectation as $u) :?>
-					<option value="<?= $u->getId() ?>" <?= isset($client) && $client->getUserAssigned()->getId() == $u->getId() ? 'selected' : '' ?>><?= htmlspecialchars($u->getPrenom() . ' ' . $u->getNom()) ?></option>
+					<?php $estSelectionne = isset($client) ? $client->getUserAdded()->getId() == $u->getId() : $_SESSION['user']->getId() == $u->getId(); ?>
+					<option value="<?= $u->getId() ?>" <?= $estSelectionne ? 'selected' : '' ?>><?= htmlspecialchars($u->getPrenom() . ' ' . $u->getNom()) ?></option>
 					<?php endforeach;?>
 				</select>
 			</div>
