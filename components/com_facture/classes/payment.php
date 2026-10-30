@@ -217,6 +217,25 @@ class payment
         return $payment;
     }
 
+    // Règlements d'un client donné (toutes factures confondues) - utilisé par le sélecteur
+    // "Règlement" du formulaire relance (catégorie "paiement"), même idiome de jointure que
+    // findAll() ci-dessous mais filtré par client plutôt que par facture/devise/année.
+    public static function ofClient($idClient, $agence = 1)
+    {
+        global $db;
+        $items = array();
+        $SQLselect = "SELECT A.id as ID,A.id_facture as ID_facture,A.*,B.* FROM " . static::$table . " A JOIN " . static::$table2 . " B ON A.id_facture = B.id inner join " . static::$tableClient . " C on B.id_client = C.id inner join " . static::$tableAgence . " D on C.id_agence = D.id WHERE B.id_client = " . intval($idClient) . " AND C.id_agence = " . intval($agence);
+        if ($_SESSION['user']->isSuperUser() == false) {
+            $SQLselect .= " AND (B.id_user_added = " . $_SESSION['user']->getId() . " )";
+        }
+        $SQLselect .= " ORDER BY A.date_payment DESC";
+        $result = $db->queryS($SQLselect);
+        foreach ($result as $data) {
+            array_push($items, static::build($data));
+        }
+        return $items;
+    }
+
     public static function findAll($id_facture = null, $ordre = false,$agence = false ,$devise = false , $year = false)
     {
         global $db;

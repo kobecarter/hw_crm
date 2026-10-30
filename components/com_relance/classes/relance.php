@@ -9,7 +9,11 @@ class relance
     private $id;
     private $client;
     private $facture;
+    private $rappel;
     private $type;
+    private $categorie;
+    private $email_sujet;
+    private $email_corps;
     private $id_condition;
     private $etape;
     private $date;
@@ -40,9 +44,32 @@ class relance
         return $this->facture;
     }
 
+    // Rappel (domaine/hébergement, voir com_rappel) choisi dans la liste dynamique du formulaire
+    // pour les catégories "expiration_domaine"/"hebergement" - permet de restaurer ce choix (et le
+    // contexte domaine/expiration associé) à la réouverture de la relance pour modification.
+    public function getRappel()
+    {
+        return $this->rappel;
+    }
+
     public function getType()
     {
         return $this->type;
+    }
+
+    public function getCategorie()
+    {
+        return $this->categorie;
+    }
+
+    public function getEmailSujet()
+    {
+        return $this->email_sujet;
+    }
+
+    public function getEmailCorps()
+    {
+        return $this->email_corps;
     }
 
     public function getIdCondition()
@@ -110,9 +137,29 @@ class relance
         $this->facture = $facture;
     }
 
+    public function setRappel($rappel)
+    {
+        $this->rappel = $rappel;
+    }
+
     public function setType($type)
     {
         $this->type = $type;
+    }
+
+    public function setCategorie($categorie)
+    {
+        $this->categorie = $categorie;
+    }
+
+    public function setEmailSujet($email_sujet)
+    {
+        $this->email_sujet = $email_sujet;
+    }
+
+    public function setEmailCorps($email_corps)
+    {
+        $this->email_corps = $email_corps;
     }
 
     public function setIdCondition($id_condition)
@@ -173,11 +220,15 @@ class relance
     {
         global $db;
         $SQLinsert = sprintf(
-            "INSERT INTO " . static::$table . " (id_client, id_facture, id_condition, type, etape, date, remarque, photo, traite, date_envoi, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "INSERT INTO " . static::$table . " (id_client, id_facture, id_rappel, id_condition, type, categorie, email_sujet, email_corps, etape, date, remarque, photo, traite, date_envoi, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->client->getId(), "int"),
             GetSQLValueString($this->facture->getId(), "int"),
+            GetSQLValueString($this->rappel && $this->rappel->getId() ? $this->rappel->getId() : null, "int"),
             GetSQLValueString($this->id_condition, "int"),
             GetSQLValueString($this->type, "text"),
+            GetSQLValueString($this->categorie, "text"),
+            GetSQLValueString($this->email_sujet, "text"),
+            GetSQLValueString($this->email_corps, "text"),
             GetSQLValueString($this->etape, "text"),
             GetSQLValueString($this->date, "date"),
             GetSQLValueString($this->remarque, "text"),
@@ -199,11 +250,15 @@ class relance
     {
         global $db;
         $SQLupdate = sprintf(
-            "UPDATE " . static::$table . " SET  id_client = %s, id_facture = %s, id_condition = %s, type = %s, etape = %s, date = %s, remarque = %s, photo = %s, traite = %s, date_envoi = %s, last_edit = %s WHERE id = %s",
+            "UPDATE " . static::$table . " SET  id_client = %s, id_facture = %s, id_rappel = %s, id_condition = %s, type = %s, categorie = %s, email_sujet = %s, email_corps = %s, etape = %s, date = %s, remarque = %s, photo = %s, traite = %s, date_envoi = %s, last_edit = %s WHERE id = %s",
             GetSQLValueString($this->client->getId(), "int"),
             GetSQLValueString($this->facture->getId(), "int"),
+            GetSQLValueString($this->rappel && $this->rappel->getId() ? $this->rappel->getId() : null, "int"),
             GetSQLValueString($this->id_condition, "int"),
             GetSQLValueString($this->type, "text"),
+            GetSQLValueString($this->categorie, "text"),
+            GetSQLValueString($this->email_sujet, "text"),
+            GetSQLValueString($this->email_corps, "text"),
             GetSQLValueString($this->etape, "text"),
             GetSQLValueString($this->date, "date"),
             GetSQLValueString($this->remarque, "text"),
@@ -321,7 +376,11 @@ class relance
         $relance->setId($data['id']);
         $relance->setClient(client::find($data['id_client'],$_SESSION['agence']));
         $relance->setFacture(facture::find($data['id_facture'],$_SESSION['agence']));
+        $relance->setRappel(isset($data['id_rappel']) && !empty($data['id_rappel']) ? rappel::find($data['id_rappel'], $_SESSION['agence']) : new rappel());
         $relance->setType($data['type']);
+        $relance->setCategorie(isset($data['categorie']) ? $data['categorie'] : null);
+        $relance->setEmailSujet(isset($data['email_sujet']) ? $data['email_sujet'] : null);
+        $relance->setEmailCorps(isset($data['email_corps']) ? $data['email_corps'] : null);
         $relance->setIdCondition(isset($data['id_condition']) ? $data['id_condition'] : null);
         $relance->setEtape(isset($data['etape']) ? $data['etape'] : null);
         $relance->setDate($data['date']);
@@ -635,5 +694,79 @@ class relance
         $mail->AltBody = strip_tags($corps);
         $mail->send();
         copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage(), $mailCreds['host'], $mailCreds['username'], $mailCreds['password']);
+    }
+
+    // Relances email à sujet/corps libres (catégorie facture/paiement/expiration domaine/
+    // hébergement/autre service, rédigées par l'IA puis relues par l'utilisateur dans le
+    // formulaire d'ajout - voir aiRelanceEmail + com_relance/controleurs/relance/controleur.php).
+    // Même squelette PHPMailer que sendReminderEmail() ci-dessus, mais sujet/corps DONNÉS plutôt
+    // que générés à partir de $etape - celui-ci reste intact, toujours utilisé par le cron
+    // d'échéances factures automatique.
+    public static function envoyerEmailPersonnalise($relance, $sujet, $corps)
+    {
+        $client = $relance->getClient();
+        if (!$client || !$client->getId() || !$client->getEmail()) {
+            throw new \Exception("Ce client n'a pas d'adresse email enregistrée.");
+        }
+
+        require_once __DIR__ . '/../../../vendor/autoload.php';
+
+        $mailCreds = getMailCredentialsForAgence($client->getAgence() ? $client->getAgence()->getId() : 0);
+
+        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+        $mail->isSMTP();
+        $mail->Host = $mailCreds['host'];
+        $mail->SMTPAuth = true;
+        $mail->Username = $mailCreds['username'];
+        $mail->Password = $mailCreds['password'];
+        $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = $mailCreds['port'];
+        $mail->CharSet = 'UTF-8';
+        $mail->setFrom($mailCreds['username'], 'Hello World');
+        $mail->addAddress($client->getEmail(), trim($client->getPrenom() . ' ' . $client->getNom()));
+        if ($client->getEmail2() != '') {
+            $mail->addCC($client->getEmail2());
+        }
+        $mail->isHTML(true);
+        $mail->Subject = $sujet;
+        $mail->Body = $corps;
+        $mail->AltBody = strip_tags($corps);
+        $mail->send();
+        copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage(), $mailCreds['host'], $mailCreds['username'], $mailCreds['password']);
+    }
+
+    // Point d'entrée du cron "envoi programmé" (voir com_relance/controleurs/router.php, task
+    // envoyerRelancesProgrammeesCron) : relances créées avec "Programmer l'envoi" depuis le
+    // formulaire (email_corps déjà rédigé/relu à la création, jamais régénéré ici), dont la date
+    // prévue est atteinte et qui ne sont pas déjà parties. Idempotent via date_envoi (même
+    // convention que sendIfNotAlreadySentToday()) : un second appel du cron le même jour, ou les
+    // jours suivants, ne renvoie jamais une relance déjà marquée traite=1/date_envoi posée.
+    public static function envoyerRelancesProgrammees($agence)
+    {
+        global $db;
+        $resume = array('envoyees' => 0, 'erreurs' => 0);
+        $today = date('Y-m-d');
+
+        $SQLselect = sprintf(
+            "SELECT A.id as ID, A.* FROM " . static::$table . " A inner join " . static::$tableClient . " B on A.id_client = B.id inner join " . static::$tableAgence . " C on B.id_agence = C.id
+            WHERE C.id = %s AND A.email_corps IS NOT NULL AND A.date_envoi IS NULL AND A.traite = 0 AND A.date <= %s",
+            GetSQLValueString($agence, "int"),
+            GetSQLValueString($today, "date")
+        );
+        $result = $db->queryS($SQLselect);
+        foreach ($result as $data) {
+            $relance = static::build($data);
+            try {
+                self::envoyerEmailPersonnalise($relance, $relance->getEmailSujet(), $relance->getEmailCorps());
+                $relance->setTraite(1);
+                $relance->setDateEnvoi(date('Y-m-d H:i:s'));
+                $relance->edit();
+                $resume['envoyees']++;
+            } catch (\Throwable $e) {
+                error_log('relance::envoyerRelancesProgrammees - relance ' . $relance->getId() . ' - ' . $e->getMessage());
+                $resume['erreurs']++;
+            }
+        }
+        return $resume;
     }
 }
