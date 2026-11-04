@@ -592,6 +592,7 @@ function confirmerReleve($data)
         $charge->setLastEdit(date('Y-m-d H:i:s'));
         $charge->add();
         $idChargeCommission = charge::getLastId();
+        activityLog::add('charge', $idChargeCommission, 'add', 'Charge "' . $charge->getTitre() . '" (' . $charge->getTotal() . ') créée (rapprochement bancaire)');
     }
 
     $compteurs = array('matched_facture' => 0, 'matched_charge' => 0, 'a_valider' => 0, 'sans_justificatif' => 0);
@@ -629,7 +630,9 @@ function confirmerReleve($data)
                 $payment->setDateAdd(date('Y-m-d H:i:s'));
                 $payment->setLastEdit(date('Y-m-d H:i:s'));
                 $payment->add();
-                $ligne->setIdPayment(payment::getLastId());
+                $idPaymentAuto = payment::getLastId();
+                activityLog::add('payment', $idPaymentAuto, 'add', 'Paiement de ' . $payment->getMontant() . ' sur facture #' . $facture->getNumero() . ' créé (rapprochement bancaire)');
+                $ligne->setIdPayment($idPaymentAuto);
                 $facture->checkPayment();
                 $ligne->setStatut('matched_facture');
             } else {
@@ -973,6 +976,7 @@ function creerJustificatifManuel($data, $files)
                 $charge->setLastEdit(date('Y-m-d H:i:s'));
                 $charge->add();
                 $idChargeLiee = charge::getLastId();
+                activityLog::add('charge', $idChargeLiee, 'add', 'Charge "' . $charge->getTitre() . '" (' . $charge->getTotal() . ') créée (rapprochement bancaire)');
 
                 $payslipExistant->setIdCharge($idChargeLiee);
                 $payslipExistant->edit();
@@ -1027,6 +1031,7 @@ function creerJustificatifManuel($data, $files)
         $charge->setLastEdit(date('Y-m-d H:i:s'));
         $charge->add();
         $idCharge = charge::getLastId();
+        activityLog::add('charge', $idCharge, 'add', 'Charge "' . $charge->getTitre() . '" (' . $charge->getTotal() . ') créée (rapprochement bancaire)');
 
         // Le même fichier (déjà copié dans images/charges/ ci-dessus) est dupliqué vers l'espace
         // employé - même contrainte que creerBulletinDepuisCharge() (com_charge) : uploadFiles()
@@ -1112,6 +1117,7 @@ function creerJustificatifManuel($data, $files)
         $charge->setLastEdit(date('Y-m-d H:i:s'));
         $charge->add();
         $idCharge = charge::getLastId();
+        activityLog::add('charge', $idCharge, 'add', 'Charge "' . $charge->getTitre() . '" (' . $charge->getTotal() . ') créée (rapprochement bancaire)');
 
         // charge_action='creee' : voir commentaire équivalent ci-dessus (mode 'payslip').
         $infosCree = $ligne->getDonneesMatchingArray();
@@ -1248,6 +1254,7 @@ function creerJustificatifManuel($data, $files)
         $charge->setLastEdit(date('Y-m-d H:i:s'));
         $charge->add();
         $idCharge = charge::getLastId();
+        activityLog::add('charge', $idCharge, 'add', 'Charge "' . $charge->getTitre() . '" (' . $charge->getTotal() . ') créée (rapprochement bancaire)');
 
         $ligne->setIdCharge($idCharge);
         $ligne->setStatut('matched_charge');
@@ -1307,6 +1314,7 @@ function creerJustificatifManuel($data, $files)
     $charge->setLastEdit(date('Y-m-d H:i:s'));
     $charge->add();
     $idCharge = charge::getLastId();
+    activityLog::add('charge', $idCharge, 'add', 'Charge "' . $charge->getTitre() . '" (' . $charge->getTotal() . ') créée (rapprochement bancaire)');
 
     $ligne->setIdCharge($idCharge);
     $ligne->setStatut('matched_charge');
@@ -1518,6 +1526,7 @@ function validerLigne($data, $files = array())
         $charge->setLastEdit(date('Y-m-d H:i:s'));
         $charge->add();
         $idCharge = charge::getLastId();
+        activityLog::add('charge', $idCharge, 'add', 'Charge "' . $charge->getTitre() . '" (' . $charge->getTotal() . ') créée (rapprochement bancaire)');
 
         // charge_action='creee' : cette charge a été créée PAR ce clic - annulerMarquageCharge()
         // pourra donc la supprimer entièrement (jamais pour 'liee' ci-dessus).
@@ -1581,6 +1590,7 @@ function validerLigne($data, $files = array())
         $payment->setLastEdit(date('Y-m-d H:i:s'));
         $payment->add();
         $idPayment = payment::getLastId();
+        activityLog::add('payment', $idPayment, 'add', 'Paiement de ' . $payment->getMontant() . ' sur facture #' . $facture->getNumero() . ' créé (rapprochement bancaire)');
         $facture->checkPayment();
 
         $ligne->setIdPayment($idPayment);
@@ -1938,6 +1948,7 @@ function creerChargeEtLier($data)
     $charge->setLastEdit(date('Y-m-d H:i:s'));
     $charge->add();
     $idCharge = charge::getLastId();
+    activityLog::add('charge', $idCharge, 'add', 'Charge "' . $charge->getTitre() . '" (' . $charge->getTotal() . ') créée (rapprochement bancaire)');
 
     // charge_action='creee' : cette fenêtre ne fait QUE créer (jamais lier une charge existante,
     // voir "Choisir" plus haut pour ce cas) - annulerMarquageCharge() pourra donc la supprimer.

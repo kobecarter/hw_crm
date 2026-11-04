@@ -357,6 +357,7 @@ class devis
         );
 
         if (!$db->query($SQLupdate)) {
+            activityLog::add('devis', $this->id, 'edit', 'Devis #' . $this->numero . ' modifié');
             return 1;
         } else {
             return 0;
@@ -375,6 +376,7 @@ class devis
             GetSQLValueString($this->getId(), "int")
         );
         if (!$db->query($SQLdelete) && !$db->query($SQLdelete2)) {
+            activityLog::add('devis', $this->getId(), 'delete', 'Devis #' . $this->numero . ' supprimé');
             return 1;
         } else {
             return 0;

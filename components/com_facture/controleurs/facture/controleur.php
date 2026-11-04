@@ -297,6 +297,7 @@ function addFacture($data)
 			// Ajout des lignes facture
 			$id_facture = facture::getLastId();
 			$facture = facture::find($id_facture, $_SESSION['agence']);
+			activityLog::add('facture', $id_facture, 'add', 'Facture #' . $id_facture . ' créée');
 			if (isset($data["id_service"]) && !empty($data["id_service"])) {
 				$cpt = 0;
 				foreach ($data["id_service"] as $id_service) {
@@ -348,6 +349,7 @@ function addFactureAvoir($data)
 			// Ajout des lignes facture avoir
 			$id_facture = facture::getLastId();
 			$facture = facture::find($id_facture, $_SESSION['agence']);
+			activityLog::add('facture', $id_facture, 'add', "Facture d'avoir #" . $id_facture . ' créée');
 
 			if (isset($data["id_service"]) && !empty($data["id_service"])) {
 				$cpt = 0;

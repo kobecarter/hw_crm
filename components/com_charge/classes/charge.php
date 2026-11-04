@@ -434,6 +434,7 @@ class charge
             GetSQLValueString($this->id, "int")
         );
         if (!$db->query($SQLupdate)) {
+			activityLog::add('charge', $this->id, 'edit', 'Charge "' . $this->titre . '" (' . $this->total . ') modifiée');
 			return 1;
         } else {
             return 0;
@@ -456,6 +457,7 @@ class charge
             GetSQLValueString($this->getId(), "int")
         );
         if(!$db->query($SQLdelete)){
+            activityLog::add('charge', $this->getId(), 'delete', 'Charge "' . $this->titre . '" (' . $this->total . ') supprimée');
             return 1;
         } else {
             return 0;

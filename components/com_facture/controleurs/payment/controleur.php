@@ -79,6 +79,7 @@ function addPayment($data)
         $newPayment = buildPayment($data);
         $newPayment->setNumeroSequence($facturePourSequence->assignNextPaymentSeq());
         if ($newPayment->add() == 1) {
+            activityLog::add('payment', payment::getLastId(), 'add', 'Paiement de ' . $newPayment->getMontant() . ' sur facture #' . $facturePourSequence->getNumero() . ' créé');
 
             $facture = facture::find($data['id_facture'],$_SESSION['agence']);
 

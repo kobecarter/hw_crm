@@ -526,6 +526,7 @@ class client
             GetSQLValueString($this->id, "int")
         );
         if (!$db->query($SQLupdate)) {
+            activityLog::add('client', $this->id, 'edit', 'Client ' . trim($this->getRaisonSocial() ?: $this->getPrenom() . ' ' . $this->getNom()) . ' modifié');
             return 1;
         } else {
             return 0;
@@ -572,6 +573,7 @@ class client
             GetSQLValueString($this->getId(), "int")
         );
         if(!$db->query($SQLdelete)){
+            activityLog::add('client', $this->getId(), 'delete', 'Client ' . trim($this->getRaisonSocial() ?: $this->getPrenom() . ' ' . $this->getNom()) . ' supprimé');
             return 1;
         } else {
             return 0;

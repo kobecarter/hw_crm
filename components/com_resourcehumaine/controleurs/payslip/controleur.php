@@ -184,5 +184,7 @@ function creerChargeDepuisPayslipRH($resourcehumaine, $mois, $annee, $nomFichier
     if ($charge->add() != 1) {
         return null;
     }
-    return charge::getLastId();
+    $idChargeBulletin = charge::getLastId();
+    activityLog::add('charge', $idChargeBulletin, 'add', 'Charge "' . $charge->getTitre() . '" (' . $charge->getTotal() . ') créée (bulletin de paie)');
+    return $idChargeBulletin;
 }

@@ -177,6 +177,7 @@ class payment
         );
 
         if (!$db->query($SQLupdate)) {
+            activityLog::add('payment', $this->id, 'edit', 'Paiement de ' . $this->montant . ' sur facture #' . $this->facture->getNumero() . ' modifié');
             return 1;
         } else {
             return 0;
@@ -191,6 +192,7 @@ class payment
             GetSQLValueString($this->getId(), "int")
         );
         if (!$db->query($SQLdelete)) {
+            activityLog::add('payment', $this->getId(), 'delete', 'Paiement de ' . $this->montant . ' sur facture #' . $this->facture->getNumero() . ' supprimé');
             return 1;
         } else {
             return 0;

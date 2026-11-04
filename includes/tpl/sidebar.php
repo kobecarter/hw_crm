@@ -22,7 +22,13 @@
 					</ul>
 				</li>
 				<?php endif; ?>
-				
+
+				<?php if($_SESSION['user']->isSuperUser()) :?>
+				<li class="<?= isset($_GET['option']) && $_GET['option'] == "com_journal" ? "active" : "" ?>">
+					<a href="index.php?option=com_journal"><i class="fa fa-list-alt"></i> <span>Journal d'activité</span></a>
+				</li>
+				<?php endif; ?>
+
 				<?php if($_SESSION['user']->isResourceHumaine()) :?>
 					<li class="<?= isset($_GET['task']) && $_GET['task']  == "absences" ? "active" : "" ?>">
 						<a href="index.php?task=absences"><i class="fa fa-calendar"></i> <span>Absences et congés</span></a>

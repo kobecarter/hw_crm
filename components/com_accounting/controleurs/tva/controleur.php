@@ -712,7 +712,9 @@ function creerChargeDepuisPreuvePaiement($data, $montantTotal, $titre, $idAgence
     $charge->setLastEdit(date('Y-m-d'));
 
     if ($charge->add() == 1) {
-        return charge::getLastId();
+        $idChargeTva = charge::getLastId();
+        activityLog::add('charge', $idChargeTva, 'add', 'Charge "' . $charge->getTitre() . '" (' . $charge->getTotal() . ') créée (paiement TVA)');
+        return $idChargeTva;
     }
     return null;
 }

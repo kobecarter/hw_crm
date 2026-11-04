@@ -134,6 +134,7 @@ function addClient($data)
         }
         if (buildClient($data)->add() == 1) {
             $newId = client::getLastId();
+            activityLog::add('client', $newId, 'add', 'Client ' . trim($data['raison_social'] ?: $data['prenom'] . ' ' . $data['nom']) . ' créé');
             if (isset($data['presentation_file']) && !empty($data['presentation_file'])) {
                 $presentation = new presentationFile();
                 $presentation->setIdClient($newId);

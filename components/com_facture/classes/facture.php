@@ -447,6 +447,7 @@ class facture
         );
 
         if (!$db->query($SQLupdate)) {
+            activityLog::add('facture', $this->id, 'edit', ($this->isAvoir() ? "Facture d'avoir" : 'Facture') . ' #' . $this->numero . ' modifiée');
             return 1;
         } else {
             return 0;
@@ -536,6 +537,7 @@ class facture
             GetSQLValueString($this->getId(), "int")
         );
         if (!$db->query($SQLdelete) && !$db->query($SQLdelete2)) {
+            activityLog::add('facture', $this->getId(), 'delete', ($this->isAvoir() ? "Facture d'avoir" : 'Facture') . ' #' . $this->numero . ' supprimée');
             return 1;
         } else {
             return 0;

@@ -62,6 +62,7 @@ function addCharge($data)
         // charge::getLastId() après coup — même bug déjà rencontré et corrigé côté TVA/charges).
         $idCharge = charge::getLastId();
         $charge->setId($idCharge);
+        activityLog::add('charge', $idCharge, 'add', 'Charge "' . $charge->getTitre() . '" (' . $charge->getTotal() . ') créée');
 
         if (isset($data['is_payslip']) && $data['is_payslip'] == '1'
             && isset($data['id_resourcehumaine_payslip']) && $data['id_resourcehumaine_payslip'] !== ''

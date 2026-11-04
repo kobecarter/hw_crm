@@ -136,6 +136,7 @@ function duplicateDevis($data)
         if ($devisCopy->add() == 1) {
             // Ajout des lignes facture
             $id_devis = devis::getLastId();
+            activityLog::add('devis', $id_devis, 'add', 'Devis dupliqué depuis #' . $devis->getNumero());
             $devisCopy = devis::find($id_devis, $_SESSION['agence']);
             $items = $devis->getItems();
             foreach ($items as $item) {
@@ -261,6 +262,7 @@ function createInvoiceFromDevis($devis)
 
     $id_facture = facture::getLastId();
     $facture = facture::find($id_facture, $_SESSION['agence']);
+    activityLog::add('facture', $id_facture, 'add', 'Facture #' . $id_facture . ' créée depuis le devis #' . $devis->getNumero());
 
     $items = $devis->getItems();
     foreach ($items as $item) {
@@ -323,6 +325,7 @@ function registerDevisPayment($devis, $data)
     $payment->setDateAdd(date("Y-m-d H:i:s"));
     $payment->setLastEdit(date("Y-m-d H:i:s"));
     $payment->add();
+    activityLog::add('payment', payment::getLastId(), 'add', 'Paiement de ' . $payment->getMontant() . ' sur facture #' . $facture->getNumero() . ' créé');
 
     $facture->checkPayment();
 
@@ -397,6 +400,7 @@ function addDevis($data)
     if (fieldCheck($data, $indices)) {
         if (buildDevis($data)->add() == 1) {
             $id_devis = devis::getLastId();
+            activityLog::add('devis', $id_devis, 'add', 'Devis #' . $id_devis . ' créé');
 
             // conditions de paiement
             $cpt = 0;
