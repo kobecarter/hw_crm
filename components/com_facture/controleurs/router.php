@@ -133,6 +133,15 @@ if (isset($_GET['task']) && !empty($_GET['task'])) {
                 include_once("facture/controleur.php");
             }
             break;
+        case 'exportProjetsEnCours':
+            // Rapport multi-agences (toutes les agences, pas seulement $_SESSION['agence']) -
+            // réservé au superuser pour éviter qu'un utilisateur dont les factures sont filtrées
+            // par id_user_added (voir facture::findAll()) ne génère un rapport silencieusement
+            // incomplet en pensant avoir une vue globale.
+            if ($_SESSION['user']->hasDroit('view', 'com_facture') && $_SESSION['user']->isSuperUser()) {
+                include_once("facture/controleur.php");
+            }
+            break;
         case 'findAllByClientApi':
             include_once("facture/controleur.php");
         break;

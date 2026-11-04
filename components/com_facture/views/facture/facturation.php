@@ -217,6 +217,11 @@
                                         <a href="index.php?option=com_facture&task=archive" class="btn btn-warning text-white mr-1" data-toggle="tooltip" data-placement="top" data-original-title="Archive">
                                             <i class="fas fa-archive"></i>
                                         </a>
+                                        <?php if ($_SESSION['user']->isSuperUser()) : ?>
+                                            <a href="javascript:void(0);" class="btn btn-info text-white mr-1 export-projets-en-cours" data-toggle="tooltip" data-placement="top" data-original-title="Exporter les projets en cours (toutes agences)">
+                                                <i class="fas fa-file-export"></i>
+                                            </a>
+                                        <?php endif; ?>
                                         <a href="javascript:void(0);" class="btn btn-danger mr-1 quick-filter-unpaid" data-toggle="tooltip" data-placement="top" data-original-title="Factures impayées">
                                             <i class="fa fa-file-invoice"></i>
                                         </a>
@@ -659,6 +664,12 @@ $(function () {
         $(document).on("click", "#filter_search_facture", function() {
             $('#filter_inputs_facture').slideToggle("slow");
         });
+
+        // Export des projets en cours (toutes agences), basé sur les factures impayées
+        $(document).on("click", ".export-projets-en-cours", function() {
+            event.preventDefault();
+            window.open('components/com_facture/controleurs/router.php?task=exportProjetsEnCours', '_blank');
+        })
 
         // Export résultat filtre
         $(document).on("click", ".exportFacture", function() {

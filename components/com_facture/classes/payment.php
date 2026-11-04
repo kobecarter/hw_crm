@@ -208,7 +208,7 @@ class payment
             GetSQLValueString($id, "int")
         );
 
-        if($_SESSION['user']->isSuperUser() == false){
+        if($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()){
             $SQLselect .= " AND (B.id_user_added = ".$_SESSION['user']->getId()." )";
         }
         $result = $db->query($SQLselect);
@@ -227,7 +227,7 @@ class payment
         global $db;
         $items = array();
         $SQLselect = "SELECT A.id as ID,A.id_facture as ID_facture,A.*,B.* FROM " . static::$table . " A JOIN " . static::$table2 . " B ON A.id_facture = B.id inner join " . static::$tableClient . " C on B.id_client = C.id inner join " . static::$tableAgence . " D on C.id_agence = D.id WHERE B.id_client = " . intval($idClient) . " AND C.id_agence = " . intval($agence);
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLselect .= " AND (B.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
         $SQLselect .= " ORDER BY A.date_payment DESC";
@@ -244,7 +244,7 @@ class payment
         $items = array();
         $SQLselect = "SELECT A.id as ID,A.id_facture as ID_facture,A.*,B.* FROM " . static::$table . " A JOIN " . static::$table2 . " B ON A.id_facture = B.id inner join " . static::$tableClient . " C on B.id_client = C.id inner join " . static::$tableAgence . " D on C.id_agence = D.id WHERE 1 = 1";
         
-        if($_SESSION['user']->isSuperUser() == false){
+        if($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()){
             $SQLselect .= " AND (B.id_user_added = ".$_SESSION['user']->getId()." )";
         }
 
@@ -302,7 +302,7 @@ class payment
     {
         global $db;
         $SQLcount = "SELECT count(A.id) as c FROM " . static::$table . " A JOIN " . static::$table2 . " B ON A.id_facture = B.id where 1=1";
-        if($_SESSION['user']->isSuperUser() == false){
+        if($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()){
             $SQLcount .= " AND (B.id_user_added = ".$_SESSION['user']->getId()." )";
         }
         $result = $db->query($SQLcount);
@@ -319,7 +319,7 @@ class payment
         $SQLcount = "SELECT SUM(A.montant) as c FROM " . static::$table . " A JOIN " . static::$table2 . " B ON A.id_facture = B.id inner join " . static::$tableClient . " C on B.id_client = C.id inner join " . static::$tableAgence . " D on C.id_agence = D.id
 		WHERE D.id = $agence AND (B.archived IS NULL OR B.archived = 0) AND B.devise = '$devise'";
         
-        if($_SESSION['user']->isSuperUser() == false){
+        if($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()){
             $SQLcount .= " AND (B.id_user_added = ".$_SESSION['user']->getId()." )";
         }
         if ($year) {
@@ -424,7 +424,7 @@ class payment
             $SQLcount = "SELECT SUM(A.montant) as c FROM " . static::$table . " A JOIN " . static::$table2 . " B ON A.id_facture = B.id inner join " . static::$tableClient . " C on B.id_client = C.id inner join " . static::$tableAgence . " D on C.id_agence = D.id
 		WHERE (B.archived IS NULL OR B.archived = 0) AND B.devise = '$devise'";
 		
-        if($_SESSION['user']->isSuperUser() == false){
+        if($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()){
             $SQLcount .= " AND (A.id_user_added = ".$_SESSION['user']->getId()." )";
         }
         if ($from) {

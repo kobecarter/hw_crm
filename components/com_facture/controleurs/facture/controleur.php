@@ -63,6 +63,9 @@ if (isset($task) && !empty($task)) {
 		case 'exportFactureTest':
 			exportFactureTest($_GET);
 			break;
+		case 'exportProjetsEnCours':
+			exportProjetsEnCours();
+			break;
 		case 'findAllByClientApi':
 			findAllByClientApi($_GET);
 			break;
@@ -779,6 +782,7 @@ function buildFacture($data, $id = null, $factureavoir = false)
 	$facture->setLastEdit(date("Y-m-d H:i:s"));
 	$facture->setAvoir(isset($data['avoir']) ? 1 : 0);
 	$facture->setArchived(isset($data['archived']) ? 1 : 0);
+	$facture->setProjetTermine(isset($data['projet_termine']) ? 1 : 0);
 	$facture->setIdFacture(isset($data['id_facture']) ? $data['id_facture'] : NULL);
 
 	// print_r($facture);die;
@@ -1136,6 +1140,192 @@ function exportFactureTest($data)
 		$writer->save('php://output');
 		exit;
 	}
+}
+
+// Liste des "projets en cours" (une ligne par client ayant au moins une facture impayée,
+// groupées par agence), basée sur le modèle de suivi manuel existant - voir
+// components/com_facture/templates/modele_projets_en_cours.xlsx. Toutes les agences sont
+// incluses (pas seulement $_SESSION['agence']) ; réservé au superuser côté router.php car
+// facture::findAll() restreint un non-superuser à ses propres factures, ce qui rendrait ce
+// rapport multi-agences silencieusement incomplet pour un utilisateur normal.
+function exportProjetsEnCours()
+{
+	$templatePath = __DIR__ . '/../../templates/modele_projets_en_cours.xlsx';
+	$spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($templatePath);
+	$sheet = $spreadsheet->getActiveSheet();
+
+	// On garde l'en-tête du modèle (lignes 1-4, avec ses fusions/couleurs) et on repart des
+	// données d'exemple fournies - tout le reste est régénéré depuis la base.
+	$sheet->removeRow(5, $sheet->getHighestRow() - 4);
+
+	// Zone "équipe" du modèle (colonnes G à S, lignes 3-4) : les noms étaient codés en dur et
+	// périmés (ex-employés). On la reconstruit depuis le personnel actuellement actif - nombre
+	// de colonnes variable selon l'effectif, donc on repart d'une zone vide plutôt que de
+	// réutiliser les fusions fixes du modèle.
+	foreach (array('G3:H3', 'I3:J3', 'K3:L3', 'M3:N3', 'P3:Q3') as $plageAFusionner) {
+		try {
+			$sheet->unmergeCells($plageAFusionner);
+		} catch (\Throwable $e) {
+			// déjà non fusionné, rien à faire
+		}
+	}
+	for ($col = 7; $col <= 26; $col++) {
+		foreach (array(3, 4) as $ligne) {
+			$coord = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col) . $ligne;
+			$sheet->setCellValue($coord, null);
+			$sheet->getStyle($coord)->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('FFFFFF');
+			$sheet->getStyle($coord)->getFont()->setBold(false);
+		}
+	}
+
+	// Stagiaires regroupés dans une colonne générique (comme le modèle) ; chaque autre employé
+	// actif reçoit sa propre colonne nominative "Prénom Nom (Poste)".
+	$libellesPoste = array(
+		'Developpeur web' => 'Dev',
+		'Graphic designer' => 'Design',
+		'Community manager' => 'Community Manager',
+		'Manager' => 'Manager',
+		'Responsable administrative' => 'RH',
+	);
+	$employesActifs = array_filter(resourcehumaine::findAll(), function ($employe) {
+		return $employe->isActive();
+	});
+	$stagiaires = array();
+	$employesNommes = array();
+	foreach ($employesActifs as $employe) {
+		if (trim($employe->getStatus()) === 'Stagaire') {
+			$stagiaires[] = trim($employe->getFullName());
+		} else {
+			$fonction = trim($employe->getFunction());
+			$libelleFonction = isset($libellesPoste[$fonction]) ? $libellesPoste[$fonction] : $fonction;
+			$employesNommes[] = trim($employe->getFullName()) . ($libelleFonction != '' ? ' (' . $libelleFonction . ')' : '');
+		}
+	}
+	$libelleStagiaires = 'Stagiaires' . (!empty($stagiaires) ? ' (' . implode(', ', $stagiaires) . ')' : '');
+	$colonnesEquipe = array_merge(array($libelleStagiaires), $employesNommes);
+
+	$colIndex = 7; // colonne G
+	foreach ($colonnesEquipe as $libelleColonne) {
+		$colDebut = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
+		$colFin = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 1);
+		$sheet->mergeCells($colDebut . '3:' . $colFin . '3');
+		$sheet->setCellValue($colDebut . '3', $libelleColonne);
+		$sheet->getStyle($colDebut . '3')->getFont()->setBold(true);
+		$sheet->setCellValue($colDebut . '4', 'Tache a effectuer');
+		$sheet->setCellValue($colFin . '4', 'Deadline');
+		$sheet->getStyle($colDebut . '4')->getFont()->setBold(true);
+		$sheet->getStyle($colFin . '4')->getFont()->setBold(true);
+		foreach (array($colDebut, $colFin) as $c) {
+			$sheet->getStyle($c . '3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('F4CCCC');
+			$sheet->getStyle($c . '4')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('FFF2CC');
+			$sheet->getColumnDimension($c)->setWidth(28);
+		}
+		$colIndex += 2;
+	}
+
+	// Colonne Notes, juste après les colonnes équipe.
+	$lastCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
+	$sheet->setCellValue($lastCol . '3', 'Notes');
+	$sheet->getStyle($lastCol . '3')->getFont()->setBold(true);
+	$sheet->getStyle($lastCol . '3')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('F4CCCC');
+	$sheet->getColumnDimension($lastCol)->setWidth(30);
+	$lastColIndex = $colIndex;
+	$colonnesBande = array();
+	for ($i = 1; $i <= $lastColIndex; $i++) {
+		$colonnesBande[] = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i);
+	}
+	// On avait élargi le nettoyage jusqu'à Z par précaution (nombre de colonnes équipe pas
+	// encore connu à ce stade) ; on retire maintenant les colonnes vides restées au-delà de
+	// Notes pour que la largeur réelle du fichier reflète l'effectif actuel.
+	if ($lastColIndex < 26) {
+		$sheet->removeColumnByIndex($lastColIndex + 1, 26 - $lastColIndex);
+	}
+
+	// Couleurs de bandeau reprises du modèle pour les agences qu'il contenait déjà ; une
+	// agence inconnue du modèle (ex: nouvelle agence) reçoit une couleur neutre par défaut.
+	$bandColors = array(
+		'HW LABEL SARL' => 'A4C2F4',
+		'VERSE CONCEPT' => 'FCE5CD',
+		'HELLOWORLDLABEL DUBAI' => 'E6B8AF',
+	);
+	$defaultBandColor = 'D9D9D9';
+
+	$agences = agence::findAll($_SESSION['langue']);
+	$row = 5;
+	foreach ($agences as $uneAgence) {
+		$nomAgence = trim($uneAgence->getNom());
+		$bandColor = isset($bandColors[strtoupper($nomAgence)]) ? $bandColors[strtoupper($nomAgence)] : $defaultBandColor;
+
+		$sheet->mergeCells('B' . $row . ':C' . $row);
+		$sheet->setCellValue('B' . $row, $nomAgence);
+		foreach ($colonnesBande as $col) {
+			$sheet->getStyle($col . $row)->getFill()
+				->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+				->getStartColor()->setRGB($bandColor);
+		}
+		$sheet->getStyle('B' . $row)->getFont()->setBold(true);
+		$row++;
+
+		$facturesAgence = array_filter(
+			facture::findAll(false, false, false, true, false, false, $uneAgence->getId()),
+			function ($facture) {
+				// Impayée, et le projet ne doit pas avoir été marqué "terminé" sur la facture.
+				return $facture->getReste() > 0 && !$facture->isProjetTermine();
+			}
+		);
+
+		$parClient = array();
+		foreach ($facturesAgence as $facture) {
+			$client = $facture->getClient();
+			if (!$client || !$client->getId()) {
+				continue;
+			}
+			$idClient = $client->getId();
+			if (!isset($parClient[$idClient])) {
+				$parClient[$idClient] = array(
+					'client' => $client,
+					'dateMin' => $facture->getDateFacture(),
+					'prestations' => array(),
+				);
+			}
+			if ($facture->getDateFacture() < $parClient[$idClient]['dateMin']) {
+				$parClient[$idClient]['dateMin'] = $facture->getDateFacture();
+			}
+			foreach ($facture->getItems() as $item) {
+				if ($item->getTitre() != '' && !in_array($item->getTitre(), $parClient[$idClient]['prestations'])) {
+					$parClient[$idClient]['prestations'][] = $item->getTitre();
+				}
+			}
+		}
+
+		if (empty($parClient)) {
+			$sheet->mergeCells('C' . $row . ':' . $lastCol . $row);
+			$sheet->setCellValue('C' . $row, 'Aucune facture impayée');
+			$sheet->getStyle('C' . $row)->getFont()->setItalic(true);
+			$sheet->getStyle('C' . $row)->getFont()->getColor()->setRGB('808080');
+			$row++;
+		} else {
+			foreach ($parClient as $info) {
+				$client = $info['client'];
+				$nomClient = $client->getRaisonSocial() != '' ? $client->getRaisonSocial() : trim($client->getPrenom() . ' ' . $client->getNom());
+				$sheet->setCellValue('B' . $row, $nomClient);
+				$sheet->setCellValue('C' . $row, implode(', ', $info['prestations']));
+				$sheet->setCellValue('D' . $row, 'en cours');
+				$sheet->setCellValue('E' . $row, normalDate($info['dateMin']));
+				$row++;
+			}
+		}
+	}
+
+	ob_end_clean();
+	ob_start();
+	header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+	header('Content-Disposition: attachment;filename="projets_en_cours_' . date('Ymd') . '.xlsx"');
+	header('Cache-Control: max-age=0');
+
+	$writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+	$writer->save('php://output');
+	exit;
 }
 //API
 function findAllByClientApi($data)

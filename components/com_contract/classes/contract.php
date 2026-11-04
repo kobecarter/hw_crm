@@ -422,7 +422,7 @@ class contract
 
         );
 
-        if($_SESSION['user']->isSuperUser() == false){
+        if($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()){
             $SQLselect .= " AND (C.id_user_added = ".$_SESSION['user']->getId()." )";
         }
 
@@ -444,7 +444,7 @@ class contract
             GetSQLValueString($agence, "int")
         );
 
-        if($_SESSION['user']->isSuperUser() == false){
+        if($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()){
             $SQLselect .= " AND (C.id_user_added = ".$_SESSION['user']->getId()." )";
         }
 
@@ -465,7 +465,7 @@ class contract
             GetSQLValueString($agence, "int")
         );
 
-        if($_SESSION['user']->isSuperUser() == false){
+        if($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()){
             $SQLselect .= " AND (C.id_user_added = ".$_SESSION['user']->getId()." )";
         }
 

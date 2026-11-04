@@ -378,7 +378,23 @@
 			</label>
 		</div>
 		<!-- /Toggle Switch -->
-		
+
+		<!-- Toggle Switch -->
+		<div class="col-md-3">
+			<label class="row form-group toggle-switch">
+				<span class="col-12 toggle-switch-content ml-0">
+					<span class="d-block text-dark">Projet terminé</span>
+				</span>
+				<span class="col-12">
+					<input type="checkbox" name="projet_termine" class="toggle-switch-input" <?php if (isset($facture) && $facture->isProjetTermine()) echo "checked"; ?>>
+					<span class="toggle-switch-label mr-auto mt-2">
+						<span class="toggle-switch-indicator"></span>
+					</span>
+				</span>
+			</label>
+		</div>
+		<!-- /Toggle Switch -->
+
 		<?php if (isset($facture) && !isset($factureavoir)) : ?>
 			<input type="hidden" name="id" value="<?php echo $facture->getId(); ?>">
 		<?php endif; ?>

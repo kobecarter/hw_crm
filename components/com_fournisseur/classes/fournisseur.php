@@ -462,7 +462,7 @@ class fournisseur
             $SQLselect .= " AND A.active = 1";
         }
         
-        if(isset($_SESSION['user']) && !$_SESSION['user']->isSuperUser()){
+        if(isset($_SESSION['user']) && !$_SESSION['user']->isSuperUser() && !$_SESSION['user']->isComptable()){
             $SQLselect .= " AND A.user_add = " . $_SESSION['user']->getId();
         }
 		
@@ -507,7 +507,7 @@ class fournisseur
             $SQLselect .= " AND A.active = 1";
         }
         
-        if(isset($_SESSION['user']) && !$_SESSION['user']->isSuperUser()){
+        if(isset($_SESSION['user']) && !$_SESSION['user']->isSuperUser() && !$_SESSION['user']->isComptable()){
             $SQLselect .= " AND A.user_add = " . $_SESSION['user']->getId();
         }
 		

@@ -468,7 +468,7 @@ class devis
                 "SELECT A.id as ID,A.* FROM " . static::$table . " A INNER JOIN " . static::$table5 . " B ON B.id = A.id_client INNER JOIN " . static::$table4 . " C ON C.id =B.id_agence where B.id_agence = %s",
                 GetSQLValueString($agence, "int")
             );
-            if($_SESSION['user']->isSuperUser() == false){
+            if($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()){
                 $SQLselect .= " AND (A.id_user_added = ".$_SESSION['user']->getId()." )";
             }
             $SQLselect .= " ORDER BY A.ID DESC limit 1";
@@ -490,7 +490,7 @@ class devis
         if ($statu) {
             $SQLselect .= " AND A.statu = " . intval($statu);
         }
-        if($_SESSION['user']->isSuperUser() == false){
+        if($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()){
             $SQLselect .= " AND (A.id_user_added = ".$_SESSION['user']->getId()." )";
         }
         if ($ordre) {
@@ -658,7 +658,7 @@ class devis
     {
         global $db;
         $SQLcount = "SELECT count(A.id) as c FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE C.id = $agence";
-        if($_SESSION['user']->isSuperUser() == false){
+        if($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()){
             $SQLcount .= " AND (A.id_user_added = ".$_SESSION['user']->getId()." )";
         }
         if ($statu) {

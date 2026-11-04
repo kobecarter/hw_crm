@@ -227,7 +227,11 @@ class user {
     public function isSuperUser(){
         return ($this->su == 1) ? true : false;
     }
-	
+
+    public function isComptable(){
+        return ($this->profil && trim($this->profil->getProfil()) == "Comptable") ? true : false;
+    }
+
 	// action base de données
 	public function add()
     {

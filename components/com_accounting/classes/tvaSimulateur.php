@@ -33,7 +33,7 @@ class tvaSimulateur
             AND YEAR(A.date_payment) = " . GetSQLValueString($annee, "int") . "
             AND MONTH(A.date_payment) = " . GetSQLValueString($mois, "int");
 
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLselect .= " AND (B.id_user_added = " . intval($_SESSION['user']->getId()) . ")";
         }
 
@@ -149,7 +149,7 @@ class tvaSimulateur
             AND A.date_payment >= " . GetSQLValueString($from, "date") . "
             AND A.date_payment <= " . GetSQLValueString($to, "date");
 
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLselect .= " AND (B.id_user_added = " . intval($_SESSION['user']->getId()) . ")";
         }
         $SQLselect .= " ORDER BY A.date_payment ASC";
@@ -214,7 +214,7 @@ class tvaSimulateur
             AND (B.archived IS NULL OR B.archived = 0)
             AND A.date_payment >= " . GetSQLValueString($from, "date") . "
             AND A.date_payment <= " . GetSQLValueString($to, "date");
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLreglements .= " AND (B.id_user_added = " . intval($_SESSION['user']->getId()) . ")";
         }
         $SQLreglements .= " ORDER BY A.date_payment ASC, A.id ASC";
@@ -265,7 +265,7 @@ class tvaSimulateur
             AND B.date_facture >= " . GetSQLValueString($from, "date") . "
             AND B.date_facture <= " . GetSQLValueString($to, "date") . "
             AND NOT EXISTS (SELECT 1 FROM " . static::$tablePayment . " P WHERE P.id_facture = B.id)";
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLnonReglees .= " AND (B.id_user_added = " . intval($_SESSION['user']->getId()) . ")";
         }
         $SQLnonReglees .= " ORDER BY B.date_facture ASC, B.id ASC";

@@ -638,7 +638,7 @@ class charge
         $SQLselect = "SELECT A.total, A.tva_taux FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id
             WHERE B.id = " . GetSQLValueString($agence, "int") . " AND A.paid = 1 AND A.tva_deductible = 1 AND A.devise = " . GetSQLValueString($devise, "text") . "
             AND A.tva_taux IS NOT NULL AND A.tva_taux > 0";
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLselect .= " AND A.id_user = " . intval($_SESSION['user']->getId());
         }
         if ($from) {
@@ -665,7 +665,7 @@ class charge
         $SQLselect = "SELECT A.id AS ID, A.titre, A.type, A.date_charge, A.date_payment, A.mode_payment, A.total, A.tva_taux, A.photo FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id
             WHERE B.id = " . GetSQLValueString($agence, "int") . " AND A.paid = 1 AND A.tva_deductible = 1 AND A.devise = " . GetSQLValueString($devise, "text") . "
             AND A.tva_taux IS NOT NULL AND A.tva_taux > 0";
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLselect .= " AND A.id_user = " . intval($_SESSION['user']->getId());
         }
         if ($from) {
@@ -715,7 +715,7 @@ class charge
     {
         global $db;
         $champs = "A.id, A.titre, A.type, A.date_charge, A.date_payment, A.devise, A.total, A.paid, A.tva_taux, A.tva_deductible, A.remarque, A.photo";
-        $filtreUser = $_SESSION['user']->isSuperUser() == false ? " AND A.id_user = " . intval($_SESSION['user']->getId()) : "";
+        $filtreUser = ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) ? " AND A.id_user = " . intval($_SESSION['user']->getId()) : "";
 
         if (!$parDatePaiement) {
             $SQLselect = "SELECT $champs FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id

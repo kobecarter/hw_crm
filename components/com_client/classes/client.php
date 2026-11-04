@@ -708,7 +708,7 @@ class client
             GetSQLValueString($id, "int"),
             GetSQLValueString($agence, "int")
         );
-        if($_SESSION['user']->isSuperUser() == false){
+        if($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()){
             $SQLselect .= " AND (A.id_user_added = ".$_SESSION['user']->getId()." )";
         }
         $result = $db->query($SQLselect);
@@ -754,7 +754,7 @@ class client
         $SQLselect = sprintf("SELECT A.id as ID, A.* FROM " . static::$table . " A INNER JOIN " . static::$tableAgence . " B ON A.id_agence = B.id where A.id = %s",
             GetSQLValueString($id, "int")
         );
-        if($_SESSION['user']->isSuperUser() == false){
+        if($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()){
             $SQLselect .= " AND (A.id_user_added = ".$_SESSION['user']->getId()." )";
         }
         $result = $db->query($SQLselect);
@@ -815,7 +815,7 @@ class client
         } else {
             $SQLselect .= " AND (A.archived = 0 OR A.archived IS NULL)";
         }
-        if($_SESSION['user']->isSuperUser() == false){
+        if($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()){
             $SQLselect .= " AND (A.id_user_added = ".$_SESSION['user']->getId()." )";
         }
 		$SQLselect .= " ORDER BY A.date_add DESC, A.id DESC";
@@ -859,7 +859,7 @@ class client
         global $db;
         $map = array();
         $restrictionUser = '';
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $restrictionUser = " AND id_user_added = " . intval($_SESSION['user']->getId());
         }
         $SQLselect = "SELECT c.id,
@@ -883,7 +883,7 @@ class client
         $SQLselect = sprintf("SELECT id FROM " . static::$tableFacture . "  WHERE id_client = %s",
             GetSQLValueString($this->id, "int")
         );
-        if($_SESSION['user']->isSuperUser() == false){
+        if($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()){
             $SQLselect .= " AND (id_user_added = ".$_SESSION['user']->getId()." )";
         }
         if($active){
@@ -905,7 +905,7 @@ class client
         $SQLselect = sprintf("SELECT id FROM " . static::$tableDevis . "  WHERE id_client = %s",
             GetSQLValueString($this->id, "int")
         );
-        if($_SESSION['user']->isSuperUser() == false){
+        if($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()){
             $SQLselect .= " AND (id_user_added = ".$_SESSION['user']->getId()." )";
         }
         if($active){
@@ -1154,7 +1154,7 @@ class client
     public static function count($year = false,$agence = 1){
         global $db;
         $SQLcount = "SELECT count(A.id) as c FROM " . static::$table . " A inner join " . static::$tableAgence . " B on A.id_agence = B.id where B.id = $agence";
-		if($_SESSION['user']->isSuperUser() == false){
+		if($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()){
             $SQLcount .= " AND (A.id_user_added = ".$_SESSION['user']->getId()." )";
         }
 		if($year){

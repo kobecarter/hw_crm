@@ -39,6 +39,7 @@ class facture
     private $last_edit;
     private $avoir;
     private $archived;
+    private $projet_termine;
     private $id_facture;
 
     public function __construct()
@@ -206,6 +207,16 @@ class facture
         return $this->archived ? 1 : 0;
     }
 
+    public function getProjetTermine()
+    {
+        return $this->projet_termine;
+    }
+
+    public function isProjetTermine()
+    {
+        return $this->projet_termine ? 1 : 0;
+    }
+
     public function getIdFacture()
     {
         return $this->id_facture;
@@ -360,6 +371,11 @@ class facture
         $this->archived = $archived;
     }
 
+    public function setProjetTermine($projet_termine)
+    {
+        $this->projet_termine = $projet_termine;
+    }
+
     public function setIdFacture($id_facture)
     {
         $this->id_facture = $id_facture;
@@ -375,7 +391,7 @@ class facture
     {
         global $db;
         $SQLinsert = sprintf(
-            "INSERT INTO " . static::$table . " (id_user_added, id_bank, numero, sec_numero, id_client, id_devis, date_facture, total, statu, devise, discount, discount_val, condition_paiment, remarque, remarque_moi, additional_information, proforma, tva_retenue_source, show_signature, langue, date_debut, date_fin, date_add, last_edit, avoir, archived, id_facture) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "INSERT INTO " . static::$table . " (id_user_added, id_bank, numero, sec_numero, id_client, id_devis, date_facture, total, statu, devise, discount, discount_val, condition_paiment, remarque, remarque_moi, additional_information, proforma, tva_retenue_source, show_signature, langue, date_debut, date_fin, date_add, last_edit, avoir, archived, projet_termine, id_facture) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->user_added->getId(), "int"),
             GetSQLValueString($this->bank ? $this->bank->getId() : null, "int"),
             GetSQLValueString($this->numero, "text"),
@@ -402,6 +418,7 @@ class facture
             GetSQLValueString($this->last_edit, "date"),
             GetSQLValueString($this->avoir, "int"),
             GetSQLValueString($this->archived, "int"),
+            GetSQLValueString($this->projet_termine, "int"),
             GetSQLValueString($this->id_facture, "int")
         );
 
@@ -416,7 +433,7 @@ class facture
     {
         global $db;
         $SQLupdate = sprintf(
-            "UPDATE " . static::$table . " SET  id_user_edited = %s, id_bank = %s, numero = %s, sec_numero = %s, id_client = %s, id_devis = %s, date_facture = %s, total = %s, statu = %s, devise = %s, discount = %s, discount_val = %s, condition_paiment=%s, remarque=%s, remarque_moi=%s, additional_information=%s, proforma = %s, tva_retenue_source = %s, show_signature = %s, langue = %s, date_debut = %s, date_fin = %s, last_edit = %s, avoir = %s, archived = %s, id_facture = %s WHERE id = %s",
+            "UPDATE " . static::$table . " SET  id_user_edited = %s, id_bank = %s, numero = %s, sec_numero = %s, id_client = %s, id_devis = %s, date_facture = %s, total = %s, statu = %s, devise = %s, discount = %s, discount_val = %s, condition_paiment=%s, remarque=%s, remarque_moi=%s, additional_information=%s, proforma = %s, tva_retenue_source = %s, show_signature = %s, langue = %s, date_debut = %s, date_fin = %s, last_edit = %s, avoir = %s, archived = %s, projet_termine = %s, id_facture = %s WHERE id = %s",
             GetSQLValueString($this->user_edited->getId(), "int"),
             GetSQLValueString($this->bank ? $this->bank->getId() : null, "int"),
             GetSQLValueString($this->numero, "text"),
@@ -442,6 +459,7 @@ class facture
             GetSQLValueString($this->last_edit, "date"),
             GetSQLValueString($this->avoir, "int"),
             GetSQLValueString($this->archived, "int"),
+            GetSQLValueString($this->projet_termine, "int"),
             GetSQLValueString($this->id_facture, "int"),
             GetSQLValueString($this->id, "int")
         );
@@ -553,7 +571,7 @@ class facture
             //GetSQLValueString($agence, "int"),
             GetSQLValueString($id, "int")
         );
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLselect .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
         // echo $SQLselect;
@@ -573,7 +591,7 @@ class facture
             "SELECT A.id as ID,A.* FROM " . static::$table . " A INNER JOIN " . static::$table5 . " B ON B.id = A.id_client INNER JOIN " . static::$table4 . " C ON C.id =B.id_agence where B.id_agence = %s",
             GetSQLValueString($agence, "int")
         );
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLselect .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
         $SQLselect .= " ORDER BY A.id DESC LIMIT 1";
@@ -598,7 +616,7 @@ class facture
             else
                 $SQLselect .= " AND A.statu = " . intval($statu);
         }
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLselect .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
         if ($from) {
@@ -661,7 +679,7 @@ class facture
         $facture = new facture();
         $items = array();
         $SQLselect = "SELECT A.id as ID,A.*,B.email,B.email2,B.nom,B.id_agence FROM " . static::$table . " A INNER JOIN " . static::$table5 . " B ON B.id = A.id_client INNER JOIN " . static::$table4 . " C ON C.id =B.id_agence where DATEDIFF(A.date_fin, CURDATE()) <= 10 and DATEDIFF(A.date_fin, CURDATE()) >0 and A.count_sending < 3;";
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLselect .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
         $result = $db->queryS($SQLselect);
@@ -683,7 +701,7 @@ class facture
             //GetSQLValueString($agence, "int"),
             GetSQLValueString($devis_id, "int")
         );
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLselect .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
         // echo $SQLselect;
@@ -893,6 +911,7 @@ class facture
         $facture->setLastEdit($data['last_edit']);
         $facture->setAvoir($data['avoir']);
         $facture->setArchived($data['archived']);
+        $facture->setProjetTermine($data['projet_termine']);
         $facture->setIdFacture($data['id_facture']);
         $facture->setCountSending($data['count_sending']);
         return $facture;
@@ -913,14 +932,14 @@ class facture
         if ($year) {
             $SQLselect .= " AND YEAR(B.date_facture) = " . intval($year);
         }
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLselect .= " AND (B.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
         $result = $db->query($SQLselect);
         $data = $db->fetch_array($result);
         $totalPayment = $data['totalpayment'];
         $SQLselect = sprintf("SELECT SUM(CASE WHEN A.tva_retenue_source = 1 AND (A.proforma IS NULL OR A.proforma = 0) THEN A.total / (1 + C.tva/100) ELSE A.total END) AS totalfacture FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE C.id = $agence AND (A.archived IS NULL OR A.archived = 0) AND A.devise = '$devise'");
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLselect .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
         if ($year) {
@@ -942,7 +961,7 @@ class facture
         else
             $SQLselect = sprintf("SELECT SUM(A.montant) AS totalpayment FROM " . static::$table3 . " A INNER JOIN " . static::$table . " B ON A.id_facture = B.id inner join " . static::$table5 . " C on B.id_client = C.id inner join " . static::$table4 . " D on C.id_agence = D.id WHERE (B.archived IS NULL OR B.archived = 0) AND B.devise = '$devise'");
         
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLselect .= " AND (B.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
         if ($from) {
@@ -961,7 +980,7 @@ class facture
         else
             $SQLselect = sprintf("SELECT SUM(CASE WHEN A.tva_retenue_source = 1 AND (A.proforma IS NULL OR A.proforma = 0) THEN A.total / (1 + C.tva/100) ELSE A.total END) AS totalfacture FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE (A.archived IS NULL OR A.archived = 0) AND A.devise = '$devise'");
 
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLselect .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
         if ($from) {
@@ -981,7 +1000,7 @@ class facture
     {
         global $db;
         $SQLcount = "SELECT count(A.id) as c FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE C.id = $agence and (A.archived IS NULL OR A.archived = 0)";
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLcount .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
         if ($client) {
@@ -1011,7 +1030,7 @@ class facture
         global $db;
         $factures = array();
         $SQLcount = "SELECT A.id FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE C.id = $agence AND (A.archived IS NULL OR A.archived = 0)";
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLcount .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
         if ($client) {
@@ -1045,7 +1064,7 @@ class facture
     {
         global $db;
         $SQLcount = "SELECT SUM(CASE WHEN A.tva_retenue_source = 1 AND (A.proforma IS NULL OR A.proforma = 0) THEN A.total / (1 + C.tva/100) ELSE A.total END) as c FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE C.id = $agence and (A.archived IS NULL OR A.archived = 0) AND A.devise = '$devise'";
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLcount .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
         if ($statu) {
@@ -1076,7 +1095,7 @@ class facture
             $SQLcount = "SELECT SUM(CASE WHEN A.tva_retenue_source = 1 AND (A.proforma IS NULL OR A.proforma = 0) THEN A.total / (1 + C.tva/100) ELSE A.total END) as c FROM " . static::$table . " A inner join " . static::$table5 . " B on A.id_client = B.id inner join " . static::$table4 . " C on B.id_agence = C.id WHERE (A.archived IS NULL OR A.archived = 0) AND A.devise = '$devise'";
             
             
-        if ($_SESSION['user']->isSuperUser() == false) {
+        if ($_SESSION['user']->isSuperUser() == false && !$_SESSION['user']->isComptable()) {
             $SQLcount .= " AND (A.id_user_added = " . $_SESSION['user']->getId() . " )";
         }
         if ($statu) {
