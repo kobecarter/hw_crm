@@ -21,6 +21,7 @@
 						<h4 class="card-title">Créations, modifications et suppressions</h4>
 					</div>
 					<div class="card-body">
+						<div class="table-responsive">
 						<table id="journal-table" class="table table-stripped table-center table-hover datatable">
 							<thead class="thead-light">
 								<tr>
@@ -37,8 +38,8 @@
 									<?php
 									$logAgence = $log->getIdAgence() ? agence::find($log->getIdAgence(), $_SESSION['langue']) : null;
 									$logUser = $log->getIdUser() ? user::find($log->getIdUser()) : null;
-									$actionLabels = array('add' => 'Création', 'edit' => 'Modification', 'delete' => 'Suppression');
-									$actionBadges = array('add' => 'badge-success', 'edit' => 'badge-warning', 'delete' => 'badge-danger');
+									$actionLabels = array('add' => 'Création', 'edit' => 'Modification', 'delete' => 'Suppression', 'login' => 'Connexion');
+									$actionBadges = array('add' => 'badge-success', 'edit' => 'badge-warning', 'delete' => 'badge-danger', 'login' => 'badge-info');
 									?>
 									<tr>
 										<td data-sort="<?= strtotime($log->getDateAdd()) ?>"><?= date('d/m/Y H:i:s', strtotime($log->getDateAdd())) ?></td>
@@ -51,6 +52,7 @@
 								<?php endforeach; ?>
 							</tbody>
 						</table>
+						</div>
 					</div>
 				</div>
 			</div>

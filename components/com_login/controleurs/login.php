@@ -140,6 +140,7 @@ function login($data) {
         $user = user::login($login, $password);
         if ($user->isConnected()) {
             $_SESSION['user'] = $user;
+            activityLog::add('user', $user->getId(), 'login', 'Connexion de ' . trim($user->getPrenom() . ' ' . $user->getNom()));
             if (!empty($data['remember'])) {
                 poserCookieSeRappeler($user->getId());
             }
@@ -196,6 +197,7 @@ function login_global() {
         $user = user::login_global("admin");
         if($result === '1' && $user->isConnected()){
             $_SESSION['user'] = $user;
+            activityLog::add('user', $user->getId(), 'login', 'Connexion de ' . trim($user->getPrenom() . ' ' . $user->getNom()) . ' (login global)');
             setcookie("login_global", "global", time() + 31536000, "/");
             header("location: ".$siteURL."index.php?option=com_dashboard");
         }else{
@@ -284,6 +286,7 @@ function googleLogin($data)
     }
     $user->setConnected(true);
     $_SESSION['user'] = $user;
+    activityLog::add('user', $user->getId(), 'login', 'Connexion de ' . trim($user->getPrenom() . ' ' . $user->getNom()) . ' (Google)');
     echo json_encode(array('success' => 1));
 }
 
