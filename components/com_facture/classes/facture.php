@@ -39,7 +39,7 @@ class facture
     private $last_edit;
     private $avoir;
     private $archived;
-    private $projet_termine;
+    private $projet_termine = 0;
     private $id_facture;
 
     public function __construct()
