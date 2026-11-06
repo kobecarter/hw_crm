@@ -91,7 +91,7 @@
 											<?php endif; ?>
 										</td>
 										<td><?php echo $statu; ?></td>
-										<td><a href="javascript:void(0);" onclick="return confirm('Êtes-vous sûr de vouloir envoyer ce fichier?')" class="btn btn-sm btn-white text-info mr-2 send-email-devis" data-toggle="tooltip" data-placement="top" data-original-title="Envoi de devis via Mail" data-id="<?= $devis->getId(); ?>"><i class="far fa-paper-plane"></i></td>
+										<td><?php if (!$_SESSION['user']->isComptable()) : ?><a href="javascript:void(0);" onclick="return confirm('Êtes-vous sûr de vouloir envoyer ce fichier?')" class="btn btn-sm btn-white text-info mr-2 send-email-devis" data-toggle="tooltip" data-placement="top" data-original-title="Envoi de devis via Mail" data-id="<?= $devis->getId(); ?>"><i class="far fa-paper-plane"></i></a><?php endif; ?></td>
 										<td><a href="javascript:void(0);" class="btn btn-sm btn-white text-primary" data-toggle="tooltip" data-placement="top" data-original-title="<?php echo $activity; ?>"><i class="fa fa-user"></i></a> </td>
 										<td class="text-right">
 											<div class="dropdown dropdown-action">
