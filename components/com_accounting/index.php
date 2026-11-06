@@ -13,7 +13,7 @@ if($_SESSION['user']->getProfil()->getProfil() != "Commercial" && !$_SESSION['us
 switch ($task)
 {
     case 'cnss':
-        if ($_SESSION['user']->hasDroit('add', 'com_accounting')) {
+        if ($_SESSION['user']->hasDroit('view', 'com_accounting')) {
             $action1 = "components/com_accounting/controleurs/router.php?task=addCnss";
             $action2 = "components/com_accounting/controleurs/router.php?task=editCnss";
             $action3 = "components/com_accounting/controleurs/router.php?task=deleteCnss";
@@ -77,7 +77,7 @@ switch ($task)
         }
         break;
     case 'tva':
-        if ($_SESSION['user']->hasDroit('add', 'com_accounting')) {
+        if ($_SESSION['user']->hasDroit('view', 'com_accounting')) {
             $action1 = "components/com_accounting/controleurs/router.php?task=addTva";
             $action2 = "components/com_accounting/controleurs/router.php?task=editTva";
             $action3 = "components/com_accounting/controleurs/router.php?task=deleteTva";
@@ -123,7 +123,7 @@ switch ($task)
         }
         break;
     case 'bilan':
-        if ($_SESSION['user']->hasDroit('add', 'com_accounting')) {
+        if ($_SESSION['user']->hasDroit('view', 'com_accounting')) {
             $action1 = "components/com_accounting/controleurs/router.php?task=addBilan";
             $action2 = "components/com_accounting/controleurs/router.php?task=editBilan";
             $action3 = "components/com_accounting/controleurs/router.php?task=deleteBilan";
@@ -160,7 +160,7 @@ switch ($task)
         }
         break;
     case 'taxeprofessionnelle':
-        if ($_SESSION['user']->hasDroit('add', 'com_accounting')) {
+        if ($_SESSION['user']->hasDroit('view', 'com_accounting')) {
             $action1 = "components/com_accounting/controleurs/router.php?task=addTaxeprofessionnelle";
             $action2 = "components/com_accounting/controleurs/router.php?task=editTaxeprofessionnelle";
             $action3 = "components/com_accounting/controleurs/router.php?task=deleteTaxeprofessionnelle";
@@ -193,7 +193,7 @@ switch ($task)
         }
         break;
     case 'impot':
-        if ($_SESSION['user']->hasDroit('add', 'com_accounting')) {
+        if ($_SESSION['user']->hasDroit('view', 'com_accounting')) {
             $action1 = "components/com_accounting/controleurs/router.php?task=addImpot";
             $action2 = "components/com_accounting/controleurs/router.php?task=editImpot";
             $action3 = "components/com_accounting/controleurs/router.php?task=deleteImpot";
