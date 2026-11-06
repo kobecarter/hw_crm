@@ -1187,8 +1187,10 @@ function exportProjetsEnCours()
 		'Manager' => 'Manager',
 		'Responsable administrative' => 'RH',
 	);
+	// "Femme de ménage" exclue de la zone équipe : poste d'entretien, pas de tâches/deadlines à
+	// suivre sur ce tableau de projets.
 	$employesActifs = array_filter(resourcehumaine::findAll(), function ($employe) {
-		return $employe->isActive();
+		return $employe->isActive() && trim($employe->getFunction()) != 'Femme de ménage';
 	});
 	$stagiaires = array();
 	$employesNommes = array();
