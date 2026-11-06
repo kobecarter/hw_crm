@@ -62,6 +62,8 @@
 												<?php endif; ?>
 												<?php if ($_SESSION['user']->hasDroit('view', 'com_facture') && !$facture->isGlobalPdfAllowed($payments)) :?>
 													<a class="btn btn-sm btn-white text-success mr-2"  href="components/com_facture/controleurs/router.php?task=pdfPayment&id=<?php echo $payment->getId(); ?>&index=<?php echo $key+1; ?>" data-toggle="tooltip" data-placement="top" data-original-title="Facture" target="_blank"><i class="far fa-file-pdf"></i></a>
+												<?php elseif ($_SESSION['user']->hasDroit('view', 'com_facture') && $facture->isGlobalPdfAllowed($payments) && $_SESSION['user']->isComptable()) :?>
+													<a class="btn btn-sm btn-white text-success mr-2"  href="components/com_facture/controleurs/router.php?task=pdfFacture&id=<?php echo $facture->getId(); ?>" data-toggle="tooltip" data-placement="top" data-original-title="Facture" target="_blank"><i class="far fa-file-pdf"></i></a>
 												<?php endif;?>
 											    <?php if ($_SESSION['user']->hasDroit('edit', 'com_facture')) :?>
 												    <a href="javascript:void(0);" class="btn btn-sm btn-white text-warning mr-2 paymentForm" data-toggle="tooltip" data-placement="top" data-original-title="Modifier" data-id="<?= $payment->getId(); ?>"><i class="fa fa-pencil-alt"></i></a>
