@@ -228,8 +228,11 @@ class user {
         return ($this->su == 1) ? true : false;
     }
 
+    // "Comptabilité" : profil préexistant (créé avant celui-ci, assigné à
+    // comptabilite@helloworld-agency.com) - reconnu au même titre que "Comptable"
+    // pour ne pas avoir à réassigner ce compte ni dupliquer ses droits de page.
     public function isComptable(){
-        return ($this->profil && trim($this->profil->getProfil()) == "Comptable") ? true : false;
+        return ($this->profil && in_array(trim($this->profil->getProfil()), array("Comptable", "Comptabilité"), true)) ? true : false;
     }
 
 	// action base de données
