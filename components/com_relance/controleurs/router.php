@@ -37,6 +37,11 @@ if (isset($_GET['task']) && !empty($_GET['task'])) {
                 include_once("relance/controleur.php");
             }
             break;
+        case 'envoyerFactureTemporaire':
+            if ($_SESSION['user']->hasDroit('add', 'com_relance')) {
+                include_once("relance/controleur.php");
+            }
+            break;
         case 'genererEmailRelance':
             if ($_SESSION['user']->hasDroit('add', 'com_relance')) {
                 include_once("relance/controleur.php");

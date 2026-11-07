@@ -376,6 +376,9 @@
                                                                         <a class="dropdown-item text-danger"  href="components/com_facture/controleurs/router.php?task=pdfFacture&id=<?php echo $facture->getId(); ?>" target="_blank"><i class="far fa-file-pdf mr-2"></i>PDF</a>
                                                                     <?php endif; ?>
                                                                 <?php endif; ?>
+                                                                <?php if ($_SESSION['user']->hasDroit('add', 'com_relance') && $facture->getReste() > 0) : ?>
+                                                                    <a class="dropdown-item text-primary facture-temp-btn" href="javascript:void(0);" data-id="<?php echo $facture->getId(); ?>" data-reste="<?php echo $facture->getReste(); ?>" data-numero="<?php echo $facture->getNumero(); ?>"><i class="fa fa-hand-holding-usd mr-2"></i>Facture temporaire</a>
+                                                                <?php endif; ?>
                                                                 <?php if ($_SESSION['user']->hasDroit('view', 'com_devis')) : ?>
                                                                     <?php if ($facture->getDevis()->getId() != 0): ?>
                                                                         <a class="dropdown-item text-info" href="components/com_devis/controleurs/router.php?task=pdfDevis&id=<?php echo $facture->getDevis()->getId(); ?>" target="_blank"><i class="far fa-file-pdf mr-2"></i>Devis</a>
@@ -516,6 +519,35 @@
 	</div>
 </div>
 <!-- /Add Client Modal -->
+
+<!-- Popup "Facture temporaire" (bouton dropdown de chaque facture impayée/partiellement payée
+     ci-dessus) - montant prérempli avec le reste dû mais modifiable ; le PDF joint à l'email est
+     généré à la volée (jamais persisté), voir relance::envoyerRelanceManuelle(..., true). -->
+<div id="factureTempModal" class="modal custom-modal tva-confirm-modal fade" role="dialog">
+	<div class="modal-dialog modal-dialog-centered" role="document">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+					<span aria-hidden="true">&times;</span>
+				</button>
+				<div class="tva-confirm-icon"><i class="fa fa-hand-holding-usd"></i></div>
+				<h5 class="modal-title mt-3">Envoyer une facture temporaire</h5>
+			</div>
+			<div class="modal-body text-center">
+				<p class="mb-3">Facture <strong>#<span id="factureTempNumero"></span></strong></p>
+				<div class="form-group text-left">
+					<label>Montant à régler</label>
+					<input type="number" step="0.01" min="0.01" class="form-control" id="factureTempMontant">
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button type="button" class="btn btn-white" data-dismiss="modal">Annuler</button>
+				<button type="button" class="btn btn-primary" id="factureTempEnvoyerBtn"><span class="spinner-border spinner-border-sm mr-2 facture-temp-loading" style="display:none;"></span><i class="fa fa-paper-plane mr-1"></i> Envoyer</button>
+			</div>
+		</div>
+	</div>
+</div>
+<!-- /Popup Facture temporaire -->
 
 <script type="text/javascript">
 $(function () {
@@ -845,6 +877,41 @@ $(function () {
                 });
             }
         })
+
+        // Bouton "Facture temporaire" (dropdown de chaque facture impayée/partiellement payée) -
+        // popup avec montant prérempli (reste dû) mais modifiable, envoyé via envoyerFactureTemporaire.
+        var factureTempIdCourant = null;
+        $(document).on("click", ".facture-temp-btn", function() {
+            factureTempIdCourant = $(this).data("id");
+            $("#factureTempMontant").val(parseFloat($(this).data("reste")).toFixed(2));
+            $("#factureTempNumero").text($(this).data("numero"));
+            $("#factureTempModal").modal("show");
+        });
+
+        $(document).on("click", "#factureTempEnvoyerBtn", function() {
+            var montant = parseFloat($("#factureTempMontant").val());
+            if (!montant || montant <= 0) {
+                alert("Montant invalide.");
+                return;
+            }
+            var $btn = $(this);
+            $btn.prop("disabled", true);
+            $btn.find(".facture-temp-loading").show();
+            $.post("components/com_relance/controleurs/router.php?task=envoyerFactureTemporaire", { id_facture: factureTempIdCourant, montant: montant }, function(response) {
+                $btn.prop("disabled", false);
+                $btn.find(".facture-temp-loading").hide();
+                $("#factureTempModal").modal("hide");
+                if (response && response.success) {
+                    $('.msgbox').html('<div class="alert alert-success alert-dismissible fade show" role="alert"><strong>Succès!</strong> Facture temporaire envoyée avec succès<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>');
+                } else {
+                    $('.msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Erreur!</strong> ' + ((response && response.message) || "Erreur lors de l'envoi") + '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>');
+                }
+            }, 'json').fail(function() {
+                $btn.prop("disabled", false);
+                $btn.find(".facture-temp-loading").hide();
+                $('.msgbox').html('<div class="alert alert-danger alert-dismissible fade show" role="alert"><strong>Erreur!</strong> Impossible de contacter le serveur.<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>');
+            });
+        });
 
         /*
             ******************************************************************

@@ -142,6 +142,32 @@ function envoyerRelanceManuelle($data)
     }
 }
 
+// Bouton "Facture temporaire" de la liste des factures (impayées/partiellement payées) : même
+// mécanisme que envoyerRelanceManuelle() ci-dessus, mais déclenché directement depuis la facture
+// (montant libre, prérempli avec le reste dû côté vue) plutôt que depuis une ligne de règlement
+// précise - et avec le PDF de paiement temporaire joint (3e argument à true).
+function envoyerFactureTemporaire($data)
+{
+    header('Content-Type: application/json');
+    $indices = array("id_facture", "montant");
+    if (!fieldCheck($data, $indices)) {
+        echo json_encode(array('success' => 0, 'message' => "Champs manquants."));
+        return;
+    }
+    $facture = facture::find(intval($data['id_facture']), $_SESSION['agence']);
+    if (!$facture || !$facture->getId()) {
+        echo json_encode(array('success' => 0, 'message' => "Facture introuvable."));
+        return;
+    }
+    try {
+        relance::envoyerRelanceManuelle($facture, floatval($data['montant']), true);
+        echo json_encode(array('success' => 1));
+    } catch (\Throwable $e) {
+        error_log('envoyerFactureTemporaire - facture ' . $facture->getId() . ' - ' . $e->getMessage());
+        echo json_encode(array('success' => 0, 'message' => $e->getMessage()));
+    }
+}
+
 // Liste dynamique affichée sous "Catégorie" dans le formulaire relance, selon le couple
 // client+catégorie choisi : factures impayées (catégorie "facture"), règlements du client
 // (catégorie "paiement"), ou rappels de domaine/hébergement du client (catégories

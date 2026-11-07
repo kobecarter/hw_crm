@@ -594,7 +594,7 @@ class relance
     // montant que le client est censé avoir réglé, pas un solde. Lève une \Exception (message
     // destiné à l'utilisateur) si la facture est déjà soldée ou si le client n'a pas d'email, pour
     // que l'appelant puisse afficher un message clair plutôt qu'un échec silencieux.
-    public static function envoyerRelanceManuelle($facture, $montant)
+    public static function envoyerRelanceManuelle($facture, $montant, $joindreFacturePdf = false)
     {
         if ($facture->getReste() <= 0) {
             throw new \Exception("Cette facture est déjà soldée, aucune relance à envoyer.");
@@ -617,7 +617,25 @@ class relance
         $relance->add();
         $relance->setId(self::getLastId());
 
-        self::sendReminderEmail($facture, null, 'manuel', $montant);
+        // Pièce jointe "facture temporaire" (bouton dédié sur la liste des factures) : un PDF de
+        // paiement généré pour le montant demandé, jamais persisté en base (voir
+        // genererFacturePdfTemporaireFichier ci-dessous, même mécanique que
+        // payment::sendPaymentRequestPdf()) - supprimé du serveur juste après l'envoi. Un échec de
+        // génération ne doit jamais bloquer l'envoi de la relance elle-même.
+        $attachmentPath = null;
+        if ($joindreFacturePdf) {
+            try {
+                $attachmentPath = self::genererFacturePdfTemporaireFichier($facture, $montant);
+            } catch (\Throwable $e) {
+                error_log('genererFacturePdfTemporaireFichier - facture ' . $facture->getId() . ' - ' . $e->getMessage());
+            }
+        }
+
+        self::sendReminderEmail($facture, null, 'manuel', $montant, $attachmentPath);
+
+        if ($attachmentPath) {
+            @unlink($attachmentPath);
+        }
 
         $relance->setDateEnvoi(date('Y-m-d H:i:s'));
         $relance->edit();
@@ -625,11 +643,26 @@ class relance
         return $relance;
     }
 
+    // Construit un payment en mémoire (jamais ->add()) pour le montant demandé et génère son PDF
+    // via payment::pdfPayment('file') - même document que celui déjà envoyé par
+    // payment::sendPaymentRequestPdf() (flux "demande d'acompte" depuis un devis accepté). Retourne
+    // le chemin complet du fichier généré dans uploads/, à supprimer par l'appelant après usage.
+    private static function genererFacturePdfTemporaireFichier($facture, $montant)
+    {
+        $payment = new payment();
+        $payment->setFacture($facture);
+        $payment->setMontant($montant);
+        $payment->setDatePayment(date('Y-m-d'));
+        $payment->setRegImg('');
+        $fileName = $payment->pdfPayment('file');
+        return __DIR__ . '/../../../uploads/' . $fileName;
+    }
+
     // $montantOverride : uniquement pour l'étape 'manuel' (relance déclenchée depuis une ligne de
     // règlement précise, voir envoyerRelanceManuelle() ci-dessus) - le montant à annoncer est alors
     // celui DE CE RÈGLEMENT, pas facture->getReste(). Les étapes automatiques (J-15/J-10/J-5/J0/
     // retard) continuent d'utiliser le reste dû global comme avant (ne passent jamais ce paramètre).
-    private static function sendReminderEmail($facture, $condition, $etape, $montantOverride = null)
+    private static function sendReminderEmail($facture, $condition, $etape, $montantOverride = null, $attachmentPath = null)
     {
         if (!defined('SMTP_HOST') || SMTP_HOST == '') {
             return;
@@ -672,6 +705,17 @@ class relance
                 : "Bonjour,<br><br>Nous vous rappelons que le règlement de " . $montant . " pour la facture N°" . $facture->getNumero() . " arrive à échéance dans " . $joursRestants . " jours.<br><br>Cordialement.";
         }
 
+        // Pièce jointe "facture temporaire" : phrase ajoutée juste avant la formule de politesse
+        // finale, qui termine toujours le corps par "<br><br>Thank you."/"<br><br>Cordialement." -
+        // on l'insère donc avant ce dernier "<br><br>" plutôt qu'en tête, quel que soit l'étape.
+        if ($attachmentPath) {
+            $phraseJointe = $isEn
+                ? "Please find attached a summary invoice for this amount to help you process the payment."
+                : "Vous trouverez ci-joint un récapitulatif de ce montant pour faciliter votre règlement.";
+            $dernierSaut = strrpos($corps, '<br><br>');
+            $corps = substr($corps, 0, $dernierSaut) . ' ' . $phraseJointe . substr($corps, $dernierSaut);
+        }
+
         $mailCreds = getMailCredentialsForAgence($client->getAgence() ? $client->getAgence()->getId() : 0);
 
         $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
@@ -692,6 +736,9 @@ class relance
         $mail->Subject = $sujet;
         $mail->Body = $corps;
         $mail->AltBody = strip_tags($corps);
+        if ($attachmentPath && file_exists($attachmentPath)) {
+            $mail->addAttachment($attachmentPath, basename($attachmentPath));
+        }
         $mail->send();
         copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage(), $mailCreds['host'], $mailCreds['username'], $mailCreds['password']);
     }
