@@ -20,6 +20,9 @@ if (isset($task) && !empty($task)) {
         case 'envoyerRelanceManuelle':
             envoyerRelanceManuelle($_POST);
             break;
+        case 'envoyerFactureTemporaire':
+            envoyerFactureTemporaire($_POST);
+            break;
         case 'genererEmailRelance':
             genererEmailRelance($_POST);
             break;
