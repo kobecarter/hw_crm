@@ -456,6 +456,22 @@ class payment
         );
     }
 
+    // Construit un payment en mémoire (jamais ->add()) pour le montant demandé et génère son PDF
+    // via pdfPayment('file') - document "facture temporaire" réutilisé par plusieurs flux
+    // (bouton "Facture temporaire" de la liste des factures, email automatique de devis accepté)
+    // sans jamais persister de vrai règlement. Retourne le chemin complet du fichier généré dans
+    // uploads/, à supprimer par l'appelant après usage (ne doit jamais rester sur le serveur).
+    public static function genererPdfTemporaireFichier($facture, $montant)
+    {
+        $payment = new payment();
+        $payment->setFacture($facture);
+        $payment->setMontant($montant);
+        $payment->setDatePayment(date('Y-m-d'));
+        $payment->setRegImg('');
+        $fileName = $payment->pdfPayment('file');
+        return __DIR__ . '/../../../uploads/' . $fileName;
+    }
+
     function pdfPayment($output="show",$indexPayment=1){
         global $db;
 

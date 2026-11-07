@@ -619,15 +619,15 @@ class relance
 
         // Pièce jointe "facture temporaire" (bouton dédié sur la liste des factures) : un PDF de
         // paiement généré pour le montant demandé, jamais persisté en base (voir
-        // genererFacturePdfTemporaireFichier ci-dessous, même mécanique que
-        // payment::sendPaymentRequestPdf()) - supprimé du serveur juste après l'envoi. Un échec de
-        // génération ne doit jamais bloquer l'envoi de la relance elle-même.
+        // payment::genererPdfTemporaireFichier(), même mécanique que payment::sendPaymentRequestPdf())
+        // - supprimé du serveur juste après l'envoi. Un échec de génération ne doit jamais bloquer
+        // l'envoi de la relance elle-même.
         $attachmentPath = null;
         if ($joindreFacturePdf) {
             try {
-                $attachmentPath = self::genererFacturePdfTemporaireFichier($facture, $montant);
+                $attachmentPath = payment::genererPdfTemporaireFichier($facture, $montant);
             } catch (\Throwable $e) {
-                error_log('genererFacturePdfTemporaireFichier - facture ' . $facture->getId() . ' - ' . $e->getMessage());
+                error_log('genererPdfTemporaireFichier - facture ' . $facture->getId() . ' - ' . $e->getMessage());
             }
         }
 
@@ -641,21 +641,6 @@ class relance
         $relance->edit();
 
         return $relance;
-    }
-
-    // Construit un payment en mémoire (jamais ->add()) pour le montant demandé et génère son PDF
-    // via payment::pdfPayment('file') - même document que celui déjà envoyé par
-    // payment::sendPaymentRequestPdf() (flux "demande d'acompte" depuis un devis accepté). Retourne
-    // le chemin complet du fichier généré dans uploads/, à supprimer par l'appelant après usage.
-    private static function genererFacturePdfTemporaireFichier($facture, $montant)
-    {
-        $payment = new payment();
-        $payment->setFacture($facture);
-        $payment->setMontant($montant);
-        $payment->setDatePayment(date('Y-m-d'));
-        $payment->setRegImg('');
-        $fileName = $payment->pdfPayment('file');
-        return __DIR__ . '/../../../uploads/' . $fileName;
     }
 
     // $montantOverride : uniquement pour l'étape 'manuel' (relance déclenchée depuis une ligne de

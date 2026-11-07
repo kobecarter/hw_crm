@@ -613,21 +613,25 @@ function editDevis($data)
                 projectNotifier::launch($updatedDevis->getClient(), $updatedDevis, 'Devis N°' . $updatedDevis->getNumero() . ' passé en "Paiement effectué".');
             }
 
-            // Statut qui passe à "Accepté" : email automatique de remerciement au client (montant,
-            // conditions de paiement, contrat à signer si applicable), dans la langue du devis, et
-            // création de la facture liée si elle n'existe pas encore (nécessaire pour la demande
-            // d'acompte proposée en popup juste après l'enregistrement).
+            // Statut qui passe à "Accepté" : création de la facture liée si elle n'existe pas
+            // encore (nécessaire à la fois pour la demande d'acompte proposée en popup juste après
+            // l'enregistrement, ET pour la facture temporaire jointe à l'email ci-dessous - d'où la
+            // création AVANT l'envoi, contrairement à l'ordre historique), puis email automatique
+            // de remerciement au client (montant, conditions de paiement, contrat à signer si
+            // applicable, facture temporaire du premier paiement en pièce jointe), dans la langue
+            // du devis.
             $accFactureId = '';
             if ($oldStatu != 2 && $data['statu'] == 2) {
                 require_once '../../../vendor/autoload.php';
                 $acceptedDevis = devis::find($data['id'], $_SESSION['agence']);
-                sendDevisAcceptedEmailToClient($acceptedDevis);
 
                 $accFacture = facture::findByDevis($acceptedDevis->getId(), $_SESSION['agence']);
                 if (!$accFacture || !$accFacture->getId()) {
                     $accFacture = createInvoiceFromDevis($acceptedDevis);
                 }
                 $accFactureId = $accFacture ? $accFacture->getId() : '';
+
+                sendDevisAcceptedEmailToClient($acceptedDevis, $accFacture);
             }
 
             echo "1" . ($accFactureId !== '' ? "|" . $accFactureId : "");
@@ -1860,7 +1864,11 @@ function sendDevisPdfEmailToClient($devis)
 // Devis passé à "Accepté" : email professionnel automatique de remerciement, avec le montant à
 // régler, les conditions de paiement, et le contrat à signer s'il y en a un pour ce devis. Rédigé
 // dans la langue du devis (fr/en) puisque c'est ce qui détermine la langue de tous les emails client.
-function sendDevisAcceptedEmailToClient($devis)
+// $facture (optionnelle) : la facture liée, déjà créée par l'appelant avant l'envoi - si fournie,
+// une facture temporaire (PDF, jamais persisté) pour le montant du PREMIER paiement des conditions
+// est jointe à l'email, via payment::genererPdfTemporaireFichier() (même document que
+// payment::sendPaymentRequestPdf()).
+function sendDevisAcceptedEmailToClient($devis, $facture = null)
 {
     if (!defined('SMTP_HOST') || SMTP_HOST == '') {
         return "SMTP non configuré (config.secrets.php).";
@@ -1884,10 +1892,40 @@ function sendDevisAcceptedEmailToClient($devis)
         $conditionsHtml = "<li>" . $devis->getConditionPaiment() . "</li>";
     }
 
+    // Montant du premier paiement : les conditions sont saisies en "Montant/Pourcentage" (champ
+    // libre, voir components/com_devis/views/devis/form.php) et, en pratique, toujours un
+    // pourcentage (avec ou sans "%" explicite - jamais un montant absolu > 100 dans les données
+    // existantes). Sans conditions structurées, le devis se paie en une fois : montant total.
+    $premierMontant = $devis->getTotal();
+    if (!empty($conditions)) {
+        $brut = trim($conditions[0]->getMontant());
+        if (substr($brut, -1) === '%') {
+            $pourcentage = (float) rtrim($brut, '% ');
+            $premierMontant = round($devis->getTotal() * $pourcentage / 100, 2);
+        } else {
+            $valeurNumerique = (float) str_replace(array(',', ' '), array('.', ''), $brut);
+            $premierMontant = ($valeurNumerique > 0 && $valeurNumerique <= 100)
+                ? round($devis->getTotal() * $valeurNumerique / 100, 2)
+                : ($valeurNumerique > 0 ? $valeurNumerique : $devis->getTotal());
+        }
+    }
+
     $contract = contract::findByDevis($devis->getId(), $_SESSION['agence'], $devis->getLangue());
     $hasContractToSign = ($contract->getId() && $contract->getStatus() != 3);
 
+    // $attachmentPath généré ICI, à l'intérieur du try/catch qui le nettoie (@unlink) sur succès
+    // comme sur échec - le générer plus tôt laisserait un fichier orphelin dans uploads/ si une
+    // étape entre les deux levait une exception avant d'atteindre le nettoyage.
+    $attachmentPath = null;
     try {
+        if ($facture && $facture->getId() && $premierMontant > 0) {
+            try {
+                $attachmentPath = payment::genererPdfTemporaireFichier($facture, $premierMontant);
+            } catch (\Throwable $e) {
+                error_log('sendDevisAcceptedEmailToClient genererPdfTemporaireFichier - devis ' . $devis->getId() . ' - ' . $e->getMessage());
+            }
+        }
+
         // Identité selon l'agence du CLIENT (pas $_SESSION['agence'], le filtre d'agence courant
         // de l'admin -- voir getMailCredentialsForAgence()).
         $mailCreds = getMailCredentialsForAgence($client->getAgence() ? $client->getAgence()->getId() : 0);
@@ -1925,6 +1963,7 @@ function sendDevisAcceptedEmailToClient($devis)
                 . "Thank you for your trust and for validating quote N°" . $devis->getNumero() . "! We are excited to get started.<br><br>"
                 . "Amount to be paid: <strong>" . $montant . "</strong><br><br>"
                 . ($conditionsHtml != '' ? "Payment terms:<ul>" . $conditionsHtml . "</ul><br>" : "")
+                . ($attachmentPath ? "Please find attached the invoice for the first payment (" . number_format($premierMontant, 2, ',', ' ') . " " . $devis->getDevise() . ").<br><br>" : "")
                 . ($hasContractToSign ? "A contract has also been prepared for this quote and is awaiting your signature.<br><br>" : "")
                 . "You can find all of this (quote, payment terms" . ($hasContractToSign ? ", contract" : "") . ") from your client portal: <a href=\"" . $espaceClientLink . "\">" . $espaceClientLink . "</a> (also available from our mobile app).<br><br>"
                 . "Feel free to reach out with any question, we are always happy to help.<br><br>"
@@ -1936,6 +1975,7 @@ function sendDevisAcceptedEmailToClient($devis)
                 . "Merci pour votre confiance et pour la validation du devis N°" . $devis->getNumero() . " ! Nous sommes ravis de démarrer avec vous.<br><br>"
                 . "Montant à régler : <strong>" . $montant . "</strong><br><br>"
                 . ($conditionsHtml != '' ? "Conditions de paiement :<ul>" . $conditionsHtml . "</ul><br>" : "")
+                . ($attachmentPath ? "Vous trouverez ci-joint la facture correspondant au premier paiement (" . number_format($premierMontant, 2, ',', ' ') . " " . $devis->getDevise() . ").<br><br>" : "")
                 . ($hasContractToSign ? "Un contrat a également été préparé pour ce devis et est en attente de votre signature.<br><br>" : "")
                 . "Vous pouvez retrouver tout ceci (devis, conditions de paiement" . ($hasContractToSign ? ", contrat" : "") . ") depuis votre espace client : <a href=\"" . $espaceClientLink . "\">" . $espaceClientLink . "</a> (également accessible depuis notre application mobile).<br><br>"
                 . "N'hésitez pas à revenir vers nous pour la moindre question, nous sommes toujours ravis de vous accompagner.<br><br>"
@@ -1943,10 +1983,20 @@ function sendDevisAcceptedEmailToClient($devis)
             $mail->AltBody = "Bonjour " . $client->getPrenom() . ", merci pour la validation du devis N°" . $devis->getNumero() . ". Montant à régler : " . $montant . ". Espace client : " . $espaceClientLink;
         }
 
+        if ($attachmentPath && file_exists($attachmentPath)) {
+            $mail->addAttachment($attachmentPath, basename($attachmentPath));
+        }
+
         $mail->send();
         copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage(), $mailCreds['host'], $mailCreds['username'], $mailCreds['password']);
+        if ($attachmentPath) {
+            @unlink($attachmentPath);
+        }
         return true;
     } catch (\Exception $e) {
+        if ($attachmentPath) {
+            @unlink($attachmentPath);
+        }
         return $mail->ErrorInfo;
     }
 }
