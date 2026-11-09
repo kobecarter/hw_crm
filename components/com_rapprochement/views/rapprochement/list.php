@@ -2005,17 +2005,20 @@ $(function () {
 	// besoin de viser la petite icône dans la colonne Action.
 	$(document).on('click', '.rapprochement-statut-clickable', function () {
 		var $tr = $(this).closest('tr');
-		// Crédit ambigu sans candidat : le justificatif est l'action principale (même si le bouton
-		// "Choisir" de recherche par client reste disponible dans la colonne Actions).
-		var $boutonJustificatif = $tr.find('.rapprochement-justificatif-manuel').first();
-		if ($boutonJustificatif.length) {
-			$boutonJustificatif.trigger('click');
-			return;
-		}
+		// Crédit ambigu sans candidat détecté automatiquement (ex: nom du payeur trop différent du
+		// nom client pour le rapprochement flou) : la recherche manuelle de facture reste l'action
+		// principale - un virement reçu correspond presque toujours à une facture client, même sans
+		// correspondance automatique. "Insérer le justificatif" reste disponible à côté dans la
+		// colonne Actions pour les cas où ce n'est vraiment pas un paiement client.
 		var $boutonChoisir = $tr.find('.rapprochement-choisir').first();
 		var $select = $tr.find('.rapprochement-facture-select, .rapprochement-charge-select').first();
 		if ($boutonChoisir.length && $select.length && !$select.val()) {
 			$boutonChoisir.trigger('click');
+			return;
+		}
+		var $boutonJustificatif = $tr.find('.rapprochement-justificatif-manuel').first();
+		if ($boutonJustificatif.length) {
+			$boutonJustificatif.trigger('click');
 			return;
 		}
 		var $boutonPrincipal = $tr.find('.rapprochement-tva-confirmer, .rapprochement-justificatif-manuel, .rapprochement-valider').first();
