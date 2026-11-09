@@ -326,129 +326,162 @@ class googleDriveClient
 
     /* -- Google Sheets (publication hebdomadaire "Projets en cours") --
        Réutilise le même jeton OAuth2/compte de service que Drive ci-dessus (le scope demandé par
-       getAccessToken() couvre maintenant les deux APIs) et le helper request() générique : aucune
-       nouvelle logique d'authentification. */
+       getAccessToken() couvre maintenant les deux APIs) et le helper request() générique.
 
-    /* Upload un fichier local (xlsx) comme nouveau fichier Google Sheets converti - purement
-       transitoire, seul le contenu de son premier onglet nous intéresse (voir copySheetTo()
-       plus bas). Créé sous GOOGLE_DRIVE_ROOT_FOLDER_ID (déjà partagé avec le compte de service) :
-       un compte de service standard n'a pas de quota Drive propre, créer un fichier avec du contenu
-       hors d'un dossier/Drive partagé échouerait ("storageQuotaExceeded"). */
-    private static function uploadLocalFileAsGoogleSheet($localFilePath, $name)
+       IMPORTANT : construit le nouvel onglet directement par requêtes Sheets API (addSheet +
+       updateCells + mergeCells) DANS le document $spreadsheetId existant, sans jamais créer de
+       nouveau fichier Drive. Une première version passait par un classeur xlsx temporaire converti
+       puis copySheetTo() - plus simple à écrire car réutilisait directement PhpSpreadsheet, mais un
+       compte de service standard n'a pas de quota Drive propre : toute tentative de CRÉER un fichier
+       avec du contenu (même dans un dossier partagé) échoue avec "storageQuotaExceeded", y compris
+       sous GOOGLE_DRIVE_ROOT_FOLDER_ID. Modifier un fichier EXISTANT déjà partagé en édition
+       (ajouter un onglet) n'a lui aucune notion de quota - d'où cette approche. */
+
+    private static function hexVersCouleurSheets($hex)
     {
-        $token = self::getAccessToken();
-        if (!$token || !file_exists($localFilePath)) {
-            return null;
+        $hex = str_pad(preg_replace('/[^0-9A-Fa-f]/', '', (string) $hex), 6, '0');
+        return array(
+            'red' => hexdec(substr($hex, 0, 2)) / 255,
+            'green' => hexdec(substr($hex, 2, 2)) / 255,
+            'blue' => hexdec(substr($hex, 4, 2)) / 255,
+        );
+    }
+
+    private static function celluleTexte($valeur, $gras = false, $couleurFond = null, $italique = false, $couleurPolice = null)
+    {
+        $format = array('textFormat' => array('bold' => (bool) $gras, 'italic' => (bool) $italique));
+        if ($couleurPolice) {
+            $format['textFormat']['foregroundColor'] = self::hexVersCouleurSheets($couleurPolice);
         }
+        if ($couleurFond) {
+            $format['backgroundColor'] = self::hexVersCouleurSheets($couleurFond);
+        }
+        return array(
+            'userEnteredValue' => array('stringValue' => (string) $valeur),
+            'userEnteredFormat' => $format,
+        );
+    }
 
-        $metadata = array('name' => $name, 'mimeType' => 'application/vnd.google-apps.spreadsheet', 'parents' => array(GOOGLE_DRIVE_ROOT_FOLDER_ID));
-        $boundary = 'hwcrm' . uniqid();
-        $delimiter = '--' . $boundary;
-        $body = $delimiter . "\r\n"
-            . "Content-Type: application/json; charset=UTF-8\r\n\r\n"
-            . json_encode($metadata) . "\r\n"
-            . $delimiter . "\r\n"
-            . "Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n"
-            . "Content-Transfer-Encoding: base64\r\n\r\n"
-            . base64_encode(file_get_contents($localFilePath)) . "\r\n"
-            . $delimiter . "--";
+    private static function celluleVide($couleurFond = null)
+    {
+        return $couleurFond
+            ? array('userEnteredFormat' => array('backgroundColor' => self::hexVersCouleurSheets($couleurFond)))
+            : array();
+    }
 
-        $ch = curl_init('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true');
-        curl_setopt_array($ch, array(
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST => true,
-            CURLOPT_HTTPHEADER => array(
-                'Authorization: Bearer ' . $token,
-                'Content-Type: multipart/related; boundary="' . $boundary . '"',
+    private static function plageFusion($sheetId, $ligneDebut, $ligneFin, $colDebut, $colFin)
+    {
+        return array('mergeCells' => array(
+            'range' => array(
+                'sheetId' => $sheetId,
+                'startRowIndex' => $ligneDebut,
+                'endRowIndex' => $ligneFin,
+                'startColumnIndex' => $colDebut,
+                'endColumnIndex' => $colFin,
             ),
-            CURLOPT_POSTFIELDS => $body,
-            CURLOPT_TIMEOUT => 60,
+            'mergeType' => 'MERGE_ALL',
         ));
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
-        curl_close($ch);
-
-        if ($curlError || $httpCode >= 300) {
-            error_log('googleDriveClient::uploadLocalFileAsGoogleSheet - erreur (' . $httpCode . ') ' . $curlError . ' - ' . $response);
-            return null;
-        }
-        $decoded = json_decode($response, true);
-        return !empty($decoded['id']) ? $decoded['id'] : null;
     }
 
-    private static function getFirstSheetId($spreadsheetId)
-    {
-        $result = self::request('GET', 'https://sheets.googleapis.com/v4/spreadsheets/' . $spreadsheetId . '?fields=sheets.properties');
-        // isset(), pas !empty() : le premier onglet d'un classeur a très souvent sheetId=0.
-        return isset($result['sheets'][0]['properties']['sheetId']) ? $result['sheets'][0]['properties']['sheetId'] : null;
-    }
-
-    private static function copySheetTo($sourceSpreadsheetId, $sourceSheetId, $destSpreadsheetId)
-    {
-        $url = 'https://sheets.googleapis.com/v4/spreadsheets/' . $sourceSpreadsheetId . '/sheets/' . $sourceSheetId . ':copyTo';
-        $result = self::request('POST', $url, array('destinationSpreadsheetId' => $destSpreadsheetId));
-        return isset($result['sheetId']) ? $result['sheetId'] : null;
-    }
-
-    private static function renameSheet($spreadsheetId, $sheetId, $newTitle)
-    {
-        $url = 'https://sheets.googleapis.com/v4/spreadsheets/' . $spreadsheetId . ':batchUpdate';
-        $body = array('requests' => array(array('updateSheetProperties' => array(
-            'properties' => array('sheetId' => $sheetId, 'title' => $newTitle),
-            'fields' => 'title',
-        ))));
-        return self::request('POST', $url, $body) !== null;
-    }
-
-    private static function deleteDriveFile($fileId)
-    {
-        $token = self::getAccessToken();
-        if (!$token) {
-            return false;
-        }
-        $ch = curl_init('https://www.googleapis.com/drive/v3/files/' . $fileId . '?supportsAllDrives=true');
-        curl_setopt_array($ch, array(
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CUSTOMREQUEST => 'DELETE',
-            CURLOPT_HTTPHEADER => array('Authorization: Bearer ' . $token),
-            CURLOPT_TIMEOUT => 15,
-        ));
-        curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        return $httpCode < 300;
-    }
-
-    /* Point d'entrée partagé : ajoute $localXlsxPath comme nouvel onglet (nommé $titreFeuille) du
-       document Google Sheets persistant $spreadsheetId, en conservant sa mise en forme (couleurs,
-       fusions, largeurs de colonnes) - passe par un fichier Sheets temporaire converti puis
-       copySheetTo() plutôt que l'API Sheets "values.update" brute, pour ne jamais devoir réécrire
-       en requêtes Sheets tout le formatage déjà construit avec PhpSpreadsheet (voir
-       construireSpreadsheetProjetsEnCours() dans com_facture). Le fichier temporaire est
-       systématiquement supprimé, succès ou échec. */
-    public static function publierNouvelleFeuilleHebdomadaire($spreadsheetId, $localXlsxPath, $titreFeuille)
+    /* Point d'entrée partagé : ajoute un nouvel onglet (nommé $titreFeuille) au document Google
+       Sheets persistant $spreadsheetId, à partir des mêmes données que le classeur téléchargeable
+       (voir calculerDonneesProjetsEnCours() dans com_facture) : $colonnesEquipe (libellés, 2
+       colonnes Tache/Deadline chacun) et $parAgence (liste de ['nom','couleur','clients' =>
+       [['nom','prestations','date'], ...]]). Mise en forme (gras, couleurs de bandeau/équipe,
+       largeur des colonnes) rapprochée du classeur Excel, pas une réplique pixel pour pixel du
+       modèle (bandeau titre/logo d'origine non reconstruit ici). */
+    public static function publierNouvelleFeuilleHebdomadaire($spreadsheetId, $titreFeuille, $colonnesEquipe, $parAgence)
     {
         if (!self::isConfigured() || !$spreadsheetId) {
             return false;
         }
 
-        $tempFileId = self::uploadLocalFileAsGoogleSheet($localXlsxPath, 'tmp_import_projets_en_cours_' . time());
-        if (!$tempFileId) {
-            return false;
+        $sheetId = (int) (time() % 2000000000);
+        $totalCols = 4 + count($colonnesEquipe) * 2 + 1; // Client, Prestations, Statut, Date + équipe (2 col/pers.) + Notes
+
+        $rows = array();
+        $merges = array();
+
+        $headerRow1 = array(
+            self::celluleTexte('Client', true),
+            self::celluleTexte('Prestations', true),
+            self::celluleTexte('Statut', true),
+            self::celluleTexte('Date de début', true),
+        );
+        foreach ($colonnesEquipe as $i => $libelle) {
+            $headerRow1[] = self::celluleTexte($libelle, true, 'F4CCCC');
+            $headerRow1[] = self::celluleVide('F4CCCC');
+            $merges[] = self::plageFusion($sheetId, 0, 1, 4 + $i * 2, 4 + $i * 2 + 2);
+        }
+        $headerRow1[] = self::celluleTexte('Notes', true, 'F4CCCC');
+        $rows[] = array('values' => $headerRow1);
+
+        $headerRow2 = array(self::celluleVide(), self::celluleVide(), self::celluleVide(), self::celluleVide());
+        foreach ($colonnesEquipe as $libelle) {
+            $headerRow2[] = self::celluleTexte('Tache a effectuer', true, 'FFF2CC');
+            $headerRow2[] = self::celluleTexte('Deadline', true, 'FFF2CC');
+        }
+        $headerRow2[] = self::celluleVide();
+        $rows[] = array('values' => $headerRow2);
+
+        $ligneCourante = 2; // 0-indexé ; les 2 lignes d'en-tête occupent les index 0 et 1
+        foreach ($parAgence as $agenceInfo) {
+            $bandeRow = array(self::celluleTexte($agenceInfo['nom'], true, $agenceInfo['couleur']));
+            for ($c = 1; $c < $totalCols; $c++) {
+                $bandeRow[] = self::celluleVide($agenceInfo['couleur']);
+            }
+            $rows[] = array('values' => $bandeRow);
+            $ligneCourante++;
+
+            if (empty($agenceInfo['clients'])) {
+                $ligneVide = array(self::celluleTexte('Aucune facture impayée', false, null, true, '808080'));
+                for ($c = 1; $c < $totalCols; $c++) {
+                    $ligneVide[] = self::celluleVide();
+                }
+                $rows[] = array('values' => $ligneVide);
+                $merges[] = self::plageFusion($sheetId, $ligneCourante, $ligneCourante + 1, 0, $totalCols);
+                $ligneCourante++;
+            } else {
+                foreach ($agenceInfo['clients'] as $client) {
+                    $ligne = array(
+                        self::celluleTexte($client['nom']),
+                        self::celluleTexte($client['prestations']),
+                        self::celluleTexte('en cours'),
+                        self::celluleTexte($client['date']),
+                    );
+                    for ($c = 4; $c < $totalCols; $c++) {
+                        $ligne[] = self::celluleVide();
+                    }
+                    $rows[] = array('values' => $ligne);
+                    $ligneCourante++;
+                }
+            }
         }
 
-        $sourceSheetId = self::getFirstSheetId($tempFileId);
-        $nouveauSheetId = $sourceSheetId !== null ? self::copySheetTo($tempFileId, $sourceSheetId, $spreadsheetId) : null;
+        $requests = array(
+            array('addSheet' => array('properties' => array(
+                'sheetId' => $sheetId,
+                'title' => $titreFeuille,
+                'gridProperties' => array('rowCount' => count($rows) + 5, 'columnCount' => $totalCols + 2),
+            ))),
+            array('updateCells' => array(
+                'rows' => $rows,
+                'fields' => 'userEnteredValue,userEnteredFormat',
+                'start' => array('sheetId' => $sheetId, 'rowIndex' => 0, 'columnIndex' => 0),
+            )),
+        );
+        $requests = array_merge($requests, $merges);
+        $requests[] = array('updateDimensionProperties' => array(
+            'range' => array('sheetId' => $sheetId, 'dimension' => 'COLUMNS', 'startIndex' => 0, 'endIndex' => $totalCols),
+            'properties' => array('pixelSize' => 160),
+            'fields' => 'pixelSize',
+        ));
 
-        self::deleteDriveFile($tempFileId);
-
-        if ($nouveauSheetId === null) {
-            error_log('googleDriveClient::publierNouvelleFeuilleHebdomadaire - copie de feuille échouée vers ' . $spreadsheetId);
+        $result = self::request('POST', 'https://sheets.googleapis.com/v4/spreadsheets/' . $spreadsheetId . ':batchUpdate', array('requests' => $requests));
+        if ($result === null) {
+            error_log('googleDriveClient::publierNouvelleFeuilleHebdomadaire - échec batchUpdate vers ' . $spreadsheetId);
             return false;
         }
-
-        self::renameSheet($spreadsheetId, $nouveauSheetId, $titreFeuille);
         return true;
     }
 }

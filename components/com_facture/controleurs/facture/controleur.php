@@ -1163,9 +1163,107 @@ function exportProjetsEnCours()
 	exit;
 }
 
+/* Rassemble les données brutes (équipe active + factures "en cours" groupées par agence puis par
+   client) communes aux deux sorties du rapport "Projets en cours" : le classeur Excel téléchargeable
+   (construireSpreadsheetProjetsEnCours()) et la publication hebdomadaire sur Google Sheets
+   (cronPublierProjetsEnCoursSurGoogleSheets()) - chacune se contente ensuite de sa propre mise en
+   forme (PhpSpreadsheet vs requêtes Sheets API) sur des chaînes déjà prêtes à afficher. */
+function calculerDonneesProjetsEnCours()
+{
+	// Stagiaires regroupés dans une colonne générique (comme le modèle) ; chaque autre employé
+	// actif reçoit sa propre colonne nominative "Prénom Nom (Poste)".
+	$libellesPoste = array(
+		'Developpeur web' => 'Dev',
+		'Graphic designer' => 'Design',
+		'Community manager' => 'Community Manager',
+		'Manager' => 'Manager',
+		'Responsable administrative' => 'RH',
+	);
+	// "Femme de ménage" exclue de la zone équipe : poste d'entretien, pas de tâches/deadlines à
+	// suivre sur ce tableau de projets.
+	$employesActifs = array_filter(resourcehumaine::findAll(), function ($employe) {
+		return $employe->isActive() && trim($employe->getFunction()) != 'Femme de ménage';
+	});
+	$stagiaires = array();
+	$employesNommes = array();
+	foreach ($employesActifs as $employe) {
+		if (trim($employe->getStatus()) === 'Stagaire') {
+			$stagiaires[] = trim($employe->getFullName());
+		} else {
+			$fonction = trim($employe->getFunction());
+			$libelleFonction = isset($libellesPoste[$fonction]) ? $libellesPoste[$fonction] : $fonction;
+			$employesNommes[] = trim($employe->getFullName()) . ($libelleFonction != '' ? ' (' . $libelleFonction . ')' : '');
+		}
+	}
+	$libelleStagiaires = 'Stagiaires' . (!empty($stagiaires) ? ' (' . implode(', ', $stagiaires) . ')' : '');
+	$colonnesEquipe = array_merge(array($libelleStagiaires), $employesNommes);
+
+	// Couleurs de bandeau reprises du modèle Excel pour les agences qu'il contenait déjà ; une
+	// agence inconnue du modèle (ex: nouvelle agence) reçoit une couleur neutre par défaut.
+	$bandColors = array(
+		'HW LABEL SARL' => 'A4C2F4',
+		'VERSE CONCEPT' => 'FCE5CD',
+		'HELLOWORLDLABEL DUBAI' => 'E6B8AF',
+	);
+	$defaultBandColor = 'D9D9D9';
+
+	$parAgence = array();
+	foreach (agence::findAll($_SESSION['langue']) as $uneAgence) {
+		$nomAgence = trim($uneAgence->getNom());
+		$bandColor = isset($bandColors[strtoupper($nomAgence)]) ? $bandColors[strtoupper($nomAgence)] : $defaultBandColor;
+
+		$facturesAgence = array_filter(
+			facture::findAll(false, false, false, true, false, false, $uneAgence->getId()),
+			function ($facture) {
+				// Uniquement basé sur la case "Projet terminé" de la facture - plus sur le statut
+				// de paiement (un projet peut être en cours alors que la facture est déjà soldée,
+				// et inversement).
+				return !$facture->isProjetTermine();
+			}
+		);
+
+		$parClient = array();
+		foreach ($facturesAgence as $facture) {
+			$client = $facture->getClient();
+			if (!$client || !$client->getId()) {
+				continue;
+			}
+			$idClient = $client->getId();
+			if (!isset($parClient[$idClient])) {
+				$parClient[$idClient] = array(
+					'client' => $client,
+					'dateMin' => $facture->getDateFacture(),
+					'prestations' => array(),
+				);
+			}
+			if ($facture->getDateFacture() < $parClient[$idClient]['dateMin']) {
+				$parClient[$idClient]['dateMin'] = $facture->getDateFacture();
+			}
+			foreach ($facture->getItems() as $item) {
+				if ($item->getTitre() != '' && !in_array($item->getTitre(), $parClient[$idClient]['prestations'])) {
+					$parClient[$idClient]['prestations'][] = $item->getTitre();
+				}
+			}
+		}
+
+		$clientsFormates = array();
+		foreach ($parClient as $info) {
+			$client = $info['client'];
+			$clientsFormates[] = array(
+				'nom' => $client->getRaisonSocial() != '' ? $client->getRaisonSocial() : trim($client->getPrenom() . ' ' . $client->getNom()),
+				'prestations' => implode(', ', $info['prestations']),
+				'date' => normalDate($info['dateMin']),
+			);
+		}
+
+		$parAgence[] = array('nom' => $nomAgence, 'couleur' => $bandColor, 'clients' => $clientsFormates);
+	}
+
+	return array('colonnesEquipe' => $colonnesEquipe, 'parAgence' => $parAgence);
+}
+
 /* Génère le classeur Excel "Projets en cours" (multi-agences) tel qu'actuellement téléchargé
-   manuellement (exportProjetsEnCours() ci-dessus), et réutilisé par la publication hebdomadaire
-   automatique vers Google Sheets - voir cronPublierProjetsEnCoursSurGoogleSheets() plus bas. */
+   manuellement (exportProjetsEnCours() ci-dessus), à partir de calculerDonneesProjetsEnCours(). */
 function construireSpreadsheetProjetsEnCours()
 {
 	$templatePath = __DIR__ . '/../../templates/modele_projets_en_cours.xlsx';
@@ -1196,33 +1294,8 @@ function construireSpreadsheetProjetsEnCours()
 		}
 	}
 
-	// Stagiaires regroupés dans une colonne générique (comme le modèle) ; chaque autre employé
-	// actif reçoit sa propre colonne nominative "Prénom Nom (Poste)".
-	$libellesPoste = array(
-		'Developpeur web' => 'Dev',
-		'Graphic designer' => 'Design',
-		'Community manager' => 'Community Manager',
-		'Manager' => 'Manager',
-		'Responsable administrative' => 'RH',
-	);
-	// "Femme de ménage" exclue de la zone équipe : poste d'entretien, pas de tâches/deadlines à
-	// suivre sur ce tableau de projets.
-	$employesActifs = array_filter(resourcehumaine::findAll(), function ($employe) {
-		return $employe->isActive() && trim($employe->getFunction()) != 'Femme de ménage';
-	});
-	$stagiaires = array();
-	$employesNommes = array();
-	foreach ($employesActifs as $employe) {
-		if (trim($employe->getStatus()) === 'Stagaire') {
-			$stagiaires[] = trim($employe->getFullName());
-		} else {
-			$fonction = trim($employe->getFunction());
-			$libelleFonction = isset($libellesPoste[$fonction]) ? $libellesPoste[$fonction] : $fonction;
-			$employesNommes[] = trim($employe->getFullName()) . ($libelleFonction != '' ? ' (' . $libelleFonction . ')' : '');
-		}
-	}
-	$libelleStagiaires = 'Stagiaires' . (!empty($stagiaires) ? ' (' . implode(', ', $stagiaires) . ')' : '');
-	$colonnesEquipe = array_merge(array($libelleStagiaires), $employesNommes);
+	$donnees = calculerDonneesProjetsEnCours();
+	$colonnesEquipe = $donnees['colonnesEquipe'];
 
 	$colIndex = 7; // colonne G
 	foreach ($colonnesEquipe as $libelleColonne) {
@@ -1261,79 +1334,30 @@ function construireSpreadsheetProjetsEnCours()
 		$sheet->removeColumnByIndex($lastColIndex + 1, 26 - $lastColIndex);
 	}
 
-	// Couleurs de bandeau reprises du modèle pour les agences qu'il contenait déjà ; une
-	// agence inconnue du modèle (ex: nouvelle agence) reçoit une couleur neutre par défaut.
-	$bandColors = array(
-		'HW LABEL SARL' => 'A4C2F4',
-		'VERSE CONCEPT' => 'FCE5CD',
-		'HELLOWORLDLABEL DUBAI' => 'E6B8AF',
-	);
-	$defaultBandColor = 'D9D9D9';
-
-	$agences = agence::findAll($_SESSION['langue']);
 	$row = 5;
-	foreach ($agences as $uneAgence) {
-		$nomAgence = trim($uneAgence->getNom());
-		$bandColor = isset($bandColors[strtoupper($nomAgence)]) ? $bandColors[strtoupper($nomAgence)] : $defaultBandColor;
-
+	foreach ($donnees['parAgence'] as $agenceInfo) {
 		$sheet->mergeCells('B' . $row . ':C' . $row);
-		$sheet->setCellValue('B' . $row, $nomAgence);
+		$sheet->setCellValue('B' . $row, $agenceInfo['nom']);
 		foreach ($colonnesBande as $col) {
 			$sheet->getStyle($col . $row)->getFill()
 				->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
-				->getStartColor()->setRGB($bandColor);
+				->getStartColor()->setRGB($agenceInfo['couleur']);
 		}
 		$sheet->getStyle('B' . $row)->getFont()->setBold(true);
 		$row++;
 
-		$facturesAgence = array_filter(
-			facture::findAll(false, false, false, true, false, false, $uneAgence->getId()),
-			function ($facture) {
-				// Uniquement basé sur la case "Projet terminé" de la facture - plus sur le statut
-				// de paiement (un projet peut être en cours alors que la facture est déjà soldée,
-				// et inversement).
-				return !$facture->isProjetTermine();
-			}
-		);
-
-		$parClient = array();
-		foreach ($facturesAgence as $facture) {
-			$client = $facture->getClient();
-			if (!$client || !$client->getId()) {
-				continue;
-			}
-			$idClient = $client->getId();
-			if (!isset($parClient[$idClient])) {
-				$parClient[$idClient] = array(
-					'client' => $client,
-					'dateMin' => $facture->getDateFacture(),
-					'prestations' => array(),
-				);
-			}
-			if ($facture->getDateFacture() < $parClient[$idClient]['dateMin']) {
-				$parClient[$idClient]['dateMin'] = $facture->getDateFacture();
-			}
-			foreach ($facture->getItems() as $item) {
-				if ($item->getTitre() != '' && !in_array($item->getTitre(), $parClient[$idClient]['prestations'])) {
-					$parClient[$idClient]['prestations'][] = $item->getTitre();
-				}
-			}
-		}
-
-		if (empty($parClient)) {
+		if (empty($agenceInfo['clients'])) {
 			$sheet->mergeCells('C' . $row . ':' . $lastCol . $row);
 			$sheet->setCellValue('C' . $row, 'Aucune facture impayée');
 			$sheet->getStyle('C' . $row)->getFont()->setItalic(true);
 			$sheet->getStyle('C' . $row)->getFont()->getColor()->setRGB('808080');
 			$row++;
 		} else {
-			foreach ($parClient as $info) {
-				$client = $info['client'];
-				$nomClient = $client->getRaisonSocial() != '' ? $client->getRaisonSocial() : trim($client->getPrenom() . ' ' . $client->getNom());
-				$sheet->setCellValue('B' . $row, $nomClient);
-				$sheet->setCellValue('C' . $row, implode(', ', $info['prestations']));
+			foreach ($agenceInfo['clients'] as $client) {
+				$sheet->setCellValue('B' . $row, $client['nom']);
+				$sheet->setCellValue('C' . $row, $client['prestations']);
 				$sheet->setCellValue('D' . $row, 'en cours');
-				$sheet->setCellValue('E' . $row, normalDate($info['dateMin']));
+				$sheet->setCellValue('E' . $row, $client['date']);
 				$row++;
 			}
 		}
@@ -1343,25 +1367,19 @@ function construireSpreadsheetProjetsEnCours()
 }
 
 /* Publication hebdomadaire automatique (cron du lundi, voir
-   components/com_facture/controleurs/router.php:cronExportProjetsEnCoursHebdomadaire) : génère le
-   même classeur que le bouton de téléchargement manuel, l'enregistre temporairement sur disque (ce
-   fichier local n'est qu'un intermédiaire pour l'upload Google, jamais conservé), puis l'ajoute
-   comme nouvel onglet du document Google Sheets persistant GOOGLE_SHEETS_PROJETS_SPREADSHEET_ID -
-   "le même document" voulu, un onglet horodaté par semaine plutôt qu'un fichier par semaine. */
+   components/com_facture/controleurs/router.php:cronExportProjetsEnCoursHebdomadaire) : à partir
+   des mêmes données que le classeur téléchargeable (calculerDonneesProjetsEnCours()), ajoute un
+   nouvel onglet horodaté au document Google Sheets persistant GOOGLE_SHEETS_PROJETS_SPREADSHEET_ID -
+   "le même document" voulu, un onglet par semaine plutôt qu'un fichier par semaine. */
 function cronPublierProjetsEnCoursSurGoogleSheets()
 {
 	if (!defined('GOOGLE_SHEETS_PROJETS_SPREADSHEET_ID') || GOOGLE_SHEETS_PROJETS_SPREADSHEET_ID === '') {
 		return array('success' => 0, 'message' => 'GOOGLE_SHEETS_PROJETS_SPREADSHEET_ID non configuré.');
 	}
 
-	$spreadsheet = construireSpreadsheetProjetsEnCours();
-	$tmpPath = sys_get_temp_dir() . '/projets_en_cours_' . uniqid() . '.xlsx';
-	(new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save($tmpPath);
-
+	$donnees = calculerDonneesProjetsEnCours();
 	$titreFeuille = 'Semaine du ' . date('d/m/Y');
-	$ok = googleDriveClient::publierNouvelleFeuilleHebdomadaire(GOOGLE_SHEETS_PROJETS_SPREADSHEET_ID, $tmpPath, $titreFeuille);
-
-	@unlink($tmpPath);
+	$ok = googleDriveClient::publierNouvelleFeuilleHebdomadaire(GOOGLE_SHEETS_PROJETS_SPREADSHEET_ID, $titreFeuille, $donnees['colonnesEquipe'], $donnees['parAgence']);
 
 	return $ok
 		? array('success' => 1, 'feuille' => $titreFeuille)
