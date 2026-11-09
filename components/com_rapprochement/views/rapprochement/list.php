@@ -337,6 +337,45 @@
 														<button type="button" class="btn btn-white btn-sm rapprochement-ignorer" data-toggle="tooltip" title="Ignorer"><i class="fa fa-times"></i></button>
 													<?php endif;?>
 												<?php elseif ($l->getStatut() === 'sans_justificatif') :?>
+													<?php if ($l->getCredit() > 0) :?>
+														<?php
+														// Crédit classé "sans justificatif" (ex: compte courant Hamid/Zakaria, ou type non
+														// reconnu) : la recherche manuelle de facture reste possible pour les cas où ce n'est en
+														// fait pas une affaire personnelle mais bien un paiement client - même mécanisme que
+														// credit_ambigu ci-dessus, simplement sans candidat automatique (jamais calculé pour ce
+														// statut).
+														$montantCreditSJ = round((float) $l->getCredit(), 2);
+														$facturesMontantCorrespondantSJ = array();
+														foreach ($facturesOuvertes as $fCandidatMontantSJ) {
+															if (abs(round((float) $fCandidatMontantSJ->getTotal(), 2) - $montantCreditSJ) < 0.01) {
+																$facturesMontantCorrespondantSJ[] = $fCandidatMontantSJ;
+															}
+														}
+														$idsMontantCorrespondantSJ = array_map(function ($fMap) { return $fMap->getId(); }, $facturesMontantCorrespondantSJ);
+														?>
+														<select class="rapprochement-facture-select d-none">
+															<option value="">Choisir la facture...</option>
+															<?php if (!empty($facturesMontantCorrespondantSJ)) :?>
+															<optgroup label="⭐ Montant correspondant (<?= number_format($montantCreditSJ, 2, ',', ' ') ?> DH)" data-groupe="montant-correspondant">
+																<?php foreach ($facturesMontantCorrespondantSJ as $f) :?>
+																	<?php $client = $f->getClient(); $nomClient = $client ? (trim((string) $client->getRaisonSocial()) !== '' ? $client->getRaisonSocial() : trim($client->getPrenom() . ' ' . $client->getNom())) : '';?>
+																<option value="<?= $f->getId() ?>" data-client="<?= $client ? $client->getId() : '' ?>">⭐ N°<?= htmlspecialchars($f->getNumero()) ?> — <?= htmlspecialchars($nomClient) ?> (Total : <?= number_format($f->getTotal(), 2, ',', ' ') ?> DH<?= $f->getReste() <= 0 ? ', payée' : '' ?>)</option>
+																<?php endforeach;?>
+															</optgroup>
+															<?php endif;?>
+															<optgroup label="Toutes les factures (payées comprises)">
+																<?php foreach ($facturesOuvertes as $f) :?>
+																	<?php if (in_array($f->getId(), $idsMontantCorrespondantSJ)) { continue; }?>
+																	<?php $client = $f->getClient(); $nomClient = $client ? (trim((string) $client->getRaisonSocial()) !== '' ? $client->getRaisonSocial() : trim($client->getPrenom() . ' ' . $client->getNom())) : '';?>
+																	<?php $resteAffiche = $f->getReste() > 0 ? 'reste ' . number_format($f->getReste(), 2, ',', ' ') . ' DH' : 'payée';?>
+																<option value="<?= $f->getId() ?>" data-client="<?= $client ? $client->getId() : '' ?>">N°<?= htmlspecialchars($f->getNumero()) ?> — <?= htmlspecialchars($nomClient) ?> (Total : <?= number_format($f->getTotal(), 2, ',', ' ') ?> DH, <?= $resteAffiche ?>)</option>
+																<?php endforeach;?>
+															</optgroup>
+														</select>
+														<input type="hidden" class="rapprochement-payment-existant d-none" value="">
+														<button type="button" class="btn btn-white btn-sm rapprochement-choisir" data-toggle="tooltip" title="Choisir la facture" data-affecter-type="facture" data-candidats-facture="0"><i class="fa fa-search mr-1"></i>Choisir</button>
+														<button type="button" class="btn btn-success btn-sm rapprochement-valider" data-toggle="tooltip" title="Valider"><i class="fa fa-check"></i></button>
+													<?php endif;?>
 													<button type="button" class="btn btn-danger btn-sm rapprochement-justificatif-manuel" data-toggle="tooltip" title="Insérer le justificatif"><i class="fa fa-paperclip"></i></button>
 													<button type="button" class="btn btn-white btn-sm rapprochement-ignorer" data-toggle="tooltip" title="Ignorer"><i class="fa fa-times"></i></button>
 												<?php elseif ($l->getStatut() === 'matched_facture') :?>
@@ -1916,7 +1955,11 @@ $(function () {
 			ouvrirAffecterModal($tr, 'charge');
 			return;
 		}
-		if (matchType === 'credit_ambigu' && !idFacture && !idPaymentExistant) {
+		// Pas seulement credit_ambigu : un crédit "sans justificatif" (compte courant Hamid/Zakaria,
+		// type non reconnu...) peut aussi avoir reçu ce bouton "Choisir" - voir list.php, branche
+		// sans_justificatif. On se base sur la présence réelle du contrôle plutôt que sur matchType
+		// pour couvrir les deux cas de la même façon.
+		if ($tr.find('.rapprochement-choisir[data-affecter-type="facture"]').length && !idFacture && !idPaymentExistant) {
 			ouvrirAffecterModal($tr, 'facture');
 			return;
 		}

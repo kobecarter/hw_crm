@@ -1546,7 +1546,15 @@ function validerLigne($data, $files = array())
     // facture (crée un nouveau règlement), soit un règlement déjà enregistré du client (panneau
     // "Règlements déjà enregistrés" -> "Associer" : ce crédit correspond à un paiement déjà saisi
     // manuellement, on se contente de lier, jamais de créer un deuxième règlement en doublon).
-    if (isset($infos['type']) && $infos['type'] === 'credit_ambigu') {
+    //
+    // Un crédit "sans_justificatif" (compte courant Hamid/Zakaria, type non reconnu...) peut lui
+    // aussi être lié à une facture via ce même bloc - voir list.php, branche sans_justificatif :
+    // contrairement à credit_ambigu, jamais d'entrée automatique ici (pas de message "choisissez
+    // parmi les candidats" sans id_facture/id_payment_existant explicite, pour ne jamais bloquer le
+    // flux normal "Insérer le justificatif" de ce statut quand ce n'est justement pas un paiement
+    // client).
+    $credit_lie_manuellement = $ligne->getCredit() > 0 && (!empty($data['id_facture']) || !empty($data['id_payment_existant']));
+    if ((isset($infos['type']) && $infos['type'] === 'credit_ambigu') || $credit_lie_manuellement) {
         if (!empty($data['id_payment_existant'])) {
             $paymentExistant = payment::find(intval($data['id_payment_existant']));
             if (!$paymentExistant || !$paymentExistant->getId() || !$paymentExistant->getFacture() || !$paymentExistant->getFacture()->getClient() || $paymentExistant->getFacture()->getClient()->getAgence()->getId() != $ligne->getAgence()->getId()) {
