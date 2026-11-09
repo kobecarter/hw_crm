@@ -1271,8 +1271,10 @@ function exportProjetsEnCours()
 		$facturesAgence = array_filter(
 			facture::findAll(false, false, false, true, false, false, $uneAgence->getId()),
 			function ($facture) {
-				// Impayée, et le projet ne doit pas avoir été marqué "terminé" sur la facture.
-				return $facture->getReste() > 0 && !$facture->isProjetTermine();
+				// Uniquement basé sur la case "Projet terminé" de la facture - plus sur le statut
+				// de paiement (un projet peut être en cours alors que la facture est déjà soldée,
+				// et inversement).
+				return !$facture->isProjetTermine();
 			}
 		);
 
