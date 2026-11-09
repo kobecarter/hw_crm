@@ -32,7 +32,7 @@ class googleDriveClient
         $header = self::base64UrlEncode(json_encode(array('alg' => 'RS256', 'typ' => 'JWT')));
         $claims = self::base64UrlEncode(json_encode(array(
             'iss' => GOOGLE_SERVICE_ACCOUNT_EMAIL,
-            'scope' => 'https://www.googleapis.com/auth/drive',
+            'scope' => 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets',
             'aud' => 'https://oauth2.googleapis.com/token',
             'iat' => $now,
             'exp' => $now + 3600,
@@ -322,5 +322,133 @@ class googleDriveClient
         }
 
         return self::getFolderLink($folderId);
+    }
+
+    /* -- Google Sheets (publication hebdomadaire "Projets en cours") --
+       Réutilise le même jeton OAuth2/compte de service que Drive ci-dessus (le scope demandé par
+       getAccessToken() couvre maintenant les deux APIs) et le helper request() générique : aucune
+       nouvelle logique d'authentification. */
+
+    /* Upload un fichier local (xlsx) comme nouveau fichier Google Sheets converti - purement
+       transitoire, seul le contenu de son premier onglet nous intéresse (voir copySheetTo()
+       plus bas). Créé sous GOOGLE_DRIVE_ROOT_FOLDER_ID (déjà partagé avec le compte de service) :
+       un compte de service standard n'a pas de quota Drive propre, créer un fichier avec du contenu
+       hors d'un dossier/Drive partagé échouerait ("storageQuotaExceeded"). */
+    private static function uploadLocalFileAsGoogleSheet($localFilePath, $name)
+    {
+        $token = self::getAccessToken();
+        if (!$token || !file_exists($localFilePath)) {
+            return null;
+        }
+
+        $metadata = array('name' => $name, 'mimeType' => 'application/vnd.google-apps.spreadsheet', 'parents' => array(GOOGLE_DRIVE_ROOT_FOLDER_ID));
+        $boundary = 'hwcrm' . uniqid();
+        $delimiter = '--' . $boundary;
+        $body = $delimiter . "\r\n"
+            . "Content-Type: application/json; charset=UTF-8\r\n\r\n"
+            . json_encode($metadata) . "\r\n"
+            . $delimiter . "\r\n"
+            . "Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\r\n"
+            . "Content-Transfer-Encoding: base64\r\n\r\n"
+            . base64_encode(file_get_contents($localFilePath)) . "\r\n"
+            . $delimiter . "--";
+
+        $ch = curl_init('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true');
+        curl_setopt_array($ch, array(
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => array(
+                'Authorization: Bearer ' . $token,
+                'Content-Type: multipart/related; boundary="' . $boundary . '"',
+            ),
+            CURLOPT_POSTFIELDS => $body,
+            CURLOPT_TIMEOUT => 60,
+        ));
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlError || $httpCode >= 300) {
+            error_log('googleDriveClient::uploadLocalFileAsGoogleSheet - erreur (' . $httpCode . ') ' . $curlError . ' - ' . $response);
+            return null;
+        }
+        $decoded = json_decode($response, true);
+        return !empty($decoded['id']) ? $decoded['id'] : null;
+    }
+
+    private static function getFirstSheetId($spreadsheetId)
+    {
+        $result = self::request('GET', 'https://sheets.googleapis.com/v4/spreadsheets/' . $spreadsheetId . '?fields=sheets.properties');
+        // isset(), pas !empty() : le premier onglet d'un classeur a très souvent sheetId=0.
+        return isset($result['sheets'][0]['properties']['sheetId']) ? $result['sheets'][0]['properties']['sheetId'] : null;
+    }
+
+    private static function copySheetTo($sourceSpreadsheetId, $sourceSheetId, $destSpreadsheetId)
+    {
+        $url = 'https://sheets.googleapis.com/v4/spreadsheets/' . $sourceSpreadsheetId . '/sheets/' . $sourceSheetId . ':copyTo';
+        $result = self::request('POST', $url, array('destinationSpreadsheetId' => $destSpreadsheetId));
+        return isset($result['sheetId']) ? $result['sheetId'] : null;
+    }
+
+    private static function renameSheet($spreadsheetId, $sheetId, $newTitle)
+    {
+        $url = 'https://sheets.googleapis.com/v4/spreadsheets/' . $spreadsheetId . ':batchUpdate';
+        $body = array('requests' => array(array('updateSheetProperties' => array(
+            'properties' => array('sheetId' => $sheetId, 'title' => $newTitle),
+            'fields' => 'title',
+        ))));
+        return self::request('POST', $url, $body) !== null;
+    }
+
+    private static function deleteDriveFile($fileId)
+    {
+        $token = self::getAccessToken();
+        if (!$token) {
+            return false;
+        }
+        $ch = curl_init('https://www.googleapis.com/drive/v3/files/' . $fileId . '?supportsAllDrives=true');
+        curl_setopt_array($ch, array(
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST => 'DELETE',
+            CURLOPT_HTTPHEADER => array('Authorization: Bearer ' . $token),
+            CURLOPT_TIMEOUT => 15,
+        ));
+        curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        return $httpCode < 300;
+    }
+
+    /* Point d'entrée partagé : ajoute $localXlsxPath comme nouvel onglet (nommé $titreFeuille) du
+       document Google Sheets persistant $spreadsheetId, en conservant sa mise en forme (couleurs,
+       fusions, largeurs de colonnes) - passe par un fichier Sheets temporaire converti puis
+       copySheetTo() plutôt que l'API Sheets "values.update" brute, pour ne jamais devoir réécrire
+       en requêtes Sheets tout le formatage déjà construit avec PhpSpreadsheet (voir
+       construireSpreadsheetProjetsEnCours() dans com_facture). Le fichier temporaire est
+       systématiquement supprimé, succès ou échec. */
+    public static function publierNouvelleFeuilleHebdomadaire($spreadsheetId, $localXlsxPath, $titreFeuille)
+    {
+        if (!self::isConfigured() || !$spreadsheetId) {
+            return false;
+        }
+
+        $tempFileId = self::uploadLocalFileAsGoogleSheet($localXlsxPath, 'tmp_import_projets_en_cours_' . time());
+        if (!$tempFileId) {
+            return false;
+        }
+
+        $sourceSheetId = self::getFirstSheetId($tempFileId);
+        $nouveauSheetId = $sourceSheetId !== null ? self::copySheetTo($tempFileId, $sourceSheetId, $spreadsheetId) : null;
+
+        self::deleteDriveFile($tempFileId);
+
+        if ($nouveauSheetId === null) {
+            error_log('googleDriveClient::publierNouvelleFeuilleHebdomadaire - copie de feuille échouée vers ' . $spreadsheetId);
+            return false;
+        }
+
+        self::renameSheet($spreadsheetId, $nouveauSheetId, $titreFeuille);
+        return true;
     }
 }

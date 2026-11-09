@@ -1150,6 +1150,24 @@ function exportFactureTest($data)
 // rapport multi-agences silencieusement incomplet pour un utilisateur normal.
 function exportProjetsEnCours()
 {
+	$spreadsheet = construireSpreadsheetProjetsEnCours();
+
+	ob_end_clean();
+	ob_start();
+	header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+	header('Content-Disposition: attachment;filename="projets_en_cours_' . date('Ymd') . '.xlsx"');
+	header('Cache-Control: max-age=0');
+
+	$writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+	$writer->save('php://output');
+	exit;
+}
+
+/* Génère le classeur Excel "Projets en cours" (multi-agences) tel qu'actuellement téléchargé
+   manuellement (exportProjetsEnCours() ci-dessus), et réutilisé par la publication hebdomadaire
+   automatique vers Google Sheets - voir cronPublierProjetsEnCoursSurGoogleSheets() plus bas. */
+function construireSpreadsheetProjetsEnCours()
+{
 	$templatePath = __DIR__ . '/../../templates/modele_projets_en_cours.xlsx';
 	$spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($templatePath);
 	$sheet = $spreadsheet->getActiveSheet();
@@ -1321,15 +1339,33 @@ function exportProjetsEnCours()
 		}
 	}
 
-	ob_end_clean();
-	ob_start();
-	header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-	header('Content-Disposition: attachment;filename="projets_en_cours_' . date('Ymd') . '.xlsx"');
-	header('Cache-Control: max-age=0');
+	return $spreadsheet;
+}
 
-	$writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
-	$writer->save('php://output');
-	exit;
+/* Publication hebdomadaire automatique (cron du lundi, voir
+   components/com_facture/controleurs/router.php:cronExportProjetsEnCoursHebdomadaire) : génère le
+   même classeur que le bouton de téléchargement manuel, l'enregistre temporairement sur disque (ce
+   fichier local n'est qu'un intermédiaire pour l'upload Google, jamais conservé), puis l'ajoute
+   comme nouvel onglet du document Google Sheets persistant GOOGLE_SHEETS_PROJETS_SPREADSHEET_ID -
+   "le même document" voulu, un onglet horodaté par semaine plutôt qu'un fichier par semaine. */
+function cronPublierProjetsEnCoursSurGoogleSheets()
+{
+	if (!defined('GOOGLE_SHEETS_PROJETS_SPREADSHEET_ID') || GOOGLE_SHEETS_PROJETS_SPREADSHEET_ID === '') {
+		return array('success' => 0, 'message' => 'GOOGLE_SHEETS_PROJETS_SPREADSHEET_ID non configuré.');
+	}
+
+	$spreadsheet = construireSpreadsheetProjetsEnCours();
+	$tmpPath = sys_get_temp_dir() . '/projets_en_cours_' . uniqid() . '.xlsx';
+	(new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save($tmpPath);
+
+	$titreFeuille = 'Semaine du ' . date('d/m/Y');
+	$ok = googleDriveClient::publierNouvelleFeuilleHebdomadaire(GOOGLE_SHEETS_PROJETS_SPREADSHEET_ID, $tmpPath, $titreFeuille);
+
+	@unlink($tmpPath);
+
+	return $ok
+		? array('success' => 1, 'feuille' => $titreFeuille)
+		: array('success' => 0, 'message' => 'Échec de la publication sur Google Sheets (voir error_log).');
 }
 //API
 function findAllByClientApi($data)

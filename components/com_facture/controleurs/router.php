@@ -168,5 +168,40 @@ if (isset($_GET['task']) && !empty($_GET['task'])) {
         case 'change':
             include_once("facture/controleur.php");
         break;
+        case 'cronExportProjetsEnCoursHebdomadaire':
+            // Endpoint public (pas de cron serveur disponible), même principe que les autres crons
+            // du CRM (ex: com_relance/controleurs/router.php) : appelé une fois par semaine (lundi)
+            // par un service externe planifié (cron-job.org), protégé par un secret partagé vérifié
+            // en constant-time - aucune session utilisateur active, donc pas de hasDroit() ici.
+            cronExportProjetsEnCoursHebdomadaireEndpoint();
+            break;
     }
+}
+
+function cronExportProjetsEnCoursHebdomadaireEndpoint()
+{
+    header('Content-Type: application/json');
+
+    $provided = isset($_GET['secret']) ? $_GET['secret'] : (isset($_SERVER['HTTP_X_WEBHOOK_SECRET']) ? $_SERVER['HTTP_X_WEBHOOK_SECRET'] : '');
+    if (!defined('PROJETS_EXPORT_CRON_SECRET') || PROJETS_EXPORT_CRON_SECRET === '' || !hash_equals(PROJETS_EXPORT_CRON_SECRET, (string) $provided)) {
+        error_log('cronExportProjetsEnCoursHebdomadaireEndpoint - tentative non autorisée depuis ' . (isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : 'inconnue'));
+        http_response_code(403);
+        echo json_encode(array('error' => 'forbidden'));
+        return;
+    }
+
+    // facture::findAll() filtre par id_user_added sauf pour un superuser (voir le case
+    // 'exportProjetsEnCours' ci-dessus) : réutilise RELANCE_CRON_ACTING_USER_ID (déjà superadmin,
+    // même convention que les autres crons de ce CRM) pour garantir une vue multi-agences complète.
+    $userId = defined('RELANCE_CRON_ACTING_USER_ID') ? RELANCE_CRON_ACTING_USER_ID : 5;
+    try {
+        bootstrapSystemSession($userId, 1, 'fr');
+    } catch (\Throwable $e) {
+        error_log('cronExportProjetsEnCoursHebdomadaireEndpoint - bootstrap - ' . $e->getMessage());
+        echo json_encode(array('success' => 0, 'message' => $e->getMessage()));
+        return;
+    }
+
+    include_once("facture/controleur.php");
+    echo json_encode(cronPublierProjetsEnCoursSurGoogleSheets());
 }
