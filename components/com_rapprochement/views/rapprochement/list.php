@@ -223,11 +223,47 @@
 														<button type="button" class="btn btn-primary btn-sm rapprochement-tva-confirmer" data-toggle="tooltip" title="Confirmer la déclaration TVA" data-tva-info='<?= htmlspecialchars(json_encode($infos), ENT_QUOTES, "UTF-8") ?>'><i class="fa fa-file-invoice-dollar"></i></button>
 														<button type="button" class="btn btn-white btn-sm rapprochement-ignorer" data-toggle="tooltip" title="Ignorer"><i class="fa fa-times"></i></button>
 													<?php elseif (!isset($infos['type']) || !in_array($infos['type'], array('credit_ambigu', 'debit_charge_existante', 'debit_reconnu'), true)) :?>
-														<!-- Type non reconnu (ligne à montant nul, commission bancaire non agrégée...) : le
-														     badge affiche alors le simple "À valider" générique (switch plus bas) et
-														     validerLigne() n'a AUCUNE action possible pour ce cas ("Aucune action de
-														     validation possible pour cette ligne", toujours en échec côté serveur) - même
-														     flux que "sans_justificatif" plutôt qu'un bouton "Valider" mort. -->
+														<!-- Type non reconnu (ligne à montant nul, commission bancaire non agrégée, ou un
+														     crédit "credit_rapproche"/"credit_reglement_existant" dont le règlement a été
+														     réaffecté ailleurs via verifierReaffectationPayment() - qui remet la ligne en
+														     a_valider SANS recalculer donnees_matching) : le badge affiche alors le simple
+														     "À valider" générique (switch plus bas). Pour un crédit, la recherche manuelle de
+														     facture reste possible - même mécanisme que sans_justificatif ci-dessous, simplement
+														     sans candidat automatique (jamais recalculé pour ce cas). -->
+														<?php if ($l->getCredit() > 0) :?>
+															<?php
+															$montantCreditNR = round((float) $l->getCredit(), 2);
+															$facturesMontantCorrespondantNR = array();
+															foreach ($facturesOuvertes as $fCandidatMontantNR) {
+																if (abs(round((float) $fCandidatMontantNR->getTotal(), 2) - $montantCreditNR) < 0.01) {
+																	$facturesMontantCorrespondantNR[] = $fCandidatMontantNR;
+																}
+															}
+															$idsMontantCorrespondantNR = array_map(function ($fMap) { return $fMap->getId(); }, $facturesMontantCorrespondantNR);
+															?>
+															<select class="rapprochement-facture-select d-none">
+																<option value="">Choisir la facture...</option>
+																<?php if (!empty($facturesMontantCorrespondantNR)) :?>
+																<optgroup label="⭐ Montant correspondant (<?= number_format($montantCreditNR, 2, ',', ' ') ?> DH)" data-groupe="montant-correspondant">
+																	<?php foreach ($facturesMontantCorrespondantNR as $f) :?>
+																		<?php $client = $f->getClient(); $nomClient = $client ? (trim((string) $client->getRaisonSocial()) !== '' ? $client->getRaisonSocial() : trim($client->getPrenom() . ' ' . $client->getNom())) : '';?>
+																	<option value="<?= $f->getId() ?>" data-client="<?= $client ? $client->getId() : '' ?>">⭐ N°<?= htmlspecialchars($f->getNumero()) ?> — <?= htmlspecialchars($nomClient) ?> (Total : <?= number_format($f->getTotal(), 2, ',', ' ') ?> DH<?= $f->getReste() <= 0 ? ', payée' : '' ?>)</option>
+																	<?php endforeach;?>
+																</optgroup>
+																<?php endif;?>
+																<optgroup label="Toutes les factures (payées comprises)">
+																	<?php foreach ($facturesOuvertes as $f) :?>
+																		<?php if (in_array($f->getId(), $idsMontantCorrespondantNR)) { continue; }?>
+																		<?php $client = $f->getClient(); $nomClient = $client ? (trim((string) $client->getRaisonSocial()) !== '' ? $client->getRaisonSocial() : trim($client->getPrenom() . ' ' . $client->getNom())) : '';?>
+																		<?php $resteAffiche = $f->getReste() > 0 ? 'reste ' . number_format($f->getReste(), 2, ',', ' ') . ' DH' : 'payée';?>
+																	<option value="<?= $f->getId() ?>" data-client="<?= $client ? $client->getId() : '' ?>">N°<?= htmlspecialchars($f->getNumero()) ?> — <?= htmlspecialchars($nomClient) ?> (Total : <?= number_format($f->getTotal(), 2, ',', ' ') ?> DH, <?= $resteAffiche ?>)</option>
+																	<?php endforeach;?>
+																</optgroup>
+															</select>
+															<input type="hidden" class="rapprochement-payment-existant d-none" value="">
+															<button type="button" class="btn btn-white btn-sm rapprochement-choisir" data-toggle="tooltip" title="Choisir la facture" data-affecter-type="facture" data-candidats-facture="0"><i class="fa fa-search mr-1"></i>Choisir</button>
+															<button type="button" class="btn btn-success btn-sm rapprochement-valider" data-toggle="tooltip" title="Valider"><i class="fa fa-check"></i></button>
+														<?php endif;?>
 														<button type="button" class="btn btn-danger btn-sm rapprochement-justificatif-manuel" data-toggle="tooltip" title="Insérer le justificatif"><i class="fa fa-paperclip"></i></button>
 														<button type="button" class="btn btn-white btn-sm rapprochement-ignorer" data-toggle="tooltip" title="Ignorer"><i class="fa fa-times"></i></button>
 													<?php else :?>
