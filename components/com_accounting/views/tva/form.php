@@ -200,7 +200,7 @@
 				var annee = $('#annee-input').val();
 				var debut = (t - 1) * 3;
 				var mois = [nomsTrimestre[debut], nomsTrimestre[debut + 1], nomsTrimestre[debut + 2]];
-				$('#tva-trimestre-confirmation-texte').html('<i class="fa fa-info-circle mr-1"></i> Ce trimestre couvre : <strong>' + mois.join(', ') + ' ' + annee + '</strong> — le montant et la majoration saisis seront divisés également sur ces 3 mois (une ligne par mois).');
+				$('#tva-trimestre-confirmation-texte').html('<i class="fa fa-info-circle mr-1"></i> Ce trimestre couvre : <strong>' + mois.join(', ') + ' ' + annee + '</strong> — une seule ligne sera enregistrée pour tout le trimestre.');
 			}
 
 			function togglePeriodicite() {

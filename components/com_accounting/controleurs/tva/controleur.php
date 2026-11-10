@@ -616,27 +616,24 @@ function nomMoisTva($numero)
 
 // Certaines sociétés déclarent la TVA par trimestre (confirmé sur les vraies déclarations DGI
 // de Verse Concept lues depuis Google Drive cette session : en-tête "Déclaration Trimestrielle",
-// champ "Période" = numéro du trimestre, pas du mois). On répartit le montant/majoration saisis
-// sur les 3 mois du trimestre — une ligne crm_tva par mois — pour que le reste de l'écran
-// (cumul par année, alerte "mois manquants") continue de raisonner mois par mois sans code
-// spécial. Les 3 lignes ne forment pas un "lot" : chacune reste éditable/supprimable seule.
+// champ "Période" = numéro du trimestre, pas du mois). Une seule ligne crm_tva est créée pour
+// tout le trimestre (montant/majoration saisis tels quels, non divisés), datée sur le dernier
+// mois du trimestre - le reste de l'écran (cumul par année, alerte "mois/trimestres manquants")
+// raisonne déjà par groupe de 3 mois en régime trimestriel et reconnaît un trimestre comme
+// "reçu" dès qu'une seule ligne tombe dans l'un de ses 3 mois (voir list.php).
 function ajouterTvaTrimestrielle($data)
 {
     $trimestre = intval($data['trimestre']);
     $annee = intval($data['annee']);
-    $moisDebut = ($trimestre - 1) * 3 + 1;
+    $moisFin = ($trimestre - 1) * 3 + 3;
 
     $montantTotal = floatval($data['amount']);
     $majorationTotal = isset($data['increasion']) && $data['increasion'] !== '' ? floatval($data['increasion']) : 0;
-    $montantParMois = round($montantTotal / 3, 2);
-    $majorationParMois = round($majorationTotal / 3, 2);
 
     $agenceObj = agence::find($data['id_agence'], $_SESSION['langue']);
     $remarkSaisi = isset($data['remark']) ? $data['remark'] : '';
-    $remarkComplet = "Trimestre T$trimestre $annee (montant divisé sur 3 mois)." . ($remarkSaisi !== '' ? ' ' . $remarkSaisi : '');
+    $remarkComplet = "Trimestre T$trimestre $annee." . ($remarkSaisi !== '' ? ' ' . $remarkSaisi : '');
 
-    // Une seule charge pour le montant total du trimestre (un seul paiement réel en général),
-    // partagée par les 3 lignes mensuelles via id_charge.
     $idCharge = creerChargeDepuisPreuvePaiement($data, $montantTotal + $majorationTotal, 'TVA T' . $trimestre . ' ' . $annee, $data['id_agence']);
 
     $doc = array();
@@ -647,28 +644,20 @@ function ajouterTvaTrimestrielle($data)
     $datePaiement = isset($data['date_payment']) && !empty($data['date_payment']) ? dateBD($data['date_payment']) : null;
     $statut = isset($data['status']) ? $data['status'] : 0;
 
-    $succes = true;
-    for ($i = 0; $i < 3; $i++) {
-        $mois = $moisDebut + $i;
-        $tva = new tva();
-        $tva->setAgence($agenceObj);
-        $tva->setAmount($montantParMois);
-        $tva->setIncreasion($majorationParMois);
-        $tva->setDate(date('Y-m-t', strtotime(sprintf('%04d-%02d-01', $annee, $mois))));
-        $tva->setDatePayment($datePaiement);
-        $tva->setStatus($statut);
-        $tva->setRemark($remarkComplet);
-        $tva->setDoc($nomDoc);
-        $tva->setIdCharge($idCharge);
-        $tva->setDateAdd(date('Y-m-d'));
-        $tva->setLastEdit(date('Y-m-d'));
+    $tva = new tva();
+    $tva->setAgence($agenceObj);
+    $tva->setAmount($montantTotal);
+    $tva->setIncreasion($majorationTotal);
+    $tva->setDate(date('Y-m-t', strtotime(sprintf('%04d-%02d-01', $annee, $moisFin))));
+    $tva->setDatePayment($datePaiement);
+    $tva->setStatus($statut);
+    $tva->setRemark($remarkComplet);
+    $tva->setDoc($nomDoc);
+    $tva->setIdCharge($idCharge);
+    $tva->setDateAdd(date('Y-m-d'));
+    $tva->setLastEdit(date('Y-m-d'));
 
-        if ($tva->add() != 1) {
-            $succes = false;
-        }
-    }
-
-    return $succes;
+    return $tva->add() == 1;
 }
 
 // Crée automatiquement une charge fixe (com_charge) à partir de la preuve de paiement jointe

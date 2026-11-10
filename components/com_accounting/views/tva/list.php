@@ -101,11 +101,15 @@
         // date limite (le 20 du mois suivant) ; sinon on affiche calmement la période en cours.
         $periodiciteTva = regimeTva::periodiciteAnnee($agence->getId(), (int) date('Y'));
         $periodeCloturee = tva::periodeReference($periodiciteTva, null, -1);
-        $periodeDeclaree = true;
+        // Comme pour le cumul par année et l'alerte "périodes manquantes" ci-dessus : en régime
+        // trimestriel, une seule ligne suffit à considérer le trimestre entier comme déclaré (le
+        // formulaire "Ajouter une tva" n'en crée d'ailleurs plus qu'une par trimestre) - jamais
+        // besoin d'une ligne sur CHACUN des 3 mois.
+        $periodeDeclaree = false;
         $curseurPeriode = clone $periodeCloturee['debut'];
         while ($curseurPeriode <= $periodeCloturee['fin']) {
-            if (empty(tva::findByDate($_SESSION['agence'], $curseurPeriode->format('Y-m')))) {
-                $periodeDeclaree = false;
+            if (!empty(tva::findByDate($_SESSION['agence'], $curseurPeriode->format('Y-m')))) {
+                $periodeDeclaree = true;
                 break;
             }
             $curseurPeriode->modify('+1 month');
