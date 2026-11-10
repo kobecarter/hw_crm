@@ -1,4 +1,14 @@
 <!--<h4 class="card-title">Basic Info</h4>-->
+<?php
+// Périodicité/trimestre/année pré-sélectionnés en modification - affiché pour l'ajout ET la
+// modification (seul le réglage d'origine n'était jusqu'ici visible qu'à l'ajout, rendant la
+// modification d'une TVA trimestrielle impossible à faire sans deviner le trimestre exact).
+$periodiciteEdition = isset($tva) ? $tva->getPeriodicite() : 'mensuel';
+$anneeEdition = isset($tva) ? (int) date('Y', strtotime($tva->getDate())) : (int) date('Y');
+$trimestreEdition = ($periodiciteEdition === 'trimestriel' && isset($tva))
+    ? (int) ceil(((int) date('n', strtotime($tva->getDate()))) / 3)
+    : null;
+?>
 <form method="post" action="<?=isset($tva) ? $action2 : $action1?>" id="tvaForm" enctype="multipart/form-data">
 	<div class="row">
 		<div class="col-md-12 msgbox"></div>
@@ -15,23 +25,21 @@
 		</div>
 		<?php endif; ?>
 
-		<?php if (!isset($tva)) : ?>
 		<div class="col-md-12">
 			<div class="form-group mb-2">
 				<label>Périodicité de la déclaration</label>
 				<div class="form-checks">
 					<div class="form-check form-check-inline">
-						<input type="radio" name="periodicite" id="periodicite-mensuel" class="form-check-input" value="mensuel" checked>
+						<input type="radio" name="periodicite" id="periodicite-mensuel" class="form-check-input" value="mensuel" <?= $periodiciteEdition !== 'trimestriel' ? 'checked' : '' ?>>
 						<label class="form-check-label" for="periodicite-mensuel">Mensuelle</label>
 					</div>
 					<div class="form-check form-check-inline">
-						<input type="radio" name="periodicite" id="periodicite-trimestriel" class="form-check-input" value="trimestriel">
+						<input type="radio" name="periodicite" id="periodicite-trimestriel" class="form-check-input" value="trimestriel" <?= $periodiciteEdition === 'trimestriel' ? 'checked' : '' ?>>
 						<label class="form-check-label" for="periodicite-trimestriel">Trimestrielle</label>
 					</div>
 				</div>
 			</div>
 		</div>
-		<?php endif; ?>
 
 		<div class="col-md-4" id="tva-bloc-mensuel">
 			<div class="form-group">
@@ -42,28 +50,26 @@
 			</div>
 		</div>
 
-		<?php if (!isset($tva)) : ?>
 		<div class="col-md-2 d-none" id="tva-bloc-trimestre-select">
 			<div class="form-group">
 				<label>Trimestre<span class="text-danger"> * </span></label>
 				<select class="form-control" name="trimestre" id="trimestre-input">
-					<option value="1">T1 (Janvier-Mars)</option>
-					<option value="2">T2 (Avril-Juin)</option>
-					<option value="3">T3 (Juillet-Septembre)</option>
-					<option value="4">T4 (Octobre-Décembre)</option>
+					<option value="1" <?= $trimestreEdition === 1 ? 'selected' : '' ?>>T1 (Janvier-Mars)</option>
+					<option value="2" <?= $trimestreEdition === 2 ? 'selected' : '' ?>>T2 (Avril-Juin)</option>
+					<option value="3" <?= $trimestreEdition === 3 ? 'selected' : '' ?>>T3 (Juillet-Septembre)</option>
+					<option value="4" <?= $trimestreEdition === 4 ? 'selected' : '' ?>>T4 (Octobre-Décembre)</option>
 				</select>
 			</div>
 		</div>
 		<div class="col-md-2 d-none" id="tva-bloc-trimestre-annee">
 			<div class="form-group">
 				<label>Année<span class="text-danger"> * </span></label>
-				<input type="number" class="form-control" name="annee" id="annee-input" value="<?= date('Y') ?>">
+				<input type="number" class="form-control" name="annee" id="annee-input" value="<?= $anneeEdition ?>">
 			</div>
 		</div>
 		<div class="col-md-12 d-none" id="tva-bloc-trimestre-confirmation">
 			<p class="text-muted mb-2" style="font-size:0.85rem;" id="tva-trimestre-confirmation-texte"></p>
 		</div>
-		<?php endif; ?>
 
 		<div class="col-md-4">
 			<div class="form-group">
@@ -190,7 +196,6 @@
 		<button type="submit" name="<?=isset($tva) ? 'Modifier' : 'Ajouter'?>" class="btn btn-primary submit"><span class="spinner-border spinner-border-sm mr-2 loading"></span> <?=isset($tva) ? 'Modifier' : 'Ajouter'?> </button>
 	</div>
 
-	<?php if (!isset($tva)) : ?>
 	<script>
 		$(function () {
 			var nomsTrimestre = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
@@ -215,7 +220,11 @@
 
 			$('input[name=periodicite]').on('change', togglePeriodicite);
 			$('#trimestre-input, #annee-input').on('change input', majConfirmationTrimestre);
+			// Synchronise l'affichage avec le réglage pré-sélectionné côté serveur (y compris en
+			// modification d'une TVA trimestrielle, où le bloc "Date" mensuel doit rester caché).
+			togglePeriodicite();
 
+			<?php if (!isset($tva)) : ?>
 			initTvaIaDropzone({
 				zoneSelector: '#iaDropzoneTva',
 				onExtracted: function (extracted, file) {
@@ -246,7 +255,7 @@
 					}
 				}
 			});
+			<?php endif; ?>
 		});
 	</script>
-	<?php endif; ?>
 </form>

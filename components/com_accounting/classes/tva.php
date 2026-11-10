@@ -9,6 +9,7 @@ class tva
     private $agence;
     private $amount;
     private $increasion;
+    private $periodicite;
     private $date;
     private $date_payment;
     private $status;
@@ -37,6 +38,12 @@ class tva
 
     public function getIncreasion(){
         return $this->increasion;
+    }
+
+    // 'mensuel' ou 'trimestriel' - une ligne trimestrielle couvre les 3 mois civils du
+    // trimestre (date = fin du dernier mois), une ligne mensuelle un seul mois.
+    public function getPeriodicite(){
+        return $this->periodicite;
     }
 
     public function getDate(){
@@ -89,6 +96,10 @@ class tva
         $this->increasion = $increasion;
     }
 
+    public function setPeriodicite($periodicite){
+        $this->periodicite = $periodicite === 'trimestriel' ? 'trimestriel' : 'mensuel';
+    }
+
     public function setDate($date){
         $this->date = $date;
     }
@@ -124,10 +135,11 @@ class tva
     public function add()
     {
         global $db;
-        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence, amount, increasion, date, date_payment, status, remark, doc, id_charge, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        $SQLinsert = sprintf("INSERT INTO " . static::$table . " (id_agence, amount, increasion, periodicite, date, date_payment, status, remark, doc, id_charge, date_add, last_edit) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             GetSQLValueString($this->agence->getId(), "int"),
             GetSQLValueString($this->amount, "double"),
             GetSQLValueString($this->increasion, "double"),
+            GetSQLValueString($this->periodicite ? $this->periodicite : 'mensuel', "text"),
             GetSQLValueString($this->date, "date"),
             GetSQLValueString($this->date_payment, "date"),
             GetSQLValueString($this->status, "int"),
@@ -147,9 +159,10 @@ class tva
     public function edit()
     {
         global $db;
-        $SQLupdate = sprintf("UPDATE " . static::$table . " SET amount = %s, increasion = %s, date = %s, date_payment = %s, status = %s, remark = %s, doc = %s, id_charge = %s, last_edit = %s WHERE id = %s",
+        $SQLupdate = sprintf("UPDATE " . static::$table . " SET amount = %s, increasion = %s, periodicite = %s, date = %s, date_payment = %s, status = %s, remark = %s, doc = %s, id_charge = %s, last_edit = %s WHERE id = %s",
             GetSQLValueString($this->amount, "double"),
             GetSQLValueString($this->increasion, "double"),
+            GetSQLValueString($this->periodicite ? $this->periodicite : 'mensuel', "text"),
             GetSQLValueString($this->date, "date"),
             GetSQLValueString($this->date_payment, "date"),
             GetSQLValueString($this->status, "int"),
@@ -313,6 +326,7 @@ class tva
         $tva->setAgence(agence::find($data['id_agence'], $_SESSION['langue']));
         $tva->setAmount($data['amount']);
         $tva->setIncreasion($data['increasion']);
+        $tva->setPeriodicite(isset($data['periodicite']) ? $data['periodicite'] : 'mensuel');
         $tva->setDate($data['date']);
         $tva->setDatePayment(isset($data['date_payment']) ? $data['date_payment'] : null);
         $tva->setStatus($data['status']);

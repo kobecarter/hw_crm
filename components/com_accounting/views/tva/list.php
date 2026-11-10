@@ -567,6 +567,7 @@
                                         <th>ID</th>
                                         <th>Montant</th>
                                         <th>Majoration</th>
+                                        <th>Période</th>
                                         <th>Date</th>
                                         <th>Statut</th>
                                         <th>Charges</th>
@@ -580,6 +581,13 @@
                                             <td><?php echo $tvaRow->getId(); ?></td>
                                             <td><b><?php echo floatval($tvaRow->getAmount()); ?> MAD</b></td>
                                             <td><b><?php echo floatval($tvaRow->getIncreasion()); ?> MAD</b></td>
+                                            <td>
+                                                <?php if ($tvaRow->getPeriodicite() === 'trimestriel') : ?>
+                                                    <span class="badge badge-info" data-toggle="tooltip" data-placement="top" data-original-title="Déclaration trimestrielle"><?= tva::libellePeriode($tvaRow->getDate(), 'trimestriel') ?></span>
+                                                <?php else : ?>
+                                                    <span class="badge badge-light" data-toggle="tooltip" data-placement="top" data-original-title="Déclaration mensuelle"><?= tva::libellePeriode($tvaRow->getDate(), 'mensuel') ?></span>
+                                                <?php endif; ?>
+                                            </td>
                                             <td><?php echo date("m/Y",strtotime($tvaRow->getDate())); ?></td>
                                             <td>
                                                 <?php if ($tvaRow->getStatus() == 1) : ?>
