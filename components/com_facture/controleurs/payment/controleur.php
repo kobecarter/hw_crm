@@ -114,7 +114,6 @@ function addPayment($data)
             } 
 
             $facture->checkPayment();
-            sendPaymentConfirmationEmail($facture, $data['montant']);
             syncDevisStatutPaiement($facture);
 
             // Seul le tout premier paiement d'une facture non exclusivement hébergement/

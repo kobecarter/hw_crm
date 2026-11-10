@@ -339,11 +339,6 @@ function registerDevisPayment($devis, $data)
             $relance->edit();
         }
     }
-
-    require_once __DIR__ . '/../../../com_facture/controleurs/payment/controleur.php';
-    if (function_exists('sendPaymentConfirmationEmail')) {
-        sendPaymentConfirmationEmail($facture, $data['payment_montant']);
-    }
 }
 function getServicePrice($data)
 {
