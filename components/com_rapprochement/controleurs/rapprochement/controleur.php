@@ -14,6 +14,9 @@ if (isset($task) && !empty($task)) {
         case 'validerLigne':
             validerLigne($_POST, $_FILES);
             break;
+        case 'recupererCandidatsTva':
+            recupererCandidatsTva($_POST);
+            break;
         case 'ignorerLigne':
             ignorerLigne($_POST);
             break;
@@ -1391,6 +1394,30 @@ function verifierReaffectationPayment($idPayment, releveLigne $ligneCourante, $f
     $ancienneLigne->setLastEdit(date('Y-m-d H:i:s'));
     $ancienneLigne->edit();
     return null;
+}
+
+// Recalcule EN DIRECT les déclarations TVA candidates pour une ligne "debit_tva" - la popup
+// "Confirmer le paiement TVA" ne doit jamais se fier au cliché figé dans donnees_matching au
+// moment de l'import : une déclaration ajoutée APRÈS l'import de ce relevé resterait sinon
+// invisible indéfiniment (cf. calculerCandidatsTva() dans rapprochementMoteur).
+function recupererCandidatsTva($data)
+{
+    header('Content-Type: application/json');
+    if (!$_SESSION['user']->hasDroit('edit', 'com_rapprochement')) {
+        echo json_encode(array('success' => 0, 'message' => 'Accès refusé'));
+        return;
+    }
+    if (!isset($data['id']) || empty($data['id'])) {
+        echo json_encode(array('success' => 0, 'message' => 'Ligne manquante'));
+        return;
+    }
+    $ligne = releveLigne::find(intval($data['id']));
+    if (!$ligne->getId()) {
+        echo json_encode(array('success' => 0, 'message' => 'Ligne introuvable'));
+        return;
+    }
+    $resultat = rapprochementMoteur::calculerCandidatsTva($ligne->getDateOperation(), $ligne->getAgence()->getId());
+    echo json_encode(array('success' => 1, 'periode_detectee' => $resultat['periode_detectee'], 'candidats' => $resultat['candidats']));
 }
 
 function validerLigne($data, $files = array())

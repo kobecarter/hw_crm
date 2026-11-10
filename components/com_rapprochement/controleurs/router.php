@@ -28,6 +28,11 @@ if (isset($_GET['task']) && !empty($_GET['task'])) {
                 include_once ("rapprochement/controleur.php");
             }
             break;
+        case 'recupererCandidatsTva' :
+            if ($_SESSION['user']->hasDroit('edit', 'com_rapprochement')) {
+                include_once ("rapprochement/controleur.php");
+            }
+            break;
         case 'ignorerLigne' :
             if ($_SESSION['user']->hasDroit('edit', 'com_rapprochement')) {
                 include_once ("rapprochement/controleur.php");

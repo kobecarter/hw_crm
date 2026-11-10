@@ -90,6 +90,43 @@ class rapprochementMoteur
         }
     }
 
+    // Calcule la période TVA détectée et les déclarations candidates à partir d'une date
+    // d'opération - factorisé pour être rejoué en direct (recupererCandidatsTva(), appelé à
+    // l'ouverture de la popup "Confirmer le paiement TVA") plutôt que de ne dépendre que de
+    // l'instantané figé dans donnees_matching au moment de l'import : une déclaration ajoutée
+    // APRÈS l'import de ce relevé resterait sinon invisible dans la popup indéfiniment.
+    public static function calculerCandidatsTva($dateOperation, $agence)
+    {
+        $agenceObjet = agence::find($agence, isset($_SESSION['langue']) ? $_SESSION['langue'] : 'fr');
+        $periodicite = $agenceObjet->getTvaPeriodicite() === 'trimestriel' ? 'trimestriel' : 'mensuel';
+        $periode = tva::periodeReference($periodicite, new DateTime($dateOperation), -1);
+
+        $anneePeriode = (int) $periode['debut']->format('Y');
+        $declarationsProches = array_merge(
+            tva::findByYear($agence, $anneePeriode - 1),
+            tva::findByYear($agence, $anneePeriode)
+        );
+
+        $candidats = array();
+        foreach ($declarationsProches as $decl) {
+            $dateDecl = new DateTime($decl->getDate());
+            $detectee = ($dateDecl >= $periode['debut'] && $dateDecl <= $periode['fin']);
+            $candidats[] = array(
+                'id' => $decl->getId(),
+                'periode_libelle' => tva::libellePeriode($dateDecl, 'mensuel'),
+                'montant' => (float) $decl->getAmount(),
+                'deja_depose' => $decl->getStatus() == 1,
+                'detecte' => $detectee
+            );
+        }
+        // Les plus proches de la période détectée en premier, pour une liste lisible dans la modale.
+        usort($candidats, function ($a, $b) {
+            return $b['detecte'] <=> $a['detecte'];
+        });
+
+        return array('periode_detectee' => $periode['libelle'], 'candidats' => $candidats);
+    }
+
     public static function matcherDebit(releveLigne $ligne, $agence)
     {
         $montant = round((float) $ligne->getDebit(), 2);
@@ -120,38 +157,12 @@ class rapprochementMoteur
         }
 
         if (mb_strpos($libelleMin, 'tva') !== false || mb_strpos($libelleMin, 'taxes en ligne') !== false) {
-            $agenceObjet = agence::find($agence, isset($_SESSION['langue']) ? $_SESSION['langue'] : 'fr');
-            $periodicite = $agenceObjet->getTvaPeriodicite() === 'trimestriel' ? 'trimestriel' : 'mensuel';
-            $periode = tva::periodeReference($periodicite, new DateTime($ligne->getDateOperation()), -1);
-
-            $anneePeriode = (int) $periode['debut']->format('Y');
-            $declarationsProches = array_merge(
-                tva::findByYear($agence, $anneePeriode - 1),
-                tva::findByYear($agence, $anneePeriode)
-            );
-
-            $candidats = array();
-            foreach ($declarationsProches as $decl) {
-                $dateDecl = new DateTime($decl->getDate());
-                $detectee = ($dateDecl >= $periode['debut'] && $dateDecl <= $periode['fin']);
-                $candidats[] = array(
-                    'id' => $decl->getId(),
-                    'periode_libelle' => tva::libellePeriode($dateDecl, 'mensuel'),
-                    'montant' => (float) $decl->getAmount(),
-                    'deja_depose' => $decl->getStatus() == 1,
-                    'detecte' => $detectee
-                );
-            }
-            // Les plus proches de la période détectée en premier, pour une liste lisible dans la modale.
-            usort($candidats, function ($a, $b) {
-                return $b['detecte'] <=> $a['detecte'];
-            });
-
+            $resultatTva = self::calculerCandidatsTva($ligne->getDateOperation(), $agence);
             $ligne->setStatut('a_valider');
             $ligne->setDonneesMatchingArray(array(
                 'type' => 'debit_tva',
-                'periode_detectee' => $periode['libelle'],
-                'candidats' => $candidats
+                'periode_detectee' => $resultatTva['periode_detectee'],
+                'candidats' => $resultatTva['candidats']
             ));
             return;
         }

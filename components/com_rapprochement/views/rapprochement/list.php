@@ -2116,15 +2116,10 @@ $(function () {
 	});
 
 	var tvaLigneCourante = null;
-	$(document).on('click', '.rapprochement-tva-confirmer', function () {
-		var $tr = $(this).closest('tr');
-		tvaLigneCourante = $tr.data('id');
-		var infos = JSON.parse($(this).attr('data-tva-info'));
-
-		$('#tvaRapprochementPeriode').text(infos.periode_detectee || '—');
-
+	function rapprochementAfficherCandidatsTva(periodeDetectee, candidats) {
+		$('#tvaRapprochementPeriode').text(periodeDetectee || '—');
 		var $liste = $('#tvaRapprochementListe').empty();
-		var candidats = infos.candidats || [];
+		candidats = candidats || [];
 		if (candidats.length === 0) {
 			$('#tvaRapprochementVide').removeClass('d-none');
 		} else {
@@ -2142,8 +2137,25 @@ $(function () {
 				$liste.append($item);
 			});
 		}
+	}
 
+	$(document).on('click', '.rapprochement-tva-confirmer', function () {
+		var $tr = $(this).closest('tr');
+		tvaLigneCourante = $tr.data('id');
+		var infos = JSON.parse($(this).attr('data-tva-info'));
+
+		// Affichage immédiat avec le cliché figé à l'import (pas de flash vide pendant le
+		// chargement), aussitôt rafraîchi avec les déclarations réellement à jour - une
+		// déclaration TVA ajoutée APRÈS l'import de ce relevé serait sinon invisible
+		// indéfiniment (donnees_matching n'est jamais recalculé après coup).
+		rapprochementAfficherCandidatsTva(infos.periode_detectee, infos.candidats);
 		$('#tvaRapprochementModal').modal('show');
+
+		$.post('components/com_rapprochement/controleurs/router.php?task=recupererCandidatsTva', { id: tvaLigneCourante }, function (response) {
+			if (response && response.success) {
+				rapprochementAfficherCandidatsTva(response.periode_detectee, response.candidats);
+			}
+		}, 'json');
 	});
 
 	$('#tvaRapprochementConfirmerBtn').on('click', function () {
