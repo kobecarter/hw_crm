@@ -1187,7 +1187,7 @@ mpdf-->
             $discount = $item->getDiscount()>0 ? ($item->getDiscount() * $item->getTotal()) / 100 : 0;
             $soustotal += ($item->getTotal() - $discount);
             $htmlInvoice .= '<tr>
-                                <td><strong>' . $item->getTitre() . '</strong><div style="font-size:8pt; color:#999">' .  $item->getDescription() . '</div></td>
+                                <td><strong>' . $item->getTitre() . '</strong><div style="font-size:8pt; color:#555">' .  $item->getDescription() . '</div></td>
                                 <td align="center" style="vertical-align:middle;">' . number_format($item->getPrix(), 2, ',', ' ') . ' ' . $devis->getDevise() . '</td>
                                 <td align="center" style="vertical-align:middle;">' . $item->getQte() . ' x ' . getUnities()[$devis->getLangue()][$item->getUnite()]  . '</td>
                                 <td align="right" style="vertical-align:middle;" class="cost">' . ($item->getDiscount() > 0 ?  '<del>'.number_format($item->getTotal(), 2, ',', ' ') . ' ' . $devis->getDevise().'</del>' : number_format($item->getTotal(), 2, ',', ' ') . ' ' . $devis->getDevise()) . '</td>
@@ -1484,7 +1484,7 @@ mpdf-->
                 $price = number_format($item->getTotal(), 2, ',', ' ') . ' ' . $devis->getDevise();
             }
             $htmlInvoice .= '<tr>
-                                <td colspan="3"><strong>' . $item->getTitre() . '</strong><div style="font-size:8pt; color:#999">' .  $item->getDescription() . '</div></td>
+                                <td colspan="3"><strong>' . $item->getTitre() . '</strong><div style="font-size:8pt; color:#555">' .  $item->getDescription() . '</div></td>
                             </tr>
                             <tr bgcolor="#e2f6ed">
                                 <td colspan="3" style="font-size:7pt">' . ($devis->isPack() ? $traduction['COUT_PRESTATION_PACK'][$devis->getLangue()] : $traduction['COUT_PRESTATION'][$devis->getLangue()]) . ' <strong>' . $price . '</strong>'.$pricePer.'</td>

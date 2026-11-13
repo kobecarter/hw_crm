@@ -604,7 +604,7 @@ class payment
     foreach ($items as $item) {
         $soustotal += $item->getTotal();
         $htmlInvoice .= '<tr>
-<td><strong>' . $item->getTitre() . '</strong><div style="font-size:8pt; color:#999">' .  $item->getDescription() . '</div></td>
+<td><strong>' . $item->getTitre() . '</strong><div style="font-size:8pt; color:#555">' .  $item->getDescription() . '</div></td>
 <td align="center" style="vertical-align:middle;">-</td>
 <td align="center" style="vertical-align:middle;">' . $item->getQte() . ' x ' . getUnit($item->getUnite(),$payment->getFacture()->getLangue()) . '</td>
 <td align="right" style="vertical-align:middle;" class="cost">-</td>
@@ -941,7 +941,7 @@ mpdf-->
         foreach ($items as $item) {
             $unite = getUnities()[$facture["langue"]][$item["unite"]] ?? '';
             $htmlInvoice .= '<tr>
-<td><strong>' . $item["titre"] . '</strong><div style="font-size:8pt; color:#999">' . $item["description"] . '</div></td>
+<td><strong>' . $item["titre"] . '</strong><div style="font-size:8pt; color:#555">' . $item["description"] . '</div></td>
 <td align="center" style="vertical-align:middle;">-</td>
 <td align="center" style="vertical-align:middle;">' . $item["qte"] . ' x ' . $unite . '</td>
 <td align="right" style="vertical-align:middle;" class="cost">-</td>

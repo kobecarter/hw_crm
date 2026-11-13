@@ -1275,7 +1275,7 @@ mpdf-->
             foreach ($items as $item) {
                 $soustotal += $item->getTotal();
                 $htmlInvoice .= '<tr>
-<td><strong>' . $item->getTitre() . '</strong><div style="font-size:8pt; color:#999">' .  $item->getDescription() . '</div></td>
+<td><strong>' . $item->getTitre() . '</strong><div style="font-size:8pt; color:#555">' .  $item->getDescription() . '</div></td>
 <td align="center" style="vertical-align:middle;">' . number_format($item->getPrix(), 2, ',', ' ') . ' ' . $facture->getDevise() . '</td>
 <td align="center" style="vertical-align:middle;">' . $item->getQte() . ' x ' . getUnities()[$facture->getLangue()][$item->getUnite()] . '</td>
 <td align="right" style="vertical-align:middle;" class="cost">' . number_format($item->getTotal(), 2, ',', ' ') . ' ' . $facture->getDevise() . '</td>
@@ -1685,7 +1685,7 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
             $discount = $item->getDiscount()>0 ? ($item->getDiscount() * $item->getTotal()) / 100 : 0;
             $soustotal += ($item->getTotal() - $discount);
             $htmlInvoice .= '<tr>
-                                <td><strong>' . $item->getTitre() . '</strong><div style="font-size:8pt; color:#999">' .  $item->getDescription() . '</div></td>
+                                <td><strong>' . $item->getTitre() . '</strong><div style="font-size:8pt; color:#555">' .  $item->getDescription() . '</div></td>
                                 <td align="center" style="vertical-align:middle;">' . number_format($item->getPrix(), 2, ',', ' ') . ' ' . $facture->getDevise() . '</td>
                                 <td align="center" style="vertical-align:middle;">' . $item->getQte() . ' x ' . getUnities()[$facture->getLangue()][$item->getUnite()] . '</td>
                                 <td align="right" style="vertical-align:middle;" class="cost">' . ($item->getDiscount() > 0 ?  '<del>'.number_format($item->getTotal(), 2, ',', ' ') . ' ' . $facture->getDevise().'</del>' : number_format($item->getTotal(), 2, ',', ' ') . ' ' . $facture->getDevise()) . '</td>
@@ -1974,7 +1974,7 @@ $htmlInvoice .= '<table class="items" width="100%" style="font-size: 9pt; border
                     $discount = $item->getDiscount() > 0 ? ($item->getDiscount() * $item->getTotal()) / 100 : 0;
                     $soustotal += ($item->getTotal() - $discount);
                     $htmlInvoice .= '<tr>
-                                            <td><strong>' . $item->getTitre() . '</strong><div style="font-size:8pt; color:#999">' .  $item->getDescription() . '</div></td>
+                                            <td><strong>' . $item->getTitre() . '</strong><div style="font-size:8pt; color:#555">' .  $item->getDescription() . '</div></td>
                                             <td align="center" style="vertical-align:middle;">' . number_format($item->getPrix(), 2, ',', ' ') . ' ' . $facture->getDevise() . '</td>
                                             <td align="center" style="vertical-align:middle;">' . $item->getQte() . ' x ' . getUnities()[$facture->getLangue()][$item->getUnite()] . '</td>
                                             <td align="right" style="vertical-align:middle;" class="cost">' . ($item->getDiscount() > 0 ?  '<del>' . number_format($item->getTotal(), 2, ',', ' ') . ' ' . $facture->getDevise() . '</del>' : number_format($item->getTotal(), 2, ',', ' ') . ' ' . $facture->getDevise()) . '</td>
@@ -2497,7 +2497,7 @@ $htmlInvoice .= '
             $discount = $item["discount"]>0 ? ($item["discount"] * $item["total"]) / 100 : 0;
             $soustotal += ($item["total"] - $discount);
             $htmlInvoice .= '<tr>
-                                <td><strong>' . $item["titre"] . '</strong><div style="font-size:8pt; color:#999">' .  $item["description"] . '</div></td>
+                                <td><strong>' . $item["titre"] . '</strong><div style="font-size:8pt; color:#555">' .  $item["description"] . '</div></td>
                                 <td align="center" style="vertical-align:middle;">' . number_format($item["prix"], 2, ',', ' ') . ' ' . $facture["devise"] . '</td>
                                 <td align="center" style="vertical-align:middle;">' . $item["qte"] . ' x ' . getUnities()[$facture["langue"]][$item["unite"]]  . '</td>
                                 <td align="right" style="vertical-align:middle;" class="cost">' . number_format($item["total"], 2, ',', ' ') . ' ' . $facture["devise"] . '</td>
