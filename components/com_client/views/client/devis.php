@@ -22,6 +22,7 @@
 					</tr>
 				</thead>
 				<tbody>
+					<?php $derniersEnvoisDevis = envoiEmail::findLastByEntiteBatch('devis', array_map(function ($d) { return $d->getId(); }, $deviss)); ?>
 					<?php foreach ($deviss as $devis): ?>
 					<?php if ($devis->getId() == 0) continue; // référence orpheline (devis introuvable) : on ignore la ligne plutôt que planter ?>
 					<?php
@@ -62,7 +63,11 @@
 							<?php endif; ?>
 						</td>
 						<td><?php echo $statu; ?></td>
-						<td><a href="javascript:void(0);" onclick="return confirm('Êtes-vous sûr de vouloir envoyer ce fichier?')" class="btn btn-sm btn-white text-info mr-2 send-email-devis" data-toggle="tooltip" data-placement="top" data-original-title="Envoi de devis via Mail" data-id="<?= $devis->getId(); ?>"><i class="far fa-paper-plane"></i></td>
+						<td>
+							<a href="javascript:void(0);" onclick="return confirm('Êtes-vous sûr de vouloir envoyer ce fichier?')" class="btn btn-sm btn-white text-info mr-2 send-email-devis" data-toggle="tooltip" data-placement="top" data-original-title="Envoi de devis via Mail" data-id="<?= $devis->getId(); ?>"><i class="far fa-paper-plane"></i></a>
+							<?php $dernierEnvoiDevis = isset($derniersEnvoisDevis[$devis->getId()]) ? $derniersEnvoisDevis[$devis->getId()] : null; ?>
+							<a href="javascript:void(0);" class="btn btn-sm btn-white text-secondary" data-toggle="tooltip" data-placement="top" data-original-title="<?= $dernierEnvoiDevis ? 'Dernier envoi : ' . date('d/m/Y H:i', strtotime($dernierEnvoiDevis->getDateEnvoi())) . ' à ' . htmlspecialchars($dernierEnvoiDevis->getDestinataire()) . ($dernierEnvoiDevis->getStatut() != 'succes' ? ' (échec)' : '') : 'Jamais envoyé' ?>"><i class="fa fa-history"></i></a>
+						</td>
 						<td><a href="javascript:void(0);" class="btn btn-sm btn-white text-primary" data-toggle="tooltip" data-placement="top" data-original-title="<?php echo $activity; ?>"><i class="fa fa-user"></i></a> </td>
 						<td class="text-right">
 							<div class="dropdown dropdown-action">

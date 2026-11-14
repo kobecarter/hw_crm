@@ -626,7 +626,13 @@ function editDevis($data)
                 }
                 $accFactureId = $accFacture ? $accFacture->getId() : '';
 
-                sendDevisAcceptedEmailToClient($acceptedDevis, $accFacture);
+                $sendResult = sendDevisAcceptedEmailToClient($acceptedDevis, $accFacture);
+                $accClient = $acceptedDevis->getClient();
+                if ($sendResult === true) {
+                    envoiEmail::add('devis', $acceptedDevis->getId(), $acceptedDevis->getNumero(), $accClient->getId(), $accClient->getEmail(), 'devis_accepte', 'succes');
+                } else {
+                    envoiEmail::add('devis', $acceptedDevis->getId(), $acceptedDevis->getNumero(), $accClient->getId(), $accClient->getEmail(), 'devis_accepte', 'echec', $sendResult);
+                }
             }
 
             echo "1" . ($accFactureId !== '' ? "|" . $accFactureId : "");
@@ -760,10 +766,13 @@ function sendEmailDevis($data)
 
     require_once '../../../vendor/autoload.php';
     $result = sendDevisPdfEmailToClient($devis);
+    $client = $devis->getClient();
     if ($result === true) {
+        envoiEmail::add('devis', $devis->getId(), $devis->getNumero(), $client->getId(), $client->getEmail(), 'devis', 'succes');
         $statu = markDevisEnvoyeSiBrouillon($devis);
         echo json_encode(array('success' => 1, 'statu' => $statu));
     } else {
+        envoiEmail::add('devis', $devis->getId(), $devis->getNumero(), $client->getId(), $client->getEmail(), 'devis', 'echec', $result);
         echo json_encode(array('success' => 0, 'message' => $result));
     }
 }

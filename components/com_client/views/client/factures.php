@@ -22,6 +22,7 @@
 				</tr>
 			</thead>
 			<tbody>
+				<?php $derniersEnvoisFacture = envoiEmail::findLastByEntiteBatch('facture', array_map(function ($f) { return $f->getId(); }, $factures)); ?>
 				<?php foreach ($factures as $facture) : ?>
 					<?php if ($facture->getId() == 0) continue; // référence orpheline (facture introuvable) : on ignore la ligne plutôt que planter ?>
 					<?php
@@ -31,9 +32,9 @@
 					if($facture->getStatu() == 3){
 						$statu = '<span class="badge bg-primary-light">Litige ('.$nbrPayment.')</span>';
 					}else {
-						if($facture->getTotal() == $facture->getReste()){
+						if($facture->getMontantAttendu() == $facture->getReste()){
 							$statu = '<span class="badge bg-danger-light">Impayée ('.$nbrPayment.')</span>';
-						}elseif($facture->getTotal() > $facture->getReste() && $facture->getReste() > 0){	
+						}elseif($facture->getMontantAttendu() > $facture->getReste() && $facture->getReste() > 0){
 							$statu = '<span class="badge bg-warning-light">Payée partialement ('.$nbrPayment.')</span>';
 						}elseif($facture->getReste() <= 0){
 							$statu = '<span class="badge bg-success-light">Payée ('.$nbrPayment.')</span>';
@@ -57,7 +58,11 @@
 						<td><?php echo number_format($facture->getTotal(), 2, ',', ' ') . ' ' . $facture->getDevise(); ?></td>
 						<td><?php echo number_format($facture->getReste(), 2, ',', ' ') . ' ' . $facture->getDevise(); ?></td>
 						<td><?php echo $statu; ?></td>
-						<td><a onclick="return confirm('Êtes-vous sûr de vouloir envoyer ce fichier?')" href="components/com_facture/controleurs/router.php?task=sendViaMailFacture&id=<?php echo $facture->getId(); ?>" class="btn btn-sm btn-white text-info mr-2 sendMail" data-toggle="tooltip" data-placement="top" data-original-title="Envoi de facture via Mail" data-id="<?= $facture->getId(); ?>" target="_blank"><i class="far fa-paper-plane"></i></td>
+						<td>
+							<a onclick="return confirm('Êtes-vous sûr de vouloir envoyer ce fichier?')" href="components/com_facture/controleurs/router.php?task=sendViaMailFacture&id=<?php echo $facture->getId(); ?>" class="btn btn-sm btn-white text-info mr-2 sendMail" data-toggle="tooltip" data-placement="top" data-original-title="Envoi de facture via Mail" data-id="<?= $facture->getId(); ?>" target="_blank"><i class="far fa-paper-plane"></i></a>
+							<?php $dernierEnvoiFacture = isset($derniersEnvoisFacture[$facture->getId()]) ? $derniersEnvoisFacture[$facture->getId()] : null; ?>
+							<a href="javascript:void(0);" class="btn btn-sm btn-white text-secondary" data-toggle="tooltip" data-placement="top" data-original-title="<?= $dernierEnvoiFacture ? 'Dernier envoi : ' . date('d/m/Y H:i', strtotime($dernierEnvoiFacture->getDateEnvoi())) . ' à ' . htmlspecialchars($dernierEnvoiFacture->getDestinataire()) . ($dernierEnvoiFacture->getStatut() != 'succes' ? ' (échec)' : '') : 'Jamais envoyé' ?>"><i class="fa fa-history"></i></a>
+						</td>
 						<td><a href="javascript:void(0);" class="btn btn-sm btn-white text-primary" data-toggle="tooltip" data-placement="top" data-original-title="<?php echo $activity; ?>"><i class="fa fa-user"></i></a> </td>
 						<td class="text-right">
 							<div class="dropdown dropdown-action">

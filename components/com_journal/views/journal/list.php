@@ -16,6 +16,10 @@
 
 		<div class="row">
 			<div class="col-sm-12">
+				<ul class="nav nav-tabs mb-3">
+					<li class="nav-item"><a class="nav-link active" href="index.php?option=com_journal">Créations/modifications</a></li>
+					<li class="nav-item"><a class="nav-link" href="index.php?option=com_journal&task=envois">Envois par email</a></li>
+				</ul>
 				<div class="card card-table">
 					<div class="card-header">
 						<h4 class="card-title">Créations, modifications et suppressions</h4>

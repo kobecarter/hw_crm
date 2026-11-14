@@ -316,10 +316,14 @@ function sendPaymentRequestPdf($data)
         $mail->send();
         copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage(), $mailCreds['host'], $mailCreds['username'], $mailCreds['password']);
         @unlink($filePath);
+        envoiEmail::add('facture', $facture->getId(), $facture->getNumero(), $client->getId(), $client->getEmail(), 'facture_acompte', 'succes');
         echo "1";
     } catch (\Throwable $e) {
         if (isset($filePath)) {
             @unlink($filePath);
+        }
+        if (isset($facture) && isset($client)) {
+            envoiEmail::add('facture', $facture->getId(), $facture->getNumero(), $client->getId(), $client->getEmail(), 'facture_acompte', 'echec', $e->getMessage());
         }
         echo "2";
     }

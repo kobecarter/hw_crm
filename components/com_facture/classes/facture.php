@@ -1541,8 +1541,10 @@ mpdf-->
 
         if ($mail->send()) {
             copierEmailEnvoyeVersDossierEnvoyes($mail->getSentMIMEMessage(), $mailCreds['host'], $mailCreds['username'], $mailCreds['password']);
+            envoiEmail::add('facture', $this->getId(), $this->getNumero(), $client->getId(), $client->getEmail(), $this->isAvoir() ? 'facture_avoir' : 'facture', 'succes');
             echo "success";
         } else {
+            envoiEmail::add('facture', $this->getId(), $this->getNumero(), $client->getId(), $client->getEmail(), $this->isAvoir() ? 'facture_avoir' : 'facture', 'echec', $mail->ErrorInfo);
             echo "Error: " . $mail->ErrorInfo;
         }
     }
